@@ -19,7 +19,9 @@ enum OfflineAlgorithm<B: Backend>{
 impl<B: Backend> OfflineAlgorithm<B> {
     fn train_step(&self, replay_buffer: &ReplayBuffer<B>, offline_params: &OfflineAlgParams) {
         match self {
-            OfflineAlgorithm::DQN { q } => todo!(),
+            OfflineAlgorithm::DQN { q } => {
+                
+            },
             _ => todo!(),
         }
     }
@@ -73,9 +75,5 @@ impl<B: Backend> OfflineTrainer<B> {
                 state = next_obs;
             }
         }
-    }
-
-    fn save_checkpoint(){
-        todo!();
     }
 }

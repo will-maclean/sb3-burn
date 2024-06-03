@@ -1,6 +1,6 @@
 use burn::prelude::*;
 
-use crate::spaces::SpaceSample;
+use crate::{spaces::SpaceSample, utils::generate_1_0_vector};
 
 pub struct ReplayBufferSlice<B: Backend> {
     state: Tensor::<B, 1>,
@@ -15,7 +15,7 @@ pub struct ReplayBuffer<B: Backend> {
     actions: Tensor<B, 2>,
     next_states: Tensor<B, 2>,
     rewards: Tensor<B, 2>,
-    dones: Tensor<B, 2, Bool>,
+    dones: Tensor<B, 2, Int>,
     size: usize,
     full: bool,
     ptr: usize,
@@ -29,7 +29,7 @@ impl<B: Backend> ReplayBuffer<B> {
             actions: Tensor::<B, 2>::zeros([size, action_dim], &d),
             next_states: Tensor::<B, 2>::zeros([size, state_dim], &d),
             rewards: Tensor::<B, 2>::zeros([size, 1], &d),
-            dones: Tensor::<B, 2, Bool>::empty([size, 1], &d),
+            dones: Tensor::<B, 2, Int>::empty([size, 1], &d),
             size: size,
             full: false,
             ptr: 0
@@ -66,8 +66,8 @@ impl<B: Backend> ReplayBuffer<B> {
         self.next_states = self.next_states.clone().slice_assign([self.ptr..self.ptr+1], item.next_state.unsqueeze());
 
         //FIXME: how hard can it be to replicate self.rewards[self.ptr, 0] = item.reward ??
-        // self.rewards = self.rewards.clone().slice_assign([self.ptr..self.ptr+1], Tensor::<NdArray, 2>::full([1, 1], item.reward, &d));
-        // self.dones = self.dones.clone().selec;
+        // self.rewards[(self.ptr, 0)] = item.reward;
+        // self.dones[(self.ptr, 0)] = item.done;
 
         if self.ptr == self.len() - 1 {
             self.full = true;
@@ -81,13 +81,36 @@ impl<B: Backend> ReplayBuffer<B> {
     }
 
     pub fn add(&mut self, state: SpaceSample, action: SpaceSample, next_state: SpaceSample, reward: f32, done: bool){
-        //TODO: process spacesamples into tensors. Probably easiest to build this method on the SpaceSample
         self.add_processed(state.to_tensor(), action.to_tensor(), next_state.to_tensor(), reward, done)
     }
 
-    //TODO: add random sample
-    //TODO: add slice indexing
-    //TODO: add random slice sample of given size
+    pub fn batch_sample(&self, batch_size: usize) -> Option<(Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2, Int>)>{
+        if (self.full & (batch_size > self.size)) | (!self.full & (self.ptr > batch_size)) {
+            return None;
+        }
+
+        let sample_max: usize;
+        if self.full {
+            sample_max = self.size;
+        } else {
+            sample_max = self.ptr;
+        }
+
+        // create the index slice
+        let mut slice_indices = generate_1_0_vector(sample_max, batch_size);
+        slice_indices.extend(vec![0; self.size - sample_max]);
+
+        let data: Data<i32, 1> = Data::new(slice_indices, Shape::new([self.size]));
+        let index_tensor = Tensor::<B, 1, Int>::from_data(data.convert(), &Default::default()).unsqueeze();
+
+        Some((
+            self.states.clone().gather(0, index_tensor.clone()),
+            self.actions.clone().gather(0, index_tensor.clone()),
+            self.next_states.clone().gather(0, index_tensor.clone()),
+            self.rewards.clone().gather(0, index_tensor.clone()),
+            self.dones.clone().gather(0, index_tensor.clone()),
+        ))
+    }
 }
 
 //TODO: write tests
