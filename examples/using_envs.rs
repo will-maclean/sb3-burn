@@ -8,6 +8,8 @@ fn main() {
 
     let mut done = false;
     let mut reward = 0.0;
+    gridworld.reset();
+
     while !done {
         let obs = gridworld.step(&gridworld.action_space().sample());
 

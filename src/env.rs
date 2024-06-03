@@ -29,6 +29,12 @@ impl Pos {
     }
 }
 
+impl From<(usize, usize)> for Pos{
+    fn from(value: (usize, usize)) -> Self {
+        Self {x: value.0, y: value.1}
+    }
+}
+
 pub struct GridWorldEnv {
     // stores the actual map. Uses:
     // 0 = empty
@@ -113,16 +119,16 @@ impl Env for GridWorldEnv {
             _ => panic!("Unknown action"),
         };
 
-        let curr_pos = self.pos.to_tuple();
-        let new_pos = match a {
-            0 => (curr_pos.0 - 1, curr_pos.1),
-            1 => (curr_pos.0, curr_pos.1 - 1),
-            2 => (curr_pos.0 + 1, curr_pos.1),
-            3 => (curr_pos.0, curr_pos.1 + 1),
-            _ => panic!("Unknown action"),
-        };
-
+        
         if can_move {
+            let curr_pos = self.pos.to_tuple();
+            let new_pos = match a {
+                0 => (curr_pos.0 - 1, curr_pos.1),
+                1 => (curr_pos.0, curr_pos.1 - 1),
+                2 => (curr_pos.0 + 1, curr_pos.1),
+                3 => (curr_pos.0, curr_pos.1 + 1),
+                _ => panic!("Unknown action"),
+            };
             // start by clearing current pos
             self.field[curr_pos] = 0.0;
             // check what's to the left
@@ -136,11 +142,15 @@ impl Env for GridWorldEnv {
             else {
                 // it's not a hole, so continue
                 self.field[new_pos] = 3.0;
+                self.pos = Pos::from(new_pos);
             }
         }
 
         let mut reward = 0.0;
-        if win {
+        if dead {
+            reward = -1.0;
+        }
+        else if win {
             reward = 1.0;
         }
 
