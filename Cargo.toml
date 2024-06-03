@@ -5,3 +5,5 @@ edition = "2021"
 
 [dependencies]
 burn = { version = "0.13.2"}
+ndarray = "0.15.6"
+rand = "0.8.5"

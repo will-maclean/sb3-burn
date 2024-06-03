@@ -1,6 +1,6 @@
 #[derive(Clone)]
 pub enum SpaceSample {
-    Discrete (f32),
+    Discrete (i32),
     Continuous (Vec<f32>)
 }
 
