@@ -2,6 +2,7 @@ use core::panic;
 
 use crate::spaces::{Space, SpaceSample};
 use ndarray::{prelude::{Array, Dim}, indices_of};
+use rand::{thread_rng, Rng};
 
 pub struct EnvObservation {
     pub obs: SpaceSample,
@@ -96,10 +97,8 @@ impl Env for GridWorldEnv {
         // first, check if we've got a valid action
         let a: i32;
         match action {
-            SpaceSample::Discrete(v) => {
-                a = *v;
-            },
-            SpaceSample::Continuous(_) => panic!("Continuous actions are not supported!"),
+            SpaceSample::Discrete { space: _, idx } => a = *idx,
+            SpaceSample::Continuous { space: _, data: _ } => panic!("Continuous actions are not supported!"),
         }
 
         let mut dead = false;
@@ -154,7 +153,7 @@ impl Env for GridWorldEnv {
 
 
         EnvObservation{
-            obs: SpaceSample::Continuous(self.field.to_shape((self.dim * self.dim,)).unwrap().to_vec()),
+            obs: SpaceSample::Continuous{space: self.observation_space.clone(), data: self.field.to_shape((self.dim * self.dim,)).unwrap().to_vec()},
             reward: reward,
             done: done,
         }
@@ -172,20 +171,22 @@ impl Env for GridWorldEnv {
         }
 
         // set the goal position
-        let goal_pos = (self.dim * (rand::random::<bool>() as usize), self.dim * (rand::random::<bool>() as usize));
+        let mut rng = thread_rng();
+        let goal_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
         self.field[goal_pos] = 2.0;
 
         // set the player position
-        let player_pos = (self.dim * (rand::random::<bool>() as usize), self.dim * (rand::random::<bool>() as usize));
+        let player_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
 
         self.pos = Pos{x: player_pos.0, y: player_pos.1};
         self.field[player_pos] = 3.0;
 
         self.needs_reset = false;
 
-        SpaceSample::Continuous(
-            self.field.to_shape((self.dim * self.dim,)).unwrap().to_vec(),
-        )
+        SpaceSample::Continuous{
+            space: self.observation_space.clone(),
+            data: self.field.to_shape((self.dim * self.dim,)).unwrap().to_vec(),
+        }
     }
 
     fn action_space(&self) -> Space {
@@ -209,6 +210,7 @@ mod tests {
         assert_eq!(gridworld.maxlen, 20);
     }
 
+    #[test]
     fn test_gridworld_non_default() {
         let gridworld = GridWorldEnv::new(5, 21, 0.2);
 
@@ -217,6 +219,7 @@ mod tests {
         assert_eq!(gridworld.maxlen, 21);
     }
 
+    #[test]
     fn test_gridworld_reset() {
         let mut gridworld = GridWorldEnv::default();
 
@@ -224,12 +227,12 @@ mod tests {
 
         // check there is only one goal and one player
         match obs {
-            crate::spaces::SpaceSample::Discrete(_) => panic!("GridWorldEnv should return a continuous space sample"),
-            crate::spaces::SpaceSample::Continuous(v) => {
+            crate::spaces::SpaceSample::Discrete { space: _, idx: _ } => panic!("GridWorldEnv should return a continuous space sample"),
+            crate::spaces::SpaceSample::Continuous { space: _, data } => {
                 let mut n_players = 0;
                 let mut n_goals = 0;
 
-                for item in v.into_iter() {
+                for item in data.into_iter() {
                     if item == 2.0 {
                         // goal
                         n_goals +=1;
@@ -241,17 +244,20 @@ mod tests {
 
                 assert_eq!(n_goals, 1);
                 assert_eq!(n_players, 1);
-            }
+            },
         }
     }
 
+    #[test]
     #[should_panic]
     fn test_gridworld_step_without_reset_errors(){
         let mut gridworld = GridWorldEnv::default();
 
-        gridworld.step(&gridworld.action_space.sample());
+        let action = gridworld.action_space.sample();
+        gridworld.step(&action);
     }
 
+    #[test]
     fn test_gridworld_steps(){
         let mut gridworld = GridWorldEnv::default();
 

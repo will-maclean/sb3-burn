@@ -82,7 +82,7 @@ impl<B: Backend> ReplayBuffer<B> {
 
     pub fn add(&mut self, state: SpaceSample, action: SpaceSample, next_state: SpaceSample, reward: f32, done: bool){
         //TODO: process spacesamples into tensors. Probably easiest to build this method on the SpaceSample
-        self.add_processed(ReplayBufferSlice{state, action, next_state, reward, done})
+        self.add_processed(state.to_tensor(), action.to_tensor(), next_state.to_tensor(), reward, done)
     }
 
     //TODO: add random sample

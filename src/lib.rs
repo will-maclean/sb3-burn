@@ -1,5 +1,5 @@
-mod spaces;
-mod buffer;
-mod policy;
-mod algorithm;
-mod env;
+pub mod spaces;
+pub mod buffer;
+pub mod policy;
+pub mod algorithm;
+pub mod env;

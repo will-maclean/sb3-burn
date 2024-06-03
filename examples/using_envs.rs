@@ -7,7 +7,7 @@ fn main() {
     let mut gridworld = GridWorldEnv::default();
 
     let mut done = false;
-    let mut reward = 0;
+    let mut reward = 0.0;
     while !done {
         let obs = gridworld.step(&gridworld.action_space().sample());
 
