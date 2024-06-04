@@ -22,6 +22,7 @@ pub struct ReplayBuffer<B: Backend> {
 }
 
 impl<B: Backend> ReplayBuffer<B> {
+    //TODO: probably want to take in spaces instead of usize's
     pub fn new(size: usize, state_dim: usize, action_dim: usize) -> Self {
         let d = Default::default();
         Self{
@@ -113,4 +114,22 @@ impl<B: Backend> ReplayBuffer<B> {
     }
 }
 
-//TODO: write tests
+mod tests {
+    use burn::backend::{wgpu::AutoGraphicsApi, Wgpu, Autodiff};
+
+    use crate::spaces::Space;
+
+    use super::ReplayBuffer;
+
+    type MyBackend = Wgpu<AutoGraphicsApi, f32, i32>;
+    type MyAutodiffBackend = Autodiff<MyBackend>;
+
+    #[test]
+    fn test_create_replay_buffer1(){
+        // let device = burn::backend::wgpu::WgpuDevice::default();
+        let observation_space = Space::Continuous { lows: vec![0.0; 5], highs: vec![1.0; 5] };
+        let action_space = Space::Continuous { lows: vec![0.0; 5], highs: vec![1.0; 5] };
+
+        ReplayBuffer::<MyBackend>::new(10_000, observation_space.size(), action_space.size());
+    }
+}
