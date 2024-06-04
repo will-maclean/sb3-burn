@@ -186,7 +186,13 @@ impl Env for GridWorldEnv {
         self.field[goal_pos] = 2.0;
 
         // set the player position
-        let player_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
+        let mut player_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
+
+        while player_pos == goal_pos {
+            player_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
+        }
+
+        let player_pos = player_pos;
 
         self.pos = Pos{x: player_pos.0, y: player_pos.1};
         self.field[player_pos] = 3.0;
