@@ -1,6 +1,6 @@
 extern crate sb3_burn;
 
-use sb3_burn::env::{GridWorldEnv, Env};
+use sb3_burn::env::{Env, GridWorldEnv};
 
 fn main() {
     // create a GridWorld Env

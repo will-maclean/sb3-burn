@@ -3,9 +3,9 @@ use burn::prelude::*;
 use crate::{spaces::SpaceSample, utils::generate_1_0_vector};
 
 pub struct ReplayBufferSlice<B: Backend> {
-    state: Tensor::<B, 1>,
-    action: Tensor::<B, 1>,
-    next_state: Tensor::<B, 1>,
+    state: Tensor<B, 1>,
+    action: Tensor<B, 1>,
+    next_state: Tensor<B, 1>,
     reward: f32,
     done: bool,
 }
@@ -25,7 +25,7 @@ impl<B: Backend> ReplayBuffer<B> {
     //TODO: probably want to take in spaces instead of usize's
     pub fn new(size: usize, state_dim: usize, action_dim: usize) -> Self {
         let d = Default::default();
-        Self{
+        Self {
             states: Tensor::<B, 2>::zeros([size, state_dim], &d),
             actions: Tensor::<B, 2>::zeros([size, action_dim], &d),
             next_states: Tensor::<B, 2>::zeros([size, state_dim], &d),
@@ -33,7 +33,7 @@ impl<B: Backend> ReplayBuffer<B> {
             dones: Tensor::<B, 2, Int>::empty([size, 1], &d),
             size: size,
             full: false,
-            ptr: 0
+            ptr: 0,
         }
     }
 
@@ -50,10 +50,10 @@ impl<B: Backend> ReplayBuffer<B> {
             return Err("Buffer idx out of range");
         }
 
-        Ok(ReplayBufferSlice{
-            state: self.states.clone().slice([idx..idx+1]).squeeze(0),
-            action: self.actions.clone().slice([idx..idx+1]).squeeze(0),
-            next_state: self.next_states.clone().slice([idx..idx+1]).squeeze(0),
+        Ok(ReplayBufferSlice {
+            state: self.states.clone().slice([idx..idx + 1]).squeeze(0),
+            action: self.actions.clone().slice([idx..idx + 1]).squeeze(0),
+            next_state: self.next_states.clone().slice([idx..idx + 1]).squeeze(0),
             reward: 0.0, // FIXME: self.rewards.to_data().value[0],
             done: false, // FIXME: self.dones.clone().slice([idx..idx+1]).squeeze::<1>(0).into_scalar(),
         })
@@ -62,9 +62,18 @@ impl<B: Backend> ReplayBuffer<B> {
     pub fn add_slice(&mut self, item: ReplayBufferSlice<B>) {
         // let d = Default::default();
 
-        self.states = self.states.clone().slice_assign([self.ptr..self.ptr+1], item.state.unsqueeze());
-        self.actions = self.actions.clone().slice_assign([self.ptr..self.ptr+1], item.action.unsqueeze());
-        self.next_states = self.next_states.clone().slice_assign([self.ptr..self.ptr+1], item.next_state.unsqueeze());
+        self.states = self
+            .states
+            .clone()
+            .slice_assign([self.ptr..self.ptr + 1], item.state.unsqueeze());
+        self.actions = self
+            .actions
+            .clone()
+            .slice_assign([self.ptr..self.ptr + 1], item.action.unsqueeze());
+        self.next_states = self
+            .next_states
+            .clone()
+            .slice_assign([self.ptr..self.ptr + 1], item.next_state.unsqueeze());
 
         //FIXME: how hard can it be to replicate self.rewards[self.ptr, 0] = item.reward ??
         // self.rewards[(self.ptr, 0)] = item.reward;
@@ -77,15 +86,50 @@ impl<B: Backend> ReplayBuffer<B> {
         self.ptr = (self.ptr + 1) % self.len();
     }
 
-    pub fn add_processed(&mut self, state: Tensor<B, 1>, action: Tensor<B, 1>, next_state: Tensor<B, 1>, reward: f32, done: bool){
-        self.add_slice(ReplayBufferSlice{state, action, next_state, reward, done})
+    pub fn add_processed(
+        &mut self,
+        state: Tensor<B, 1>,
+        action: Tensor<B, 1>,
+        next_state: Tensor<B, 1>,
+        reward: f32,
+        done: bool,
+    ) {
+        self.add_slice(ReplayBufferSlice {
+            state,
+            action,
+            next_state,
+            reward,
+            done,
+        })
     }
 
-    pub fn add(&mut self, state: SpaceSample, action: SpaceSample, next_state: SpaceSample, reward: f32, done: bool){
-        self.add_processed(state.to_tensor(), action.to_tensor(), next_state.to_tensor(), reward, done)
+    pub fn add(
+        &mut self,
+        state: SpaceSample,
+        action: SpaceSample,
+        next_state: SpaceSample,
+        reward: f32,
+        done: bool,
+    ) {
+        self.add_processed(
+            state.to_tensor(),
+            action.to_tensor(),
+            next_state.to_tensor(),
+            reward,
+            done,
+        )
     }
 
-    pub fn batch_sample(&self, batch_size: usize) -> Option<(Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2, Int>)>{
+    pub fn batch_sample(
+        &self,
+        batch_size: usize,
+    ) -> Option<(
+        Tensor<B, 2>,
+        Tensor<B, 2>,
+        Tensor<B, 2>,
+        Tensor<B, 2>,
+        Tensor<B, 2, Int>,
+    )> {
         if (self.full & (batch_size > self.size)) | (!self.full & (self.ptr > batch_size)) {
             return None;
         }
@@ -102,7 +146,8 @@ impl<B: Backend> ReplayBuffer<B> {
         slice_indices.extend(vec![0; self.size - sample_max]);
 
         let data: Data<i32, 1> = Data::new(slice_indices, Shape::new([self.size]));
-        let index_tensor = Tensor::<B, 1, Int>::from_data(data.convert(), &Default::default()).unsqueeze();
+        let index_tensor =
+            Tensor::<B, 1, Int>::from_data(data.convert(), &Default::default()).unsqueeze();
 
         Some((
             self.states.clone().gather(0, index_tensor.clone()),
@@ -115,20 +160,25 @@ impl<B: Backend> ReplayBuffer<B> {
 }
 
 mod tests {
-    use burn::backend::{wgpu::AutoGraphicsApi, Wgpu, Autodiff};
+    use burn::backend::{wgpu::AutoGraphicsApi, Autodiff, Wgpu};
 
     use crate::spaces::Space;
 
     use super::ReplayBuffer;
 
     type MyBackend = Wgpu<AutoGraphicsApi, f32, i32>;
-    type MyAutodiffBackend = Autodiff<MyBackend>;
 
     #[test]
-    fn test_create_replay_buffer1(){
+    fn test_create_replay_buffer1() {
         // let device = burn::backend::wgpu::WgpuDevice::default();
-        let observation_space = Space::Continuous { lows: vec![0.0; 5], highs: vec![1.0; 5] };
-        let action_space = Space::Continuous { lows: vec![0.0; 5], highs: vec![1.0; 5] };
+        let observation_space = Space::Continuous {
+            lows: vec![0.0; 5],
+            highs: vec![1.0; 5],
+        };
+        let action_space = Space::Continuous {
+            lows: vec![0.0; 5],
+            highs: vec![1.0; 5],
+        };
 
         ReplayBuffer::<MyBackend>::new(10_000, observation_space.size(), action_space.size());
     }
