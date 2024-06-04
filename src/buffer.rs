@@ -31,7 +31,7 @@ impl<B: Backend> ReplayBuffer<B> {
             next_states: Tensor::<B, 2>::zeros([size, state_dim], &d),
             rewards: Tensor::<B, 2>::zeros([size, 1], &d),
             dones: Tensor::<B, 2, Int>::empty([size, 1], &d),
-            size: size,
+            size,
             full: false,
             ptr: 0,
         }

@@ -1,7 +1,6 @@
 use burn::module::Module;
 use burn::tensor::backend::Backend;
-use burn::tensor::ElementConversion;
-use burn::{nn, tensor::Tensor};
+use burn::{tensor::Tensor};
 
 use crate::spaces::{Space, SpaceSample};
 

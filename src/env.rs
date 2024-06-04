@@ -91,15 +91,15 @@ impl GridWorldEnv {
     pub fn new(dim: usize, maxlen: usize, obstacle_prob: f32) -> Self {
         Self {
             field: Array::<f32, _>::zeros((dim, dim)),
-            dim: dim,
+            dim,
             pos: Pos { x: 0, y: 0 },
             observation_space: Space::Continuous {
                 lows: vec![0.0; dim * dim],
                 highs: vec![3.0; dim * dim],
             },
             action_space: Space::Discrete { size: 4 },
-            obstacle_prob: obstacle_prob,
-            maxlen: maxlen,
+            obstacle_prob,
+            maxlen,
             curr_len: 0,
             needs_reset: true,
         }
@@ -181,8 +181,8 @@ impl Env for GridWorldEnv {
                     .unwrap()
                     .to_vec(),
             },
-            reward: reward,
-            done: done,
+            reward,
+            done,
         }
     }
 

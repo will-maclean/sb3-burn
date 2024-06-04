@@ -1,12 +1,10 @@
 use burn::config::Config;
-use burn::nn::loss::{MseLoss, Reduction};
 use burn::optim::adaptor::OptimizerAdaptor;
-use burn::optim::{GradientsParams, Optimizer, SimpleOptimizer};
-use burn::tensor::ElementConversion;
-use burn::tensor::{backend::AutodiffBackend, Int, Tensor};
+use burn::optim::{Optimizer, SimpleOptimizer};
+use burn::tensor::{backend::AutodiffBackend};
 
 use crate::logger::{LogData, Logger};
-use crate::utils::{linear_decay, mean};
+use crate::utils::{mean};
 use crate::{buffer::ReplayBuffer, env::Env, policy::Policy, spaces::SpaceSample};
 
 use crate::dqn::{dqn_act, dqn_train_step, DQNConfig, DQNNet};
@@ -80,7 +78,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             if i < self.offline_params.warmup_steps {
                 action = self.env.action_space().sample();
             } else {
-                action = self.algorithm.act(&state, i, &self);
+                action = self.algorithm.act(&state, i, self);
             }
 
             let step_res = self.env.step(&action);
