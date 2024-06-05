@@ -75,9 +75,8 @@ impl<B: Backend> ReplayBuffer<B> {
             .clone()
             .slice_assign([self.ptr..self.ptr + 1], item.next_state.unsqueeze());
 
-        //FIXME: how hard can it be to replicate self.rewards[self.ptr, 0] = item.reward ??
-        // self.rewards[(self.ptr, 0)] = item.reward;
-        // self.dones[(self.ptr, 0)] = item.done;
+        self.rewards = self.rewards.clone().slice_assign([self.ptr..self.ptr + 1], Tensor::<B, 1>::from_floats([item.reward], &self.rewards.device()).unsqueeze_dim(0));
+        self.dones = self.dones.clone().slice_assign([self.ptr..self.ptr + 1], Tensor::<B, 1, Int>::from_ints([item.done as i32], &self.dones.device()).unsqueeze_dim(0));
 
         if self.ptr == self.len() - 1 {
             self.full = true;
@@ -180,6 +179,72 @@ mod tests {
             highs: vec![1.0; 5],
         };
 
-        ReplayBuffer::<MyBackend>::new(10_000, observation_space.size(), action_space.size());
+        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+
+        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+    }
+
+    #[test]
+    fn test_create_replay_buffer2() {
+        // let device = burn::backend::wgpu::WgpuDevice::default();
+        let observation_space = Space::Discrete { size: 3 };
+        let action_space = Space::Continuous {
+            lows: vec![0.0; 5],
+            highs: vec![1.0; 5],
+        };
+
+        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+
+        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+    }
+
+    #[test]
+    fn test_create_replay_buffer3() {
+        // let device = burn::backend::wgpu::WgpuDevice::default();
+        let observation_space = Space::Continuous {
+            lows: vec![0.0; 5],
+            highs: vec![1.0; 5],
+        };
+        let action_space = Space::Discrete { size: 3 };
+
+        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+
+        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+    }
+
+    #[test]
+    fn test_create_replay_buffer4() {
+        // let device = burn::backend::wgpu::WgpuDevice::default();
+        let observation_space = Space::Discrete { size: 1 };
+        let action_space = Space::Discrete { size: 3 };
+
+        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+
+        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_batch_sample_before_ready(){
+        let observation_space = Space::Discrete { size: 1 };
+        let action_space = Space::Discrete { size: 3 };
+
+        let buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+
+        buffer.batch_sample(64);
+    }
+
+    #[test]
+    fn test_batch_sample(){
+        let observation_space = Space::Discrete { size: 1 };
+        let action_space = Space::Discrete { size: 3 };
+
+        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+
+        for _ in 0..32{
+            buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+        }
+
+        let _ = buffer.batch_sample(4);
     }
 }
