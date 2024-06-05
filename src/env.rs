@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::spaces::{Space, SpaceSample};
+use crate::spaces::{Action, ActionSpace, Obs, ObsSpace, Space, SpaceSample};
 use ndarray::{
     indices_of,
     prelude::{Array, Dim},
@@ -8,16 +8,16 @@ use ndarray::{
 use rand::{thread_rng, Rng};
 
 pub struct EnvObservation {
-    pub obs: SpaceSample,
+    pub obs: Obs,
     pub reward: f32,
     pub done: bool,
 }
 
 pub trait Env {
     fn step(&mut self, action: &SpaceSample) -> EnvObservation;
-    fn reset(&mut self) -> SpaceSample;
-    fn action_space(&self) -> Space;
-    fn observation_space(&self) -> Space;
+    fn reset(&mut self) -> Obs;
+    fn action_space(&self) -> ActionSpace;
+    fn observation_space(&self) -> ObsSpace;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -27,7 +27,7 @@ struct Pos {
 }
 
 impl Pos {
-    fn to_tuple(&self) -> (usize, usize) {
+    fn to_tuple(self) -> (usize, usize) {
         (self.x, self.y)
     }
 }
@@ -56,14 +56,14 @@ pub struct GridWorldEnv {
 
     // Continuous
     // shape -> width * height = dim * dim (always square)
-    observation_space: Space,
+    observation_space: ObsSpace,
 
     // discrete
     // 0 -> left
     // 1 -> up
     // 2 -> right
     // 3 -> down
-    action_space: Space,
+    action_space: ActionSpace,
 
     obstacle_prob: f32,
 }
@@ -74,11 +74,11 @@ impl Default for GridWorldEnv {
             field: Array::<f32, _>::zeros((4, 4)),
             dim: 4,
             pos: Pos { x: 0, y: 0 },
-            observation_space: Space::Continuous {
+            observation_space: ObsSpace::Continuous {
                 lows: vec![0.0; 16],
                 highs: vec![3.0; 16],
             },
-            action_space: Space::Discrete { size: 4 },
+            action_space: ActionSpace::Discrete { size: 4 },
             obstacle_prob: 0.1,
             maxlen: 20,
             curr_len: 0,
@@ -93,11 +93,11 @@ impl GridWorldEnv {
             field: Array::<f32, _>::zeros((dim, dim)),
             dim,
             pos: Pos { x: 0, y: 0 },
-            observation_space: Space::Continuous {
+            observation_space: ObsSpace::Continuous {
                 lows: vec![0.0; dim * dim],
                 highs: vec![3.0; dim * dim],
             },
-            action_space: Space::Discrete { size: 4 },
+            action_space: ActionSpace::Discrete { size: 4 },
             obstacle_prob,
             maxlen,
             curr_len: 0,
@@ -107,7 +107,7 @@ impl GridWorldEnv {
 }
 
 impl Env for GridWorldEnv {
-    fn step(&mut self, action: &SpaceSample) -> EnvObservation {
+    fn step(&mut self, action: &Action) -> EnvObservation {
         if self.needs_reset {
             panic!("Need to reset the environment before using it!");
         }
@@ -115,8 +115,8 @@ impl Env for GridWorldEnv {
         // first, check if we've got a valid action
         let a: i32;
         match action {
-            SpaceSample::Discrete { space: _, idx } => a = *idx,
-            SpaceSample::Continuous { space: _, data: _ } => {
+            Action::Discrete { space: _, idx } => a = *idx,
+            Action::Continuous { space: _, data: _ } => {
                 panic!("Continuous actions are not supported!")
             }
         }
@@ -173,7 +173,7 @@ impl Env for GridWorldEnv {
         }
 
         EnvObservation {
-            obs: SpaceSample::Continuous {
+            obs: Obs::Continuous {
                 space: self.observation_space.clone(),
                 data: self
                     .field
@@ -186,7 +186,7 @@ impl Env for GridWorldEnv {
         }
     }
 
-    fn reset(&mut self) -> SpaceSample {
+    fn reset(&mut self) -> Obs {
         self.field = Array::<f32, _>::zeros((self.dim, self.dim));
         self.curr_len = 0;
 
@@ -219,7 +219,7 @@ impl Env for GridWorldEnv {
 
         self.needs_reset = false;
 
-        SpaceSample::Continuous {
+        Obs::Continuous {
             space: self.observation_space.clone(),
             data: self
                 .field
@@ -229,11 +229,11 @@ impl Env for GridWorldEnv {
         }
     }
 
-    fn action_space(&self) -> Space {
+    fn action_space(&self) -> ActionSpace {
         self.action_space.clone()
     }
 
-    fn observation_space(&self) -> Space {
+    fn observation_space(&self) -> ObsSpace {
         self.observation_space.clone()
     }
 }

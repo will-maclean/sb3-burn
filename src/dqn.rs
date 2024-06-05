@@ -16,7 +16,7 @@ use crate::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
     policy::Policy,
-    spaces::{Space, SpaceSample},
+    spaces::{Action, ActionSpace, Obs, ObsSpace, ObsT, Space, SpaceSample},
     utils::linear_decay,
 };
 
@@ -40,15 +40,15 @@ impl<B: Backend> DQNNet<B> {
     pub fn init(
         &self,
         device: &B::Device,
-        observation_space: Space,
-        action_space: Space,
+        observation_space: ObsSpace,
+        action_space: ActionSpace,
         hidden_size: usize,
     ) -> Self {
         match action_space {
-            Space::Continuous { lows: _, highs: _ } => {
+            ActionSpace::Continuous { lows: _, highs: _ } => {
                 panic!("Continuous actions are not supported by DQN")
             }
-            Space::Discrete { size: action_size } => {
+            ActionSpace::Discrete { size: action_size } => {
                 let input_size = observation_space.size();
 
                 Self {
@@ -59,25 +59,25 @@ impl<B: Backend> DQNNet<B> {
         }
     }
 
-    pub fn forward(&self, state: Tensor<B, 2>) -> Tensor<B, 2> {
+    pub fn forward(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
         let x = self.l1.forward(state);
         self.l2.forward(x)
     }
 }
 
 impl<B: Backend> Policy<B> for DQNNet<B> {
-    fn act(&self, state: &SpaceSample, action_space: Space) -> SpaceSample {
+    fn act(&self, state: &Obs, action_space: ActionSpace) -> Action {
         let state_tensor = state.clone().to_tensor().unsqueeze_dim(0);
         let q_vals = self.predict(state_tensor);
         let a: i32 = q_vals.squeeze::<1>(0).argmax(0).into_scalar().elem();
 
-        SpaceSample::Discrete {
+        Action::Discrete {
             space: action_space,
             idx: a,
         }
     }
 
-    fn predict(&self, state: Tensor<B, 2>) -> Tensor<B, 2> {
+    fn predict(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
         self.forward(state)
     }
 }
@@ -86,9 +86,9 @@ pub fn dqn_act<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend>(
     q: &DQNNet<B>,
     step: usize,
     config: &DQNConfig,
-    state: &SpaceSample,
+    state: &Obs,
     trainer: &OfflineTrainer<O, B>,
-) -> SpaceSample {
+) -> Action {
     {
         if rand::random::<f32>()
             > linear_decay(

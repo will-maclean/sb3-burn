@@ -62,3 +62,10 @@ impl Space {
         }
     }
 }
+
+pub type ActionSpace = Space;
+pub type ObsSpace = Space;
+pub type Action = SpaceSample;
+pub type Obs = SpaceSample;
+pub type ObsT<B, const D: usize, K = Float> = Tensor<B, D, K>;
+pub type ActionT<B, const D: usize, K = Float> = Tensor<B, D, K>;

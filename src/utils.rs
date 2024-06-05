@@ -25,6 +25,6 @@ pub fn linear_decay(curr_frac: f32, start: f32, end: f32, end_frac: f32) -> f32 
     }
 }
 
-pub fn mean(data: &Vec<f32>) -> f32 {
+pub fn mean(data: &[f32]) -> f32 {
     data.iter().fold(0.0, |acc, x| acc + x) / (data.len() as f32)
 }

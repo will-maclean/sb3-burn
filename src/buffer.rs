@@ -133,12 +133,11 @@ impl<B: Backend> ReplayBuffer<B> {
             return None;
         }
 
-        let sample_max: usize;
-        if self.full {
-            sample_max = self.size;
+        let sample_max = if self.full {
+            self.size
         } else {
-            sample_max = self.ptr;
-        }
+            self.ptr
+        };
 
         // create the index slice
         let mut slice_indices = generate_1_0_vector(sample_max, batch_size);

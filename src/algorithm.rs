@@ -4,6 +4,7 @@ use burn::optim::{Optimizer, SimpleOptimizer};
 use burn::tensor::{backend::AutodiffBackend};
 
 use crate::logger::{LogData, Logger};
+use crate::spaces::{Action, Obs};
 use crate::utils::{mean};
 use crate::{buffer::ReplayBuffer, env::Env, policy::Policy, spaces::SpaceSample};
 
@@ -46,7 +47,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         }
     }
 
-    fn act(&self, state: &SpaceSample, step: usize, trainer: &OfflineTrainer<O, B>) -> SpaceSample {
+    fn act(&self, state: &Obs, step: usize, trainer: &OfflineTrainer<O, B>) -> Action {
         match self {
             OfflineAlgorithm::DQN { q, optim: _, config } => {
                 dqn_act::<O, B>(q, step, config, state, trainer)
@@ -73,7 +74,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let mut running_reward = 0.0;
 
         for i in 0..self.offline_params.n_steps {
-            let action: SpaceSample;
+            let action: Action;
 
             if i < self.offline_params.warmup_steps {
                 action = self.env.action_space().sample();
