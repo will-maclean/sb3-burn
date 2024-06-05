@@ -1,6 +1,6 @@
 use burn::prelude::*;
 
-use crate::{spaces::SpaceSample, utils::generate_1_0_vector};
+use crate::{spaces::SpaceSample, utils::generate_rand_bool_vector};
 
 pub struct ReplayBufferSlice<B: Backend> {
     state: Tensor<B, 1>,
@@ -140,30 +140,28 @@ impl<B: Backend> ReplayBuffer<B> {
         };
 
         // create the index slice
-        let mut slice_indices = generate_1_0_vector(sample_max, batch_size);
-        slice_indices.extend(vec![0; self.size - sample_max]);
+        let mut slice_indices = generate_rand_bool_vector(sample_max, batch_size);
+        slice_indices.extend(vec![false; self.size - sample_max]);
 
-        let data: Data<i32, 1> = Data::new(slice_indices, Shape::new([self.size]));
-        let index_tensor =
-            Tensor::<B, 1, Int>::from_data(data.convert(), &Default::default()).unsqueeze();
+        let indices = slice_indices.into_iter().enumerate().filter_map(|(i, keep)| if keep { Some(i as i32) } else { None }).collect::<Vec<i32>>();
+        let len = indices.len();
+        let indices: Tensor<B, 1, Int> = Tensor::from_ints(Data::new(indices, Shape::new([len])), &self.states.device());
 
         Some((
-            self.states.clone().gather(0, index_tensor.clone()),
-            self.actions.clone().gather(0, index_tensor.clone()),
-            self.next_states.clone().gather(0, index_tensor.clone()),
-            self.rewards.clone().gather(0, index_tensor.clone()),
-            self.dones.clone().gather(0, index_tensor.clone()),
+            self.states.clone().select(0, indices.clone()),
+            self.actions.clone().select(0, indices.clone()),
+            self.next_states.clone().select(0, indices.clone()),
+            self.rewards.clone().select(0, indices.clone()),
+            self.dones.clone().select(0, indices.clone()),
         ))
     }
 }
 
 mod tests {
     use burn::backend::{wgpu::AutoGraphicsApi, Autodiff, Wgpu};
-
     use crate::spaces::Space;
 
     use super::ReplayBuffer;
-
     type MyBackend = Wgpu<AutoGraphicsApi, f32, i32>;
 
     #[test]

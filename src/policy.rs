@@ -2,7 +2,7 @@ use burn::module::Module;
 use burn::tensor::backend::Backend;
 use burn::{tensor::Tensor};
 
-use crate::spaces::{Action, ActionSpace, Obs, ObsT, Space, SpaceSample};
+use crate::spaces::{Action, ActionSpace, Obs, ObsT};
 
 pub trait Policy<B: Backend>: Module<B> + Clone {
     fn act(&self, state: &Obs, action_space: ActionSpace) -> Action;

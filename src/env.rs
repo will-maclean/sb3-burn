@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::spaces::{Action, ActionSpace, Obs, ObsSpace, Space, SpaceSample};
+use crate::spaces::{Action, ActionSpace, Obs, ObsSpace, SpaceSample};
 use ndarray::{
     indices_of,
     prelude::{Array, Dim},

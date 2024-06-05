@@ -16,7 +16,7 @@ use crate::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
     policy::Policy,
-    spaces::{Action, ActionSpace, Obs, ObsSpace, ObsT, Space, SpaceSample},
+    spaces::{Action, ActionSpace, Obs, ObsSpace, ObsT},
     utils::linear_decay,
 };
 
@@ -38,7 +38,6 @@ pub struct DQNNet<B: Backend> {
 
 impl<B: Backend> DQNNet<B> {
     pub fn init(
-        &self,
         device: &B::Device,
         observation_space: ObsSpace,
         action_space: ActionSpace,
