@@ -1,3 +1,13 @@
-/target
+# General
 /logs
 .vscode
+
+# Rust
+**/target
+
+# Python
+**/*.egg-info
+**/__pycache__
+
+# macOS
+.DS_Store

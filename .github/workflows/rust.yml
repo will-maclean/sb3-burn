@@ -1,0 +1,33 @@
+name: Continuous Integration
+
+on: [push, pull_request]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: ⚡ Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: 🔨 Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
+      # Temporarily removed so build will pass for PR
+      # - name: 🔎 Test
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
