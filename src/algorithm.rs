@@ -25,6 +25,8 @@ pub struct OfflineAlgParams {
     pub gamma: f32,
     #[config(default = 1e-4)]
     pub lr: f64,
+    #[config(default = false)]
+    pub render: bool,
 }
 
 // I think this current layout will do for now, will likely need to be refactored at some point
@@ -77,7 +79,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             Some(callback) => callback,
             None => Box::new(EmptyCallback{}),
         };
-        
+
         Self {
             offline_params,
             env,
@@ -108,6 +110,11 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             };
 
             let step_res = self.env.step(&action);
+
+            if self.offline_params.render & self.env.renderable() {
+                self.env.render();
+            } 
+            
             let (next_obs, reward, done) = (step_res.obs.clone(), step_res.reward, step_res.done);
 
             running_reward += reward;

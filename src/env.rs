@@ -19,6 +19,8 @@ pub trait Env {
     fn reset(&mut self) -> Obs;
     fn action_space(&self) -> ActionSpace;
     fn observation_space(&self) -> ObsSpace;
+    fn render(&self);
+    fn renderable(&self) -> bool;
 }
 
 #[derive(Clone, Debug, Copy)]
@@ -237,6 +239,9 @@ impl Env for GridWorldEnv {
     fn observation_space(&self) -> ObsSpace {
         self.observation_space.clone()
     }
+    
+    fn render(&self) {}
+    fn renderable(&self) -> bool {false}
 }
 
 #[cfg(test)]
