@@ -60,7 +60,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         }
     }
 
-    fn eval(&self, env: Box<dyn Env>, cfg: &EvalConfig) -> EvalResult {
+    fn eval(&self, env: &mut dyn Env, cfg: &EvalConfig) -> EvalResult {
         match self {
             OfflineAlgorithm::DQN(agent) => evaluate_policy(&agent.q, env, cfg),
         }
@@ -118,7 +118,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let mut episodes = 0;
 
         if self.offline_params.eval_at_start_of_training {
-            let eval_result = self.algorithm.eval(self.eval_env, &self.eval_cfg);
+            let eval_result = self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg);
 
             self.logger.log(LogItem::default()
                 .push("eval_ep_mean_reward".to_string(), LogData::Float(eval_result.mean_reward))

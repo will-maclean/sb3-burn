@@ -17,7 +17,7 @@ pub struct EvalConfig{
 
 pub fn evaluate_policy<B: Backend, P: Policy<B>> (
     policy: &P,
-    mut env: Box<dyn Env>,
+    env: &mut dyn Env,
     cfg: &EvalConfig,
 ) -> EvalResult {
 
