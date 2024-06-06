@@ -6,3 +6,6 @@
 # Python
 **/*.egg-info
 **/__pycache__
+
+# macOS
+.DS_Store
