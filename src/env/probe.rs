@@ -2,7 +2,7 @@ use crate::spaces::{ActionSpace, Obs, ObsSpace, SpaceSample};
 
 use super::base::{Env, EnvObservation};
 
-struct ProbeEnvValueTest {}
+pub struct ProbeEnvValueTest {}
 
 // One action, zero observation, one timestep long, +1 reward every timestep: This
 // isolates the value network. If my agent can't learn that the value of the only

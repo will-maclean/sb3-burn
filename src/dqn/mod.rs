@@ -21,9 +21,9 @@ use crate::{
 };
 
 pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
-    q: DQNNet<B>,
-    optim: OptimizerAdaptor<O, DQNNet<B>, B>,
-    config: DQNConfig,
+    pub q: DQNNet<B>,
+    pub optim: OptimizerAdaptor<O, DQNNet<B>, B>,
+    pub config: DQNConfig,
 }
 
 #[derive(Config)]
@@ -158,6 +158,7 @@ mod test {
         buffer::ReplayBuffer,
         dqn::{DQNAgent, DQNConfig, DQNNet},
         env::{base::Env, gridworld::GridWorldEnv},
+        eval::EvalConfig,
         logger::CsvLogger,
     };
 
@@ -193,16 +194,15 @@ mod test {
             Some("global_step".to_string()),
         );
 
-        let mut trainer = OfflineTrainer::<
-            Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
-            TrainingBacked,
-        >::new(
+        let mut trainer = OfflineTrainer::new(
             offline_params,
             Box::new(env),
+            Box::new(GridWorldEnv::default()),
             dqn_alg,
             buffer,
             Box::new(logger),
             None,
+            EvalConfig::new(),
         );
 
         trainer.train();

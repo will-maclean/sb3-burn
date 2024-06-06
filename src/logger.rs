@@ -44,6 +44,7 @@ pub struct CsvLogger {
     dump_path: PathBuf,
     to_stdout: bool,
     //TODO: some pretty printing using the step key will make logs nicer
+    #[allow(dead_code)]
     step_key: Option<String>,
 
     data: Vec<LogItem>,
