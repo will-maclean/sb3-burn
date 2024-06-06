@@ -1,5 +1,6 @@
 pub mod algorithm;
 pub mod buffer;
+pub mod callback;
 pub mod dqn;
 pub mod env;
 pub mod logger;

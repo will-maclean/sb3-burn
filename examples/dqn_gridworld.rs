@@ -14,7 +14,8 @@ fn main(){
             .with_batch_size(32)
             .with_memory_size(300)
             .with_n_steps(1000)
-            .with_warmup_steps(100);
+            .with_warmup_steps(100)
+            .with_lr(1e-3);
 
         let env = GridWorldEnv::default();
         let q = DQNNet::<TrainingBacked>::init(
@@ -38,6 +39,7 @@ fn main(){
             dqn_alg,
             buffer,
             Box::new(logger),
+            None
         );
 
         trainer.train();

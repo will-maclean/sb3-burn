@@ -4,6 +4,7 @@ use burn::optim::{Optimizer, SimpleOptimizer};
 use burn::tensor::{backend::AutodiffBackend};
 use indicatif::{ProgressIterator, ProgressStyle};
 
+use crate::callback::{self, Callback, EmptyCallback};
 use crate::logger::{LogData, Logger};
 use crate::spaces::{Action, Obs};
 use crate::utils::{mean};
@@ -65,6 +66,7 @@ pub struct OfflineTrainer<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBacken
     pub algorithm: OfflineAlgorithm<O, B>,
     pub buffer: ReplayBuffer<B>,
     pub logger: Box<dyn Logger>,
+    pub callback: Box<dyn Callback<O, B>>,
 }
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, B> {
@@ -74,13 +76,20 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         algorithm: OfflineAlgorithm<O, B>,
         buffer: ReplayBuffer<B>,
         logger: Box<dyn Logger>,
+        callback: Option<Box<dyn Callback<O, B>>>,
     ) -> Self {
+        let c: Box<dyn Callback<O, B>>;
+        match callback {
+            Some(callback) => c = callback,
+            None => c = Box::new(EmptyCallback{}),
+        }
         Self {
             offline_params,
             env,
             algorithm,
             buffer,
-            logger
+            logger,
+            callback: c,
         }
     }
 
@@ -88,6 +97,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let mut state = self.env.reset();
 
         let device = B::Device::default();
+
+        self.callback.on_training_start(&self);
 
         let mut running_loss = Vec::new();
         let mut running_reward = 0.0;
@@ -105,7 +116,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             }
 
             let step_res = self.env.step(&action);
-            let (next_obs, reward, done) = (step_res.obs, step_res.reward, step_res.done);
+            let (next_obs, reward, done) = (step_res.obs.clone(), step_res.reward, step_res.done);
 
             running_reward += reward;
 
@@ -113,11 +124,12 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
                 .add(state, action, next_obs.clone(), reward, done);
 
             if i >= self.offline_params.warmup_steps {
-                if let Some(loss) =
-                    self.algorithm
-                        .train_step(&self.buffer, &self.offline_params, &device)
-                {
-                    running_loss.push(loss);
+                let loss = self.algorithm.train_step(&self.buffer, &self.offline_params, &device);
+                self.callback.on_step(&self, i, step_res.clone(), loss);
+
+                match loss{
+                    Some(loss) => running_loss.push(loss),
+                    None => {},
                 }
             }
 
@@ -145,6 +157,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             }
         }
 
+        self.callback.on_training_end(&self);
         let _ = self.logger.dump();
     }
 }
@@ -187,6 +200,7 @@ mod test {
             dqn_alg,
             buffer,
             Box::new(logger),
+            None,
         );
 
         trainer.train();

@@ -7,6 +7,7 @@ use ndarray::{
 };
 use rand::{thread_rng, Rng};
 
+#[derive(Clone, Debug)]
 pub struct EnvObservation {
     pub obs: Obs,
     pub reward: f32,
