@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}, tensor::backend::AutodiffBackend};
-use sb3_burn::{algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer}, buffer::ReplayBuffer, dqn::{DQNConfig, DQNNet}, env::{Env, GridWorldEnv}, logger::{CsvLogger, Logger}};
+use sb3_burn::{algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer}, buffer::ReplayBuffer, dqn::{DQNAgent, DQNConfig, DQNNet}, env::{Env, GridWorldEnv}, logger::{CsvLogger, Logger}};
 
 extern crate sb3_burn;
 
@@ -24,7 +24,8 @@ fn main(){
             env.action_space().clone(),
             16,
         );
-        let dqn_alg = OfflineAlgorithm::DQN { q, optim, config: DQNConfig::new() };
+        let agent = DQNAgent::<Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>, TrainingBacked>::new(q, optim, DQNConfig::new());
+        let dqn_alg = OfflineAlgorithm::DQN(agent);
         let buffer = ReplayBuffer::new(
             offline_params.memory_size, 
             env.observation_space().size(), 

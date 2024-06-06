@@ -10,7 +10,7 @@ use crate::spaces::{Action, Obs};
 use crate::utils::{mean};
 use crate::{buffer::ReplayBuffer, env::Env, policy::Policy};
 
-use crate::dqn::{dqn_act, dqn_train_step, DQNConfig, DQNNet};
+use crate::dqn::{DQNAgent, DQNConfig, DQNNet};
 
 #[derive(Config)]
 pub struct OfflineAlgParams {
@@ -30,11 +30,7 @@ pub struct OfflineAlgParams {
 
 // I think this current layout will do for now, will likely need to be refactored at some point
 pub enum OfflineAlgorithm<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
-    DQN {
-        q: DQNNet<B>,
-        optim: OptimizerAdaptor<O, DQNNet<B>, B>,
-        config: DQNConfig,
-    },
+    DQN (DQNAgent<O, B>),
 }
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O, B> {
@@ -45,16 +41,16 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         device: &B::Device,
     ) -> Option<f32> {
         match self {
-            OfflineAlgorithm::DQN { q, optim, config: _ } => {
-                dqn_train_step::<O, B>(q, optim, replay_buffer, offline_params, device)
+            OfflineAlgorithm::DQN (agent) => {
+                agent.train_step(replay_buffer, offline_params, device)
             }
         }
     }
 
     fn act(&self, state: &Obs, step: usize, trainer: &OfflineTrainer<O, B>) -> Action {
         match self {
-            OfflineAlgorithm::DQN { q, optim: _, config } => {
-                dqn_act::<O, B>(q, step, config, state, trainer)
+            OfflineAlgorithm::DQN (agent) => {
+                agent.act(step, state, trainer)
             }
         }
     }
@@ -159,51 +155,5 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
 
         self.callback.on_training_end(self);
         let _ = self.logger.dump();
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use std::{path::PathBuf};
-
-    use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}, tensor::backend::AutodiffBackend};
-
-    use crate::{algorithm::{OfflineAlgParams, OfflineAlgorithm}, buffer::ReplayBuffer, dqn::{DQNConfig, DQNNet}, env::{Env, GridWorldEnv}, logger::CsvLogger};
-
-    use super::OfflineTrainer;
-
-    #[test]
-    fn test_dqn_lightweight(){
-        type TrainingBacked = Autodiff<NdArray>;
-        let device = Default::default();
-        let config_optimizer = AdamConfig::new();
-        let optim = config_optimizer.init();
-        let offline_params = OfflineAlgParams::new();
-        let env = GridWorldEnv::default();
-        let q = DQNNet::<TrainingBacked>::init(
-            &device,
-            env.observation_space().clone(),
-            env.action_space().clone(),
-            16,
-        );
-        let dqn_alg = OfflineAlgorithm::DQN { q, optim, config: DQNConfig::new() };
-        let buffer = ReplayBuffer::new(
-            offline_params.memory_size, 
-            env.observation_space().size(), 
-            env.action_space().size()
-        );
-        let logger = CsvLogger::new(PathBuf::from("logs/log.csv"), true, Some("global_step".to_string()));
-
-
-        let mut trainer = OfflineTrainer::<Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>, TrainingBacked>::new(
-            offline_params,
-            Box::new(env),
-            dqn_alg,
-            buffer,
-            Box::new(logger),
-            None,
-        );
-
-        trainer.train();
     }
 }
