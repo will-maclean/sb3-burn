@@ -136,7 +136,7 @@ impl<B: Backend> ReplayBuffer<B> {
         Tensor<B, 2>,
         Tensor<B, 2, Int>,
     )> {
-        if (self.full & (batch_size > self.size)) | (!self.full & (self.ptr > batch_size)) {
+        if (self.full & (batch_size > self.size)) | (!self.full & (batch_size > self.ptr)) {
             return None;
         }
 
