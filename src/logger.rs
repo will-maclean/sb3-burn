@@ -94,7 +94,7 @@ impl Logger for CsvLogger {
         if self.dump_path.exists() {
             Err("logger dump file already exists")
         }
-        else if self.dump_path.extension() != Some(&OsStr::new("csv")) {
+        else if self.dump_path.extension() != Some(OsStr::new("csv")) {
             Err("logger dump path should be a csv")
         } else if !self.dump_path.parent().unwrap().exists() {
             // the parent directory does not exist

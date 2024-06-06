@@ -4,7 +4,7 @@ use burn::optim::{Optimizer, SimpleOptimizer};
 use burn::tensor::{backend::AutodiffBackend};
 use indicatif::{ProgressIterator, ProgressStyle};
 
-use crate::callback::{self, Callback, EmptyCallback};
+use crate::callback::{Callback, EmptyCallback};
 use crate::logger::{LogData, Logger};
 use crate::spaces::{Action, Obs};
 use crate::utils::{mean};
@@ -98,7 +98,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
 
         let device = B::Device::default();
 
-        self.callback.on_training_start(&self);
+        self.callback.on_training_start(self);
 
         let mut running_loss = Vec::new();
         let mut running_reward = 0.0;
@@ -125,7 +125,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
 
             if i >= self.offline_params.warmup_steps {
                 let loss = self.algorithm.train_step(&self.buffer, &self.offline_params, &device);
-                self.callback.on_step(&self, i, step_res.clone(), loss);
+                self.callback.on_step(self, i, step_res.clone(), loss);
 
                 match loss{
                     Some(loss) => running_loss.push(loss),
@@ -157,16 +157,16 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             }
         }
 
-        self.callback.on_training_end(&self);
+        self.callback.on_training_end(self);
         let _ = self.logger.dump();
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::{default, path::PathBuf};
+    use std::{path::PathBuf};
 
-    use burn::{backend::{Autodiff, NdArray}, optim::{adaptor::OptimizerAdaptor, Adam, AdamConfig}, tensor::backend::AutodiffBackend, train::{logger::Logger, metric::Adaptor}};
+    use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}, tensor::backend::AutodiffBackend};
 
     use crate::{algorithm::{OfflineAlgParams, OfflineAlgorithm}, buffer::ReplayBuffer, dqn::{DQNConfig, DQNNet}, env::{Env, GridWorldEnv}, logger::CsvLogger};
 
@@ -186,7 +186,7 @@ mod test {
             env.action_space().clone(),
             16,
         );
-        let dqn_alg = OfflineAlgorithm::DQN { q: q, optim: optim, config: DQNConfig::new() };
+        let dqn_alg = OfflineAlgorithm::DQN { q, optim, config: DQNConfig::new() };
         let buffer = ReplayBuffer::new(
             offline_params.memory_size, 
             env.observation_space().size(), 

@@ -159,7 +159,7 @@ impl<B: Backend> ReplayBuffer<B> {
 
 #[cfg(test)]
 mod tests {
-    use burn::backend::{wgpu::AutoGraphicsApi, Autodiff, Wgpu};
+    use burn::backend::{wgpu::AutoGraphicsApi, Wgpu};
     use crate::spaces::Space;
 
     use super::ReplayBuffer;

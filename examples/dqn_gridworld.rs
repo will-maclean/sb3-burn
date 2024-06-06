@@ -24,7 +24,7 @@ fn main(){
             env.action_space().clone(),
             16,
         );
-        let dqn_alg = OfflineAlgorithm::DQN { q: q, optim: optim, config: DQNConfig::new() };
+        let dqn_alg = OfflineAlgorithm::DQN { q, optim, config: DQNConfig::new() };
         let buffer = ReplayBuffer::new(
             offline_params.memory_size, 
             env.observation_space().size(), 
