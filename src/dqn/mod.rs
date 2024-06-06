@@ -21,9 +21,9 @@ use crate::{
 };
 
 pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
-    q: DQNNet<B>,
-    optim: OptimizerAdaptor<O, DQNNet<B>, B>,
-    config: DQNConfig,
+    pub q: DQNNet<B>,
+    pub optim: OptimizerAdaptor<O, DQNNet<B>, B>,
+    pub config: DQNConfig,
 }
 
 #[derive(Config)]

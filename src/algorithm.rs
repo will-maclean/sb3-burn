@@ -5,6 +5,7 @@ use indicatif::{ProgressIterator, ProgressStyle};
 
 use crate::callback::{Callback, EmptyCallback};
 use crate::env::base::Env;
+use crate::eval::{evaluate_policy, EvalConfig, EvalResult};
 use crate::logger::{LogData, LogItem, Logger};
 use crate::spaces::{Action, Obs};
 use crate::utils::mean;
@@ -28,6 +29,12 @@ pub struct OfflineAlgParams {
     pub lr: f64,
     #[config(default = false)]
     pub render: bool,
+    #[config(default = 0)]
+    pub evaluate_every_steps: usize,
+    #[config(default = true)]
+    pub eval_at_start_of_training: bool,
+    #[config(default = true)]
+    pub eval_at_end_of_training: bool,
 }
 
 // I think this current layout will do for now, will likely need to be refactored at some point
@@ -52,25 +59,35 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
             OfflineAlgorithm::DQN(agent) => agent.act(step, state, trainer),
         }
     }
+
+    fn eval(&self, env: Box<dyn Env>, cfg: &EvalConfig) -> EvalResult {
+        match self {
+            OfflineAlgorithm::DQN(agent) => evaluate_policy(&agent.q, env, cfg),
+        }
+    }
 }
 
 pub struct OfflineTrainer<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
     pub offline_params: OfflineAlgParams,
     pub env: Box<dyn Env>,
+    eval_env: Box<dyn Env>,
     pub algorithm: OfflineAlgorithm<O, B>,
     pub buffer: ReplayBuffer<B>,
     pub logger: Box<dyn Logger>,
     pub callback: Box<dyn Callback<O, B>>,
+    pub eval_cfg: EvalConfig,
 }
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, B> {
     pub fn new(
         offline_params: OfflineAlgParams,
         env: Box<dyn Env>,
+        eval_env: Box<dyn Env>,
         algorithm: OfflineAlgorithm<O, B>,
         buffer: ReplayBuffer<B>,
         logger: Box<dyn Logger>,
         callback: Option<Box<dyn Callback<O, B>>>,
+        eval_cfg: EvalConfig,
     ) -> Self {
         let c = match callback {
             Some(callback) => callback,
@@ -80,10 +97,12 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         Self {
             offline_params,
             env,
+            eval_env,
             algorithm,
             buffer,
             logger,
             callback: c,
+            eval_cfg,
         }
     }
 
@@ -97,6 +116,15 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let mut running_loss = Vec::new();
         let mut running_reward = 0.0;
         let mut episodes = 0;
+
+        if self.offline_params.eval_at_start_of_training {
+            let eval_result = self.algorithm.eval(self.eval_env, &self.eval_cfg);
+
+            self.logger.log(LogItem::default()
+                .push("eval_ep_mean_reward".to_string(), LogData::Float(eval_result.mean_reward))
+                .push("eval_ep_mean_len".to_string(), LogData::Float(eval_result.mean_len) )   
+            );
+        }
 
         let style = ProgressStyle::default_bar()
             .template("{pos:>7}/{len:7} {bar} [{elapsed_precise}], eta: [{eta}]")
