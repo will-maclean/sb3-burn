@@ -1,48 +1,32 @@
-name: Rust
+name: Continuous Integration
 
-on:
-  push:
-    branches: ["main", "improved-workflow"]
-  pull_request:
-    branches: ["main"]
-
-env:
-  CARGO_TERM_COLOR: always
+on: [push, pull_request]
 
 jobs:
-  build:
+  build_and_test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v3
+      - uses: actions/checkout@v2
+      - name: ⚡ Cache
+        uses: actions/cache@v2
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-registry-
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cache Cargo index
-        uses: actions/cache@v3
+      - uses: actions-rs/toolchain@v1
         with:
-          path: ~/.cargo/index
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-index-
+          toolchain: stable
 
-      - name: Cache Cargo build
-        uses: actions/cache@v3
+      - name: 🔨 Build
+        uses: actions-rs/cargo@v1
         with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-build-
+          command: build
 
-      - name: Build
-        run: cargo build --verbose
-
-      # - name: Run tests
-      #   run: cargo test --verbose
+      - name: 🔎 Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
