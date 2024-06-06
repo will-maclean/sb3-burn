@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}, tensor::backend::AutodiffBackend};
-use sb3_burn::{algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer}, buffer::ReplayBuffer, dqn::{DQNConfig, DQNNet}, env::{Env, GridWorldEnv}, logger::CsvLogger};
+use sb3_burn::{algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer}, buffer::ReplayBuffer, dqn::{DQNConfig, DQNNet}, env::{Env, GridWorldEnv}, logger::{CsvLogger, Logger}};
 
 extern crate sb3_burn;
 
@@ -32,6 +32,10 @@ fn main(){
         );
         let logger = CsvLogger::new(PathBuf::from("logs/log.csv"), false, Some("global_step".to_string()));
 
+        match logger.check_can_log(false) {
+            Ok(_) => {},
+            Err(err) => panic!("Error setting up logger: {err}"),
+        }
 
         let mut trainer = OfflineTrainer::<Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>, TrainingBacked>::new(
             offline_params,

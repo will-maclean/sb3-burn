@@ -239,6 +239,7 @@ impl Env for GridWorldEnv {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::{Env, GridWorldEnv};
 

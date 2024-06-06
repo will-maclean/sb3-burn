@@ -162,6 +162,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
     }
 }
 
+#[cfg(test)]
 mod test {
     use std::{default, path::PathBuf};
 
