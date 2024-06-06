@@ -1,7 +1,9 @@
 # General
-**/target
 /logs
 .vscode
+
+# Rust
+**/target
 
 # Python
 **/*.egg-info
