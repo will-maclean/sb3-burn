@@ -10,6 +10,7 @@ use sb3_burn::{
     buffer::ReplayBuffer,
     dqn::{DQNAgent, DQNConfig, DQNNet},
     env::{base::Env, gridworld::GridWorldEnv},
+    eval::EvalConfig,
     logger::{CsvLogger, Logger},
 };
 
@@ -55,16 +56,15 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer = OfflineTrainer::<
-        Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
-        TrainingBacked,
-    >::new(
+    let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
+        Box::new(GridWorldEnv::default()),
         dqn_alg,
         buffer,
         Box::new(logger),
         None,
+        EvalConfig::new(),
     );
 
     trainer.train();

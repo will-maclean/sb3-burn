@@ -1,15 +1,15 @@
 use burn::config::Config;
-use burn::optim::{Optimizer, SimpleOptimizer};
+use burn::optim::SimpleOptimizer;
 use burn::tensor::backend::AutodiffBackend;
 use indicatif::{ProgressIterator, ProgressStyle};
 
+use crate::buffer::ReplayBuffer;
 use crate::callback::{Callback, EmptyCallback};
 use crate::env::base::Env;
 use crate::eval::{evaluate_policy, EvalConfig, EvalResult};
 use crate::logger::{LogData, LogItem, Logger};
 use crate::spaces::{Action, Obs};
 use crate::utils::mean;
-use crate::{buffer::ReplayBuffer, policy::Policy};
 
 use crate::dqn::DQNAgent;
 
@@ -120,9 +120,16 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         if self.offline_params.eval_at_start_of_training {
             let eval_result = self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg);
 
-            self.logger.log(LogItem::default()
-                .push("eval_ep_mean_reward".to_string(), LogData::Float(eval_result.mean_reward))
-                .push("eval_ep_mean_len".to_string(), LogData::Float(eval_result.mean_len) )   
+            self.logger.log(
+                LogItem::default()
+                    .push(
+                        "eval_ep_mean_reward".to_string(),
+                        LogData::Float(eval_result.mean_reward),
+                    )
+                    .push(
+                        "eval_ep_mean_len".to_string(),
+                        LogData::Float(eval_result.mean_len),
+                    ),
             );
         }
 

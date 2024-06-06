@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use burn::{config::Config, tensor::backend::Backend};
 
 use crate::{env::base::Env, policy::Policy, utils::mean};
@@ -10,17 +8,16 @@ pub struct EvalResult {
 }
 
 #[derive(Config)]
-pub struct EvalConfig{
+pub struct EvalConfig {
     #[config(default = 10)]
     n_eval_episodes: usize,
 }
 
-pub fn evaluate_policy<B: Backend, P: Policy<B>> (
+pub fn evaluate_policy<B: Backend, P: Policy<B>>(
     policy: &P,
     env: &mut dyn Env,
     cfg: &EvalConfig,
 ) -> EvalResult {
-
     let mut episode_rewards = Vec::new();
     let mut episode_lengths = Vec::new();
     let mut completed_episodes = 0;
@@ -45,14 +42,13 @@ pub fn evaluate_policy<B: Backend, P: Policy<B>> (
 
             running_reward = 0.0;
             ep_len = 0.0;
-
         } else {
             state = next_obs;
         }
     }
 
-    EvalResult {  
+    EvalResult {
         mean_len: mean(&episode_lengths),
-        mean_reward: mean(&episode_rewards)
+        mean_reward: mean(&episode_rewards),
     }
 }
