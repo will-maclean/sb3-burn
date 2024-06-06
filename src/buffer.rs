@@ -257,7 +257,6 @@ mod tests {
         );
     }
 
-    #[should_panic]
     #[test]
     fn test_batch_sample_before_ready() {
         let observation_space = Space::Discrete { size: 1 };
@@ -266,7 +265,9 @@ mod tests {
         let buffer =
             ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
 
-        buffer.batch_sample(64);
+        let sample = buffer.batch_sample(64);
+
+        assert!(sample.is_none());
     }
 
     #[test]

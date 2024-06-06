@@ -28,3 +28,20 @@ pub fn linear_decay(curr_frac: f32, start: f32, end: f32, end_frac: f32) -> f32 
 pub fn mean(data: &[f32]) -> f32 {
     data.iter().fold(0.0, |acc, x| acc + x) / (data.len() as f32)
 }
+
+
+#[cfg(test)]
+mod test {
+    use crate::utils::mean;
+
+    #[test]
+    fn test_mean(){
+        let v = [0.0, 1.0, 2.0];
+
+        assert_eq!(mean(&v), 1.0);
+
+        let v = [];
+
+        assert!(mean(&v).is_nan());
+    }
+}
