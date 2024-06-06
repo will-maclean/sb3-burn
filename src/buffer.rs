@@ -75,8 +75,15 @@ impl<B: Backend> ReplayBuffer<B> {
             .clone()
             .slice_assign([self.ptr..self.ptr + 1], item.next_state.unsqueeze());
 
-        self.rewards = self.rewards.clone().slice_assign([self.ptr..self.ptr + 1], Tensor::<B, 1>::from_floats([item.reward], &self.rewards.device()).unsqueeze_dim(0));
-        self.dones = self.dones.clone().slice_assign([self.ptr..self.ptr + 1], Tensor::<B, 1, Int>::from_ints([item.done as i32], &self.dones.device()).unsqueeze_dim(0));
+        self.rewards = self.rewards.clone().slice_assign(
+            [self.ptr..self.ptr + 1],
+            Tensor::<B, 1>::from_floats([item.reward], &self.rewards.device()).unsqueeze_dim(0),
+        );
+        self.dones = self.dones.clone().slice_assign(
+            [self.ptr..self.ptr + 1],
+            Tensor::<B, 1, Int>::from_ints([item.done as i32], &self.dones.device())
+                .unsqueeze_dim(0),
+        );
 
         if self.ptr == self.len() - 1 {
             self.full = true;
@@ -133,19 +140,20 @@ impl<B: Backend> ReplayBuffer<B> {
             return None;
         }
 
-        let sample_max = if self.full {
-            self.size
-        } else {
-            self.ptr
-        };
+        let sample_max = if self.full { self.size } else { self.ptr };
 
         // create the index slice
         let mut slice_indices = generate_rand_bool_vector(sample_max, batch_size);
         slice_indices.extend(vec![false; self.size - sample_max]);
 
-        let indices = slice_indices.into_iter().enumerate().filter_map(|(i, keep)| if keep { Some(i as i32) } else { None }).collect::<Vec<i32>>();
+        let indices = slice_indices
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, keep)| if keep { Some(i as i32) } else { None })
+            .collect::<Vec<i32>>();
         let len = indices.len();
-        let indices: Tensor<B, 1, Int> = Tensor::from_ints(Data::new(indices, Shape::new([len])), &self.states.device());
+        let indices: Tensor<B, 1, Int> =
+            Tensor::from_ints(Data::new(indices, Shape::new([len])), &self.states.device());
 
         Some((
             self.states.clone().select(0, indices.clone()),
@@ -159,8 +167,8 @@ impl<B: Backend> ReplayBuffer<B> {
 
 #[cfg(test)]
 mod tests {
-    use burn::backend::{wgpu::AutoGraphicsApi, Wgpu};
     use crate::spaces::Space;
+    use burn::backend::{wgpu::AutoGraphicsApi, Wgpu};
 
     use super::ReplayBuffer;
     type MyBackend = Wgpu<AutoGraphicsApi, f32, i32>;
@@ -177,9 +185,16 @@ mod tests {
             highs: vec![1.0; 5],
         };
 
-        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+        let mut buffer =
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
 
-        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+        buffer.add(
+            observation_space.sample(),
+            action_space.sample(),
+            observation_space.sample(),
+            0.5,
+            false,
+        );
     }
 
     #[test]
@@ -191,9 +206,16 @@ mod tests {
             highs: vec![1.0; 5],
         };
 
-        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+        let mut buffer =
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
 
-        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+        buffer.add(
+            observation_space.sample(),
+            action_space.sample(),
+            observation_space.sample(),
+            0.5,
+            false,
+        );
     }
 
     #[test]
@@ -205,9 +227,16 @@ mod tests {
         };
         let action_space = Space::Discrete { size: 3 };
 
-        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+        let mut buffer =
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
 
-        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+        buffer.add(
+            observation_space.sample(),
+            action_space.sample(),
+            observation_space.sample(),
+            0.5,
+            false,
+        );
     }
 
     #[test]
@@ -216,31 +245,46 @@ mod tests {
         let observation_space = Space::Discrete { size: 1 };
         let action_space = Space::Discrete { size: 3 };
 
-        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+        let mut buffer =
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
 
-        buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+        buffer.add(
+            observation_space.sample(),
+            action_space.sample(),
+            observation_space.sample(),
+            0.5,
+            false,
+        );
     }
 
     #[should_panic]
     #[test]
-    fn test_batch_sample_before_ready(){
+    fn test_batch_sample_before_ready() {
         let observation_space = Space::Discrete { size: 1 };
         let action_space = Space::Discrete { size: 3 };
 
-        let buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+        let buffer =
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
 
         buffer.batch_sample(64);
     }
 
     #[test]
-    fn test_batch_sample(){
+    fn test_batch_sample() {
         let observation_space = Space::Discrete { size: 1 };
         let action_space = Space::Discrete { size: 3 };
 
-        let mut buffer = ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+        let mut buffer =
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
 
-        for _ in 0..32{
-            buffer.add(observation_space.sample(), action_space.sample(), observation_space.sample(), 0.5, false);
+        for _ in 0..32 {
+            buffer.add(
+                observation_space.sample(),
+                action_space.sample(),
+                observation_space.sample(),
+                0.5,
+                false,
+            );
         }
 
         let _ = buffer.batch_sample(4);

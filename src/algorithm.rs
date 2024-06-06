@@ -1,15 +1,15 @@
 use burn::config::Config;
 use burn::optim::{Optimizer, SimpleOptimizer};
-use burn::tensor::{backend::AutodiffBackend};
+use burn::tensor::backend::AutodiffBackend;
 use indicatif::{ProgressIterator, ProgressStyle};
 
 use crate::callback::{Callback, EmptyCallback};
 use crate::logger::{LogData, Logger};
 use crate::spaces::{Action, Obs};
-use crate::utils::{mean};
+use crate::utils::mean;
 use crate::{buffer::ReplayBuffer, env::Env, policy::Policy};
 
-use crate::dqn::{DQNAgent};
+use crate::dqn::DQNAgent;
 
 #[derive(Config)]
 pub struct OfflineAlgParams {
@@ -31,7 +31,7 @@ pub struct OfflineAlgParams {
 
 // I think this current layout will do for now, will likely need to be refactored at some point
 pub enum OfflineAlgorithm<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
-    DQN (DQNAgent<O, B>),
+    DQN(DQNAgent<O, B>),
 }
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O, B> {
@@ -42,17 +42,13 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         device: &B::Device,
     ) -> Option<f32> {
         match self {
-            OfflineAlgorithm::DQN (agent) => {
-                agent.train_step(replay_buffer, offline_params, device)
-            }
+            OfflineAlgorithm::DQN(agent) => agent.train_step(replay_buffer, offline_params, device),
         }
     }
 
     fn act(&self, state: &Obs, step: usize, trainer: &OfflineTrainer<O, B>) -> Action {
         match self {
-            OfflineAlgorithm::DQN (agent) => {
-                agent.act(step, state, trainer)
-            }
+            OfflineAlgorithm::DQN(agent) => agent.act(step, state, trainer),
         }
     }
 }
@@ -68,7 +64,7 @@ pub struct OfflineTrainer<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBacken
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, B> {
     pub fn new(
-        offline_params: OfflineAlgParams, 
+        offline_params: OfflineAlgParams,
         env: Box<dyn Env>,
         algorithm: OfflineAlgorithm<O, B>,
         buffer: ReplayBuffer<B>,
@@ -77,7 +73,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
     ) -> Self {
         let c = match callback {
             Some(callback) => callback,
-            None => Box::new(EmptyCallback{}),
+            None => Box::new(EmptyCallback {}),
         };
 
         Self {
@@ -101,10 +97,12 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let mut running_reward = 0.0;
         let mut episodes = 0;
 
-        let style = ProgressStyle::default_bar().template("{pos:>7}/{len:7} {bar} [{elapsed_precise}], eta: [{eta}]").unwrap();
+        let style = ProgressStyle::default_bar()
+            .template("{pos:>7}/{len:7} {bar} [{elapsed_precise}], eta: [{eta}]")
+            .unwrap();
 
         for i in (0..self.offline_params.n_steps).progress_with_style(style) {
-            let action = match i < self.offline_params.warmup_steps{
+            let action = match i < self.offline_params.warmup_steps {
                 true => self.env.action_space().sample(),
                 false => self.algorithm.act(&state, i, self),
             };
@@ -113,8 +111,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
 
             if self.offline_params.render & self.env.renderable() {
                 self.env.render();
-            } 
-            
+            }
+
             let (next_obs, reward, done) = (step_res.obs.clone(), step_res.reward, step_res.done);
 
             running_reward += reward;
@@ -123,10 +121,12 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
                 .add(state, action, next_obs.clone(), reward, done);
 
             if i >= self.offline_params.warmup_steps {
-                let loss = self.algorithm.train_step(&self.buffer, &self.offline_params, &device);
+                let loss = self
+                    .algorithm
+                    .train_step(&self.buffer, &self.offline_params, &device);
                 self.callback.on_step(self, i, step_res.clone(), loss);
 
-                if let Some(loss) = loss{
+                if let Some(loss) = loss {
                     running_loss.push(loss);
                 }
             }

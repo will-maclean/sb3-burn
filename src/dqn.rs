@@ -20,7 +20,7 @@ use crate::{
     utils::linear_decay,
 };
 
-pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend>{
+pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
     q: DQNNet<B>,
     optim: OptimizerAdaptor<O, DQNNet<B>, B>,
     config: DQNConfig,
@@ -87,16 +87,11 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
     }
 }
 
-impl  <O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B>{
-    pub fn new(q: DQNNet<B>, optim:OptimizerAdaptor<O, DQNNet<B>, B>, config: DQNConfig  ) -> Self{
-        Self { q, optim, config}
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
+    pub fn new(q: DQNNet<B>, optim: OptimizerAdaptor<O, DQNNet<B>, B>, config: DQNConfig) -> Self {
+        Self { q, optim, config }
     }
-    pub fn act(
-        &self,
-        step: usize,
-        state: &Obs,
-        trainer: &OfflineTrainer<O, B>,
-    ) -> Action {
+    pub fn act(&self, step: usize, state: &Obs, trainer: &OfflineTrainer<O, B>) -> Action {
         {
             if rand::random::<f32>()
                 > linear_decay(
@@ -112,7 +107,7 @@ impl  <O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B>{
             }
         }
     }
-    
+
     pub fn train_step(
         &mut self,
         replay_buffer: &ReplayBuffer<B>,
@@ -121,7 +116,7 @@ impl  <O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B>{
     ) -> Option<f32> {
         // sample from the replay buffer
         let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
-    
+
         match batch_sample {
             Some((s, a, s_, r, d)) => {
                 let q_vals_ungathered = self.q.forward(s);
@@ -129,17 +124,18 @@ impl  <O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B>{
                 let next_q_vals_ungathered = self.q.forward(s_);
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
                 let targets = r
-                    + (Tensor::<B, 2, Int>::ones([offline_params.batch_size, 1], device) - d).float()
+                    + (Tensor::<B, 2, Int>::ones([offline_params.batch_size, 1], device) - d)
+                        .float()
                         * next_q_vals
                         * offline_params.gamma;
-    
+
                 let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
-    
+
                 let grads = loss.backward();
                 let grads = GradientsParams::from_grads(grads, &self.q);
-    
+
                 self.q = self.optim.step(offline_params.lr, self.q.clone(), grads);
-    
+
                 Some(loss.into_scalar().elem())
             }
             None => None,
@@ -149,16 +145,26 @@ impl  <O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B>{
 
 #[cfg(test)]
 mod test {
-    use std::{path::PathBuf};
+    use std::path::PathBuf;
 
-    use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}, tensor::backend::AutodiffBackend};
+    use burn::{
+        backend::{Autodiff, NdArray},
+        optim::{Adam, AdamConfig},
+        tensor::backend::AutodiffBackend,
+    };
 
-    use crate::{algorithm::{OfflineAlgParams, OfflineAlgorithm}, buffer::ReplayBuffer, dqn::{DQNAgent, DQNConfig, DQNNet}, env::{Env, GridWorldEnv}, logger::CsvLogger};
+    use crate::{
+        algorithm::{OfflineAlgParams, OfflineAlgorithm},
+        buffer::ReplayBuffer,
+        dqn::{DQNAgent, DQNConfig, DQNNet},
+        env::{Env, GridWorldEnv},
+        logger::CsvLogger,
+    };
 
     use super::OfflineTrainer;
 
     #[test]
-    fn test_dqn_lightweight(){
+    fn test_dqn_lightweight() {
         type TrainingBacked = Autodiff<NdArray>;
         let device = Default::default();
         let config_optimizer = AdamConfig::new();
@@ -171,21 +177,26 @@ mod test {
             env.action_space().clone(),
             16,
         );
-        let agent = DQNAgent::<Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>, TrainingBacked>::new(
-            q,
-            optim,
-            DQNConfig::new()
-        );
+        let agent = DQNAgent::<
+            Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
+            TrainingBacked,
+        >::new(q, optim, DQNConfig::new());
         let dqn_alg = OfflineAlgorithm::DQN(agent);
         let buffer = ReplayBuffer::new(
-            offline_params.memory_size, 
-            env.observation_space().size(), 
-            env.action_space().size()
+            offline_params.memory_size,
+            env.observation_space().size(),
+            env.action_space().size(),
         );
-        let logger = CsvLogger::new(PathBuf::from("logs/log.csv"), true, Some("global_step".to_string()));
+        let logger = CsvLogger::new(
+            PathBuf::from("logs/log.csv"),
+            true,
+            Some("global_step".to_string()),
+        );
 
-
-        let mut trainer = OfflineTrainer::<Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>, TrainingBacked>::new(
+        let mut trainer = OfflineTrainer::<
+            Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
+            TrainingBacked,
+        >::new(
             offline_params,
             Box::new(env),
             dqn_alg,

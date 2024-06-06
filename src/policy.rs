@@ -1,6 +1,6 @@
 use burn::module::Module;
 use burn::tensor::backend::Backend;
-use burn::{tensor::Tensor};
+use burn::tensor::Tensor;
 
 use crate::spaces::{Action, ActionSpace, Obs, ObsT};
 

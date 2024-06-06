@@ -6,7 +6,6 @@ use std::{collections::HashMap, path::PathBuf};
 
 // Logger class for logging training and evaluation data
 pub trait Logger {
-
     // log a piece of data
     fn log(&mut self, data: HashMap<String, LogData>);
 
@@ -93,8 +92,7 @@ impl Logger for CsvLogger {
     fn check_can_log(&self, try_to_fix: bool) -> Result<(), &str> {
         if self.dump_path.exists() {
             Err("logger dump file already exists")
-        }
-        else if self.dump_path.extension() != Some(OsStr::new("csv")) {
+        } else if self.dump_path.extension() != Some(OsStr::new("csv")) {
             Err("logger dump path should be a csv")
         } else if !self.dump_path.parent().unwrap().exists() {
             // the parent directory does not exist
@@ -119,7 +117,7 @@ mod test {
     use super::{CsvLogger, Logger};
 
     #[test]
-    fn test_should_log(){
+    fn test_should_log() {
         let mut pth = env::current_dir().unwrap();
         pth.push("log.csv");
         let logger = CsvLogger::new(pth, false, None);
@@ -129,7 +127,7 @@ mod test {
     }
 
     #[test]
-    fn test_shouldnt_log1(){
+    fn test_shouldnt_log1() {
         let logger = CsvLogger::new(PathBuf::from("this/path/shouldnt/exist.csv"), false, None);
         let can_check = logger.check_can_log(false);
 
@@ -137,7 +135,7 @@ mod test {
     }
 
     #[test]
-    fn test_shouldnt_log2(){
+    fn test_shouldnt_log2() {
         let mut pth = env::current_dir().unwrap();
         pth.push("log.txt");
         let logger = CsvLogger::new(pth, false, None);
@@ -147,11 +145,14 @@ mod test {
     }
 
     #[test]
-    fn test_shouldnt_log3(){
+    fn test_shouldnt_log3() {
         let mut pth = env::current_dir().unwrap();
         pth.push("__very_strange_name.csv");
 
-        let _ = OpenOptions::new().create(true).write(true).open(pth.clone());
+        let _ = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .open(pth.clone());
 
         let logger = CsvLogger::new(pth.clone(), false, None);
         let can_check = logger.check_can_log(false);

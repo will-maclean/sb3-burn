@@ -239,9 +239,11 @@ impl Env for GridWorldEnv {
     fn observation_space(&self) -> ObsSpace {
         self.observation_space.clone()
     }
-    
+
     fn render(&self) {}
-    fn renderable(&self) -> bool {false}
+    fn renderable(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
