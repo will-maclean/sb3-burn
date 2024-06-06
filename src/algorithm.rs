@@ -1,5 +1,4 @@
 use burn::config::Config;
-use burn::optim::adaptor::OptimizerAdaptor;
 use burn::optim::{Optimizer, SimpleOptimizer};
 use burn::tensor::{backend::AutodiffBackend};
 use indicatif::{ProgressIterator, ProgressStyle};
@@ -10,7 +9,7 @@ use crate::spaces::{Action, Obs};
 use crate::utils::{mean};
 use crate::{buffer::ReplayBuffer, env::Env, policy::Policy};
 
-use crate::dqn::{DQNAgent, DQNConfig, DQNNet};
+use crate::dqn::{DQNAgent};
 
 #[derive(Config)]
 pub struct OfflineAlgParams {
@@ -74,11 +73,11 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         logger: Box<dyn Logger>,
         callback: Option<Box<dyn Callback<O, B>>>,
     ) -> Self {
-        let c: Box<dyn Callback<O, B>>;
-        match callback {
-            Some(callback) => c = callback,
-            None => c = Box::new(EmptyCallback{}),
-        }
+        let c = match callback {
+            Some(callback) => callback,
+            None => Box::new(EmptyCallback{}),
+        };
+        
         Self {
             offline_params,
             env,
@@ -103,13 +102,10 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let style = ProgressStyle::default_bar().template("{pos:>7}/{len:7} {bar} [{elapsed_precise}], eta: [{eta}]").unwrap();
 
         for i in (0..self.offline_params.n_steps).progress_with_style(style) {
-            let action: Action;
-
-            if i < self.offline_params.warmup_steps {
-                action = self.env.action_space().sample();
-            } else {
-                action = self.algorithm.act(&state, i, self);
-            }
+            let action = match i < self.offline_params.warmup_steps{
+                true => self.env.action_space().sample(),
+                false => self.algorithm.act(&state, i, self),
+            };
 
             let step_res = self.env.step(&action);
             let (next_obs, reward, done) = (step_res.obs.clone(), step_res.reward, step_res.done);
@@ -123,9 +119,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
                 let loss = self.algorithm.train_step(&self.buffer, &self.offline_params, &device);
                 self.callback.on_step(self, i, step_res.clone(), loss);
 
-                match loss{
-                    Some(loss) => running_loss.push(loss),
-                    None => {},
+                if let Some(loss) = loss{
+                    running_loss.push(loss);
                 }
             }
 

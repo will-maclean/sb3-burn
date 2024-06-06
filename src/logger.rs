@@ -114,7 +114,6 @@ impl Logger for CsvLogger {
 
 #[cfg(test)]
 mod test {
-    #[allow(clippy::ignore)]
     use std::{env, fs::OpenOptions, path::PathBuf};
 
     use super::{CsvLogger, Logger};
