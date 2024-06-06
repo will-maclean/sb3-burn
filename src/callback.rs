@@ -1,6 +1,6 @@
 use burn::{optim::SimpleOptimizer, tensor::backend::AutodiffBackend};
 
-use crate::{algorithm::OfflineTrainer, env::EnvObservation};
+use crate::{algorithm::OfflineTrainer, env::base::EnvObservation};
 
 // Callbacks in stable-baselines3 do not take in specific parameters - rather, they
 // take in the local and global variable namespaces. I'm not sure how this would be

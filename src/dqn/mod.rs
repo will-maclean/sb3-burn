@@ -157,7 +157,7 @@ mod test {
         algorithm::{OfflineAlgParams, OfflineAlgorithm},
         buffer::ReplayBuffer,
         dqn::{DQNAgent, DQNConfig, DQNNet},
-        env::{Env, GridWorldEnv},
+        env::{base::Env, gridworld::GridWorldEnv},
         logger::CsvLogger,
     };
 

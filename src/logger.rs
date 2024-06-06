@@ -7,7 +7,7 @@ use std::{collections::HashMap, path::PathBuf};
 // Logger class for logging training and evaluation data
 pub trait Logger {
     // log a piece of data
-    fn log(&mut self, data: HashMap<String, LogData>);
+    fn log(&mut self, data: LogItem);
 
     // dump the entire training data
     fn dump(&self) -> Result<(), Box<dyn Error>>;
@@ -27,13 +27,26 @@ pub enum LogData {
     Int(i32),
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct LogItem {
+    items: HashMap<String, LogData>,
+}
+
+impl LogItem {
+    pub fn push(mut self, k: String, v: LogData) -> LogItem {
+        self.items.insert(k, v);
+
+        self
+    }
+}
+
 pub struct CsvLogger {
     dump_path: PathBuf,
     to_stdout: bool,
     //TODO: some pretty printing using the step key will make logs nicer
     step_key: Option<String>,
 
-    data: Vec<HashMap<String, LogData>>,
+    data: Vec<LogItem>,
 }
 
 impl CsvLogger {
@@ -48,7 +61,7 @@ impl CsvLogger {
 }
 
 impl Logger for CsvLogger {
-    fn log(&mut self, data: HashMap<String, LogData>) {
+    fn log(&mut self, data: LogItem) {
         if self.to_stdout {
             println!("{:?}", data);
         }
@@ -61,7 +74,7 @@ impl Logger for CsvLogger {
         // Determine the union of all keys
         let mut all_keys: HashSet<String> = HashSet::new();
         for record in &self.data {
-            for key in record.keys() {
+            for key in record.items.keys() {
                 all_keys.insert(key.clone());
             }
         }
@@ -74,7 +87,7 @@ impl Logger for CsvLogger {
         for record in &self.data {
             let mut row = Vec::new();
             for key in &headers {
-                match record.get(*key) {
+                match record.items.get(*key) {
                     Some(LogData::String(s)) => row.push(s.clone()),
                     Some(LogData::Float(f)) => row.push(f.to_string()),
                     Some(LogData::Int(f)) => row.push(f.to_string()),

@@ -1,27 +1,9 @@
-use core::panic;
-
-use crate::spaces::{Action, ActionSpace, Obs, ObsSpace, SpaceSample};
-use ndarray::{
-    indices_of,
-    prelude::{Array, Dim},
-};
+use ndarray::{indices_of, Array, Dim};
 use rand::{thread_rng, Rng};
 
-#[derive(Clone, Debug)]
-pub struct EnvObservation {
-    pub obs: Obs,
-    pub reward: f32,
-    pub done: bool,
-}
+use crate::spaces::{Action, ActionSpace, Obs, ObsSpace};
 
-pub trait Env {
-    fn step(&mut self, action: &SpaceSample) -> EnvObservation;
-    fn reset(&mut self) -> Obs;
-    fn action_space(&self) -> ActionSpace;
-    fn observation_space(&self) -> ObsSpace;
-    fn render(&self);
-    fn renderable(&self) -> bool;
-}
+use super::base::{Env, EnvObservation};
 
 #[derive(Clone, Debug, Copy)]
 struct Pos {

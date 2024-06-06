@@ -9,7 +9,7 @@ use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer},
     buffer::ReplayBuffer,
     dqn::{DQNAgent, DQNConfig, DQNNet},
-    env::{Env, GridWorldEnv},
+    env::{base::Env, gridworld::GridWorldEnv},
     logger::{CsvLogger, Logger},
 };
 
@@ -21,10 +21,10 @@ fn main() {
     let config_optimizer = AdamConfig::new();
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(32)
-        .with_memory_size(300)
-        .with_n_steps(1000)
-        .with_warmup_steps(100)
+        .with_batch_size(1000)
+        .with_memory_size(1000)
+        .with_n_steps(10000)
+        .with_warmup_steps(50)
         .with_lr(1e-3);
 
     let env = GridWorldEnv::default();

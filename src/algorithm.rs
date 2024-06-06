@@ -4,10 +4,11 @@ use burn::tensor::backend::AutodiffBackend;
 use indicatif::{ProgressIterator, ProgressStyle};
 
 use crate::callback::{Callback, EmptyCallback};
-use crate::logger::{LogData, Logger};
+use crate::env::base::Env;
+use crate::logger::{LogData, LogItem, Logger};
 use crate::spaces::{Action, Obs};
 use crate::utils::mean;
-use crate::{buffer::ReplayBuffer, env::Env, policy::Policy};
+use crate::{buffer::ReplayBuffer, policy::Policy};
 
 use crate::dqn::DQNAgent;
 
@@ -132,24 +133,18 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             }
 
             if done {
+                self.logger.log(
+                    LogItem::default()
+                        .push("global_step".to_string(), LogData::Int(i as i32))
+                        .push("ep_num".to_string(), LogData::Int(episodes))
+                        .push("mean_loss".to_string(), LogData::Float(mean(&running_loss)))
+                        .push("ep_reward".to_string(), LogData::Float(running_reward)),
+                );
+
                 state = self.env.reset();
                 episodes += 1;
                 running_reward = 0.0;
                 running_loss = Vec::new();
-
-                self.logger.log(
-                    vec![
-                        (("global_step").to_string(), LogData::Int(i as i32)),
-                        (
-                            ("mean_loss").to_string(),
-                            LogData::Float(mean(&running_loss)),
-                        ),
-                        (("ep_reward").to_string(), LogData::Float(running_reward)),
-                        (("ep_num").to_string(), LogData::Int(episodes)),
-                    ]
-                    .into_iter()
-                    .collect(),
-                )
             } else {
                 state = next_obs;
             }
