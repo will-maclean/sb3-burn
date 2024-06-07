@@ -2,13 +2,13 @@ use crate::spaces::{ActionSpace, Obs, ObsSpace, SpaceSample};
 
 use super::base::{Env, EnvObservation};
 
-pub struct ProbeEnvValueTest {}
-
 // One action, zero observation, one timestep long, +1 reward every timestep: This
 // isolates the value network. If my agent can't learn that the value of the only
 // observation it ever sees it 1, there's a problem with the value loss calculation
 // or the optimizer.
-impl ProbeEnvValueTest {}
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ProbeEnvValueTest {}
+
 
 impl Env for ProbeEnvValueTest {
     fn step(&mut self, _action: &SpaceSample) -> EnvObservation {

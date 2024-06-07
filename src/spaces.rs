@@ -10,8 +10,10 @@ pub enum SpaceSample {
 impl SpaceSample {
     pub fn to_tensor<B: Backend>(&self) -> Tensor<B, 1> {
         match self {
-            SpaceSample::Discrete { space, idx } => {
-                Tensor::one_hot(*idx as usize, space.size(), &Default::default())
+            SpaceSample::Discrete { space: _, idx } => {
+                let shape = Shape::new([1]);
+                let data: Data<f32, 1> = Data::new(vec![(*idx) as f32], shape);
+                Tensor::<B, 1>::from_data(data.convert(), &Default::default())
             }
             SpaceSample::Continuous { space: _, data } => {
                 let shape = Shape::new([data.len()]);

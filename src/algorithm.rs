@@ -60,10 +60,22 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         }
     }
 
-    fn eval(&self, env: &mut dyn Env, cfg: &EvalConfig) -> EvalResult {
-        match self {
+    fn eval(&self, env: &mut dyn Env, cfg: &EvalConfig, logger: &mut dyn Logger) {
+        let eval_result = match self {
             OfflineAlgorithm::DQN(agent) => evaluate_policy(&agent.q, env, cfg),
-        }
+        };
+
+        logger.log(
+            LogItem::default()
+                .push(
+                    "eval_ep_mean_reward".to_string(),
+                    LogData::Float(eval_result.mean_reward),
+                )
+                .push(
+                    "eval_ep_mean_len".to_string(),
+                    LogData::Float(eval_result.mean_len),
+                ),
+        );
     }
 }
 
@@ -118,19 +130,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let mut episodes = 0;
 
         if self.offline_params.eval_at_start_of_training {
-            let eval_result = self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg);
-
-            self.logger.log(
-                LogItem::default()
-                    .push(
-                        "eval_ep_mean_reward".to_string(),
-                        LogData::Float(eval_result.mean_reward),
-                    )
-                    .push(
-                        "eval_ep_mean_len".to_string(),
-                        LogData::Float(eval_result.mean_len),
-                    ),
-            );
+            self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
         }
 
         let style = ProgressStyle::default_bar()
@@ -167,6 +167,10 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
                 }
             }
 
+            if i % self.offline_params.evaluate_every_steps == 0 {
+                self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
+            }
+
             if done {
                 self.logger.log(
                     LogItem::default()
@@ -183,6 +187,10 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             } else {
                 state = next_obs;
             }
+        }
+
+        if self.offline_params.eval_at_end_of_training {
+            self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
         }
 
         self.callback.on_training_end(self);

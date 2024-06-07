@@ -118,13 +118,13 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
         let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
 
         match batch_sample {
-            Some((s, a, s_, r, d)) => {
-                let q_vals_ungathered = self.q.forward(s);
-                let q_vals = q_vals_ungathered.gather(1, a.int());
-                let next_q_vals_ungathered = self.q.forward(s_);
+            Some(sample) => {
+                let q_vals_ungathered = self.q.forward(sample.states);
+                let q_vals = q_vals_ungathered.gather(1, sample.actions.int());
+                let next_q_vals_ungathered = self.q.forward(sample.next_states);
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
-                let targets = r
-                    + (Tensor::<B, 2, Int>::ones([offline_params.batch_size, 1], device) - d)
+                let targets = sample.rewards
+                    + (Tensor::<B, 2, Int>::ones([offline_params.batch_size, 1], device) - sample.dones)
                         .float()
                         * next_q_vals
                         * offline_params.gamma;

@@ -10,6 +10,14 @@ pub struct ReplayBufferSlice<B: Backend> {
     done: bool,
 }
 
+pub struct BatchedReplayBufferSliceT<B: Backend> {
+    pub states: Tensor<B, 2>,
+    pub actions: Tensor<B, 2>,
+    pub next_states: Tensor<B, 2>,
+    pub rewards: Tensor<B, 2>,
+    pub dones: Tensor<B, 2, Int>,
+}
+
 pub struct ReplayBuffer<B: Backend> {
     states: Tensor<B, 2>,
     actions: Tensor<B, 2>,
@@ -129,13 +137,7 @@ impl<B: Backend> ReplayBuffer<B> {
     pub fn batch_sample(
         &self,
         batch_size: usize,
-    ) -> Option<(
-        Tensor<B, 2>,
-        Tensor<B, 2>,
-        Tensor<B, 2>,
-        Tensor<B, 2>,
-        Tensor<B, 2, Int>,
-    )> {
+    ) -> Option<BatchedReplayBufferSliceT<B>> {
         if (self.full & (batch_size > self.size)) | (!self.full & (batch_size > self.ptr)) {
             return None;
         }
@@ -155,13 +157,13 @@ impl<B: Backend> ReplayBuffer<B> {
         let indices: Tensor<B, 1, Int> =
             Tensor::from_ints(Data::new(indices, Shape::new([len])), &self.states.device());
 
-        Some((
-            self.states.clone().select(0, indices.clone()),
-            self.actions.clone().select(0, indices.clone()),
-            self.next_states.clone().select(0, indices.clone()),
-            self.rewards.clone().select(0, indices.clone()),
-            self.dones.clone().select(0, indices.clone()),
-        ))
+        Some(BatchedReplayBufferSliceT{
+            states: self.states.clone().select(0, indices.clone()),
+            actions: self.actions.clone().select(0, indices.clone()),
+            next_states: self.next_states.clone().select(0, indices.clone()),
+            rewards: self.rewards.clone().select(0, indices.clone()),
+            dones: self.dones.clone().select(0, indices.clone()),
+        })
     }
 }
 
