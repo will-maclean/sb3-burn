@@ -163,3 +163,53 @@ impl Env for ProbeEnvDiscountingTest {
         false
     }
 }
+
+// Two actions, zero observation, one timestep long, action-dependent
+// +1/-1 reward: The first env to exercise the policy! If my agent can't
+// learn to pick the better action, there's something wrong with either
+// my advantage calculations, my policy loss or my policy update. That's
+// three things, but it's easy to work out by hand the expected values
+// for each one and check that the values produced by your actual code
+// line up with them.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ProbeEnvActionTest {}
+
+impl Env for ProbeEnvActionTest {
+    fn step(&mut self, action: &SpaceSample) -> EnvObservation {
+        match action {
+            SpaceSample::Continuous { space: _, data: _ } => {
+                panic!("Only discrete actions are accepted here")
+            }
+            SpaceSample::Discrete { space: _, idx } => {
+                let reward = (*idx == 1) as i32 as f32;
+
+                EnvObservation {
+                    obs: self.observation_space().sample(),
+                    reward,
+                    done: true,
+                }
+            }
+        }
+    }
+
+    fn reset(&mut self) -> Obs {
+        Obs::Discrete {
+            space: self.observation_space().clone(),
+            idx: 0,
+        }
+    }
+
+    fn action_space(&self) -> ActionSpace {
+        ActionSpace::Discrete { size: 2 }
+    }
+
+    fn observation_space(&self) -> ObsSpace {
+        ObsSpace::Discrete { size: 1 }
+    }
+
+    fn render(&self) {}
+
+    fn renderable(&self) -> bool {
+        false
+    }
+}
