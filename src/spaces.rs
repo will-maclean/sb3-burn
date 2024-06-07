@@ -85,3 +85,27 @@ pub type Action = SpaceSample;
 pub type Obs = SpaceSample;
 pub type ObsT<B, const D: usize, K = Float> = Tensor<B, D, K>;
 pub type ActionT<B, const D: usize, K = Float> = Tensor<B, D, K>;
+
+#[cfg(test)]
+mod test {
+    use burn::{
+        backend::NdArray,
+        tensor::{Data, Shape, Tensor},
+    };
+
+    use super::{Obs, ObsSpace};
+
+    #[test]
+    fn test_to_train_tensor() {
+        type Backend = NdArray;
+        let space = ObsSpace::Discrete { size: 2 };
+        let obs = Obs::Discrete { space, idx: 0 };
+        let obs_t = obs.to_train_tensor::<Backend>();
+
+        let shape = Shape::new([2]);
+        let data: Data<f32, 1> = Data::new(vec![1.0, 0.0], shape);
+        let expected = Tensor::<Backend, 1>::from_data(data.convert(), &Default::default());
+
+        assert!(obs_t.equal(expected).all().into_scalar());
+    }
+}

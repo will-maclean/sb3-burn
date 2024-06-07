@@ -21,7 +21,7 @@ fn main() {
     let config_optimizer = AdamConfig::new();
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(100)
+        .with_batch_size(3)
         .with_memory_size(1000)
         .with_n_steps(10000)
         .with_warmup_steps(50)
@@ -37,7 +37,14 @@ fn main() {
         env.action_space().clone(),
         1,
     );
-    let agent = DQNAgent::new(q, optim, DQNConfig::new());
+    let agent = DQNAgent::new(
+        q,
+        optim,
+        DQNConfig::new()
+            .with_eps_end(0.0)
+            .with_eps_end_frac(0.0)
+            .with_eps_start(0.0),
+    );
     let dqn_alg = OfflineAlgorithm::DQN(agent);
     let buffer = ReplayBuffer::new(
         offline_params.memory_size,

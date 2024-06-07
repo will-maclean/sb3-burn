@@ -126,9 +126,9 @@ impl<B: Backend> ReplayBuffer<B> {
         done: bool,
     ) {
         self.add_processed(
-            state.to_tensor(),
+            state.to_train_tensor(),
             action.to_tensor(),
-            next_state.to_tensor(),
+            next_state.to_train_tensor(),
             reward,
             done,
         )
