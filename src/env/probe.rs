@@ -213,3 +213,68 @@ impl Env for ProbeEnvActionTest {
         false
     }
 }
+
+// Two actions, random +1/-1 observation, one timestep long, action-and-obs 
+// dependent +1/-1 reward: Now we've got a dependence on both obs and action. 
+// The policy and value networks interact here, so there's a couple of 
+// things to verify: that the policy network learns to pick the right action 
+// in each of the two states, and that the value network learns that the value
+//  of each state is +1. If everything's worked up until now, then if - for 
+// example - the value network fails to learn here, it likely means your batching
+//  process is feeding the value network stale experience.
+#[derive(Debug, Clone, Default)]
+pub struct ProbeEnvStateActionTest {
+    rng: ThreadRng,
+    obs: i32,
+}
+
+impl ProbeEnvStateActionTest {
+    fn gen_obs(&mut self) -> i32 {
+        if self.rng.gen_bool(0.5) {
+            1
+        } else {
+            0
+        }
+    }
+}
+
+impl Env for ProbeEnvStateActionTest {
+    fn step(&mut self, action: &SpaceSample) -> EnvObservation {
+        match action {
+            SpaceSample::Continuous { space: _, data: _ } => {
+                panic!("Only discrete actions are accepted here")
+            }
+            SpaceSample::Discrete { space: _, idx } => {
+                let reward = (*idx == self.obs) as i32 as f32;
+
+                EnvObservation {
+                    obs: self.observation_space().sample(),
+                    reward,
+                    done: true,
+                }
+            }
+        }
+    }
+
+    fn reset(&mut self) -> Obs {
+        self.obs = self.gen_obs();
+        Obs::Discrete {
+            space: self.observation_space().clone(),
+            idx: self.obs,
+        }
+    }
+
+    fn action_space(&self) -> ActionSpace {
+        ActionSpace::Discrete { size: 2 }
+    }
+
+    fn observation_space(&self) -> ObsSpace {
+        ObsSpace::Discrete { size: 2 }
+    }
+
+    fn render(&self) {}
+
+    fn renderable(&self) -> bool {
+        false
+    }
+}

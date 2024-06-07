@@ -1,6 +1,3 @@
-use core::time;
-use std::thread::sleep;
-
 use burn::{
     config::Config,
     module::Module,
@@ -123,19 +120,13 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
 
         match batch_sample {
             Some(sample) => {
-                // println!("sample.states: {:?}", sample.states);
                 let q_vals_ungathered = self.q.forward(sample.states);
-                // println!("q_vals_ungathered: {:?}", q_vals_ungathered);
                 let q_vals = q_vals_ungathered.gather(1, sample.actions.int());
-                // println!("q_vals: {:?}", q_vals);
                 let next_q_vals_ungathered = self.q.forward(sample.next_states);
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
-                // println!("sample.rewards: {:?}", sample.rewards);
-                // println!("sample.dones: {:?}", sample.dones);
                 let targets = sample.rewards
                     + sample.dones.bool().bool_not().float() * next_q_vals * offline_params.gamma;
 
-                // println!("targets: {:?}", targets);
                 let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
                 let grads = loss.backward();
