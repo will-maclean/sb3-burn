@@ -53,8 +53,12 @@ pub struct ProbeEnvBackpropTest {
 }
 
 impl ProbeEnvBackpropTest {
-    fn gen_obs(&mut self) -> i32{
-        if self.rng.gen_bool(0.5) { 1 } else { 0 }
+    fn gen_obs(&mut self) -> i32 {
+        if self.rng.gen_bool(0.5) {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -80,6 +84,68 @@ impl Env for ProbeEnvBackpropTest {
         Obs::Discrete {
             space: self.observation_space().clone(),
             idx: self.last_obs,
+        }
+    }
+
+    fn action_space(&self) -> ActionSpace {
+        ActionSpace::Discrete { size: 1 }
+    }
+
+    fn observation_space(&self) -> ObsSpace {
+        ObsSpace::Discrete { size: 2 }
+    }
+
+    fn render(&self) {}
+
+    fn renderable(&self) -> bool {
+        false
+    }
+}
+
+// One action, zero-then-one observation, two timesteps long, +1
+// reward at the end: If my agent can learn the value in (2.)
+// but not this one, it must be that my reward discounting is broken.
+#[derive(Debug, Clone)]
+pub struct ProbeEnvDiscountingTest {
+    done_next: bool,
+}
+
+impl Default for ProbeEnvDiscountingTest {
+    fn default() -> Self {
+        Self { done_next: false }
+    }
+}
+
+impl Env for ProbeEnvDiscountingTest {
+    fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
+        if self.done_next {
+            EnvObservation {
+                obs: Obs::Discrete {
+                    space: self.observation_space().clone(),
+                    idx: 1,
+                },
+                reward: 1.0,
+                done: true,
+            }
+        } else {
+            self.done_next = true;
+
+            EnvObservation {
+                obs: Obs::Discrete {
+                    space: self.observation_space().clone(),
+                    idx: 1,
+                },
+                reward: 0.0,
+                done: false,
+            }
+        }
+    }
+
+    fn reset(&mut self) -> Obs {
+        self.done_next = false;
+        Obs::Discrete {
+            space: self.observation_space().clone(),
+            idx: 0,
         }
     }
 
