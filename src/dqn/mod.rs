@@ -72,7 +72,7 @@ impl<B: Backend> DQNNet<B> {
 
 impl<B: Backend> Policy<B> for DQNNet<B> {
     fn act(&self, state: &Obs, action_space: ActionSpace) -> Action {
-        let state_tensor = state.clone().to_tensor().unsqueeze_dim(0);
+        let state_tensor = state.clone().to_train_tensor().unsqueeze_dim(0);
         let q_vals = self.predict(state_tensor);
         let a: i32 = q_vals.squeeze::<1>(0).argmax(0).into_scalar().elem();
 
@@ -124,7 +124,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
                 let next_q_vals_ungathered = self.q.forward(sample.next_states);
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
                 let targets = sample.rewards
-                    + (Tensor::<B, 2, Int>::ones([offline_params.batch_size, 1], device) - sample.dones)
+                    + (Tensor::<B, 2, Int>::ones([offline_params.batch_size, 1], device)
+                        - sample.dones)
                         .float()
                         * next_q_vals
                         * offline_params.gamma;

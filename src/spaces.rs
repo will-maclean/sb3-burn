@@ -23,6 +23,20 @@ impl SpaceSample {
             }
         }
     }
+
+    pub fn to_train_tensor<B: Backend>(&self) -> Tensor<B, 1> {
+        match self {
+            SpaceSample::Discrete { space, idx } => {
+                Tensor::<B, 1>::one_hot(*idx as usize, space.size(), &Default::default())
+            }
+            SpaceSample::Continuous { space: _, data } => {
+                let shape = Shape::new([data.len()]);
+                let data: Data<f32, 1> = Data::new(data.clone(), shape);
+
+                Tensor::<B, 1>::from_data(data.convert(), &Default::default())
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

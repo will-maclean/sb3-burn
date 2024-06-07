@@ -1,3 +1,5 @@
+use rand::{rngs::ThreadRng, Rng};
+
 use crate::spaces::{ActionSpace, Obs, ObsSpace, SpaceSample};
 
 use super::base::{Env, EnvObservation};
@@ -8,7 +10,6 @@ use super::base::{Env, EnvObservation};
 // or the optimizer.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ProbeEnvValueTest {}
-
 
 impl Env for ProbeEnvValueTest {
     fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
@@ -32,6 +33,56 @@ impl Env for ProbeEnvValueTest {
             lows: vec![0.0],
             highs: vec![1.0],
         }
+    }
+
+    fn render(&self) {}
+
+    fn renderable(&self) -> bool {
+        false
+    }
+}
+
+// One action, random +1/0 observation, one timestep long, obs-dependent +1/0
+// reward every time: If my agent can learn the value in (1.) but not this
+// one - meaning it can learn a constant reward but not a predictable one! - it
+// must be that backpropagation through my network is broken.
+#[derive(Debug, Default, Clone)]
+pub struct ProbeEnvBackpropTest {
+    last_obs: i32,
+    rng: ThreadRng,
+}
+
+impl Env for ProbeEnvBackpropTest {
+    fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
+        let reward = self.last_obs as f32;
+        let done = true;
+        self.last_obs = if self.rng.gen_bool(0.5) { 1 } else { 0 };
+
+        EnvObservation {
+            obs: Obs::Discrete {
+                space: self.observation_space().clone(),
+                idx: self.last_obs,
+            },
+            reward: reward,
+            done: done,
+        }
+    }
+
+    fn reset(&mut self) -> Obs {
+        self.last_obs = if self.rng.gen_bool(0.5) { 1 } else { 0 };
+
+        Obs::Discrete {
+            space: self.observation_space().clone(),
+            idx: self.last_obs,
+        }
+    }
+
+    fn action_space(&self) -> ActionSpace {
+        ActionSpace::Discrete { size: 1 }
+    }
+
+    fn observation_space(&self) -> ObsSpace {
+        ObsSpace::Discrete { size: 2 }
     }
 
     fn render(&self) {}

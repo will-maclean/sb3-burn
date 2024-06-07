@@ -6,7 +6,7 @@ use indicatif::{ProgressIterator, ProgressStyle};
 use crate::buffer::ReplayBuffer;
 use crate::callback::{Callback, EmptyCallback};
 use crate::env::base::Env;
-use crate::eval::{evaluate_policy, EvalConfig, EvalResult};
+use crate::eval::{evaluate_policy, EvalConfig};
 use crate::logger::{LogData, LogItem, Logger};
 use crate::spaces::{Action, Obs};
 use crate::utils::mean;
@@ -29,7 +29,9 @@ pub struct OfflineAlgParams {
     pub lr: f64,
     #[config(default = false)]
     pub render: bool,
-    #[config(default = 0)]
+    #[config(default = true)]
+    evaluate_during_training: bool,
+    #[config(default = 1)]
     pub evaluate_every_steps: usize,
     #[config(default = true)]
     pub eval_at_start_of_training: bool,
@@ -130,7 +132,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         let mut episodes = 0;
 
         if self.offline_params.eval_at_start_of_training {
-            self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
+            self.algorithm
+                .eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
         }
 
         let style = ProgressStyle::default_bar()
@@ -167,8 +170,11 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
                 }
             }
 
-            if i % self.offline_params.evaluate_every_steps == 0 {
-                self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
+            if self.offline_params.evaluate_during_training
+                & (i % self.offline_params.evaluate_every_steps == 0)
+            {
+                self.algorithm
+                    .eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
             }
 
             if done {
@@ -190,7 +196,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         }
 
         if self.offline_params.eval_at_end_of_training {
-            self.algorithm.eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
+            self.algorithm
+                .eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
         }
 
         self.callback.on_training_end(self);

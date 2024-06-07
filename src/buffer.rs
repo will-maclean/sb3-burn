@@ -134,10 +134,7 @@ impl<B: Backend> ReplayBuffer<B> {
         )
     }
 
-    pub fn batch_sample(
-        &self,
-        batch_size: usize,
-    ) -> Option<BatchedReplayBufferSliceT<B>> {
+    pub fn batch_sample(&self, batch_size: usize) -> Option<BatchedReplayBufferSliceT<B>> {
         if (self.full & (batch_size > self.size)) | (!self.full & (batch_size > self.ptr)) {
             return None;
         }
@@ -157,7 +154,7 @@ impl<B: Backend> ReplayBuffer<B> {
         let indices: Tensor<B, 1, Int> =
             Tensor::from_ints(Data::new(indices, Shape::new([len])), &self.states.device());
 
-        Some(BatchedReplayBufferSliceT{
+        Some(BatchedReplayBufferSliceT {
             states: self.states.clone().select(0, indices.clone()),
             actions: self.actions.clone().select(0, indices.clone()),
             next_states: self.next_states.clone().select(0, indices.clone()),
