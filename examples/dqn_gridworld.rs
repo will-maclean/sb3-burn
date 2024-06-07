@@ -59,7 +59,7 @@ fn main() {
     let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
-        Box::new(GridWorldEnv::default()),
+        Box::<GridWorldEnv>::default(),
         dqn_alg,
         buffer,
         Box::new(logger),

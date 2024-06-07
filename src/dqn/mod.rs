@@ -8,7 +8,7 @@ use burn::{
     optim::{adaptor::OptimizerAdaptor, GradientsParams, Optimizer, SimpleOptimizer},
     tensor::{
         backend::{AutodiffBackend, Backend},
-        ElementConversion, Int, Tensor,
+        ElementConversion, Tensor,
     },
 };
 
@@ -112,7 +112,6 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
         &mut self,
         replay_buffer: &ReplayBuffer<B>,
         offline_params: &OfflineAlgParams,
-        device: &B::Device,
     ) -> Option<f32> {
         // sample from the replay buffer
         let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
@@ -124,11 +123,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
                 let next_q_vals_ungathered = self.q.forward(sample.next_states);
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
                 let targets = sample.rewards
-                    + (Tensor::<B, 2, Int>::ones([offline_params.batch_size, 1], device)
-                        - sample.dones)
-                        .float()
-                        * next_q_vals
-                        * offline_params.gamma;
+                    + sample.dones.bool().bool_not().float() * next_q_vals * offline_params.gamma;
 
                 let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
@@ -198,7 +193,7 @@ mod test {
         let mut trainer = OfflineTrainer::new(
             offline_params,
             Box::new(env),
-            Box::new(GridWorldEnv::default()),
+            Box::<GridWorldEnv>::default(),
             dqn_alg,
             buffer,
             Box::new(logger),

@@ -52,24 +52,30 @@ pub struct ProbeEnvBackpropTest {
     rng: ThreadRng,
 }
 
+impl ProbeEnvBackpropTest {
+    fn gen_obs(&mut self) -> i32{
+        if self.rng.gen_bool(0.5) { 1 } else { 0 }
+    }
+}
+
 impl Env for ProbeEnvBackpropTest {
     fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
         let reward = self.last_obs as f32;
         let done = true;
-        self.last_obs = if self.rng.gen_bool(0.5) { 1 } else { 0 };
+        self.last_obs = self.gen_obs();
 
         EnvObservation {
             obs: Obs::Discrete {
                 space: self.observation_space().clone(),
                 idx: self.last_obs,
             },
-            reward: reward,
-            done: done,
+            reward,
+            done,
         }
     }
 
     fn reset(&mut self) -> Obs {
-        self.last_obs = if self.rng.gen_bool(0.5) { 1 } else { 0 };
+        self.last_obs = self.gen_obs();
 
         Obs::Discrete {
             space: self.observation_space().clone(),

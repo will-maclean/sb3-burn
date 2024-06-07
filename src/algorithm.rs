@@ -49,10 +49,9 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         &mut self,
         replay_buffer: &ReplayBuffer<B>,
         offline_params: &OfflineAlgParams,
-        device: &B::Device,
     ) -> Option<f32> {
         match self {
-            OfflineAlgorithm::DQN(agent) => agent.train_step(replay_buffer, offline_params, device),
+            OfflineAlgorithm::DQN(agent) => agent.train_step(replay_buffer, offline_params),
         }
     }
 
@@ -123,8 +122,6 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
     pub fn train(&mut self) {
         let mut state = self.env.reset();
 
-        let device = B::Device::default();
-
         self.callback.on_training_start(self);
 
         let mut running_loss = Vec::new();
@@ -162,7 +159,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             if i >= self.offline_params.warmup_steps {
                 let loss = self
                     .algorithm
-                    .train_step(&self.buffer, &self.offline_params, &device);
+                    .train_step(&self.buffer, &self.offline_params);
                 self.callback.on_step(self, i, step_res.clone(), loss);
 
                 if let Some(loss) = loss {

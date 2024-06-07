@@ -23,7 +23,7 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(100)
         .with_memory_size(1000)
-        .with_n_steps(1000)
+        .with_n_steps(10000)
         .with_warmup_steps(50)
         .with_lr(5e-3)
         .with_eval_at_end_of_training(true)
@@ -58,7 +58,7 @@ fn main() {
     let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
-        Box::new(ProbeEnvBackpropTest::default()),
+        Box::<ProbeEnvBackpropTest>::default(),
         dqn_alg,
         buffer,
         Box::new(logger),
