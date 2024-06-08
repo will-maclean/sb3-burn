@@ -1,8 +1,11 @@
-use crate::{spaces::{ActionSpace, Obs, ObsSpace}, utils::generate_random_vector};
+use crate::{
+    spaces::{ActionSpace, Obs, ObsSpace},
+    utils::generate_random_vector,
+};
 
 use super::base::{Env, EnvObservation};
 
-pub struct CartpoleEnv{
+pub struct CartpoleEnv {
     sutton_barto_reward: bool,
     gravity: f32,
     masspole: f32,
@@ -21,29 +24,34 @@ pub struct CartpoleEnv{
 }
 
 impl CartpoleEnv {
-    fn get_obs(&self) -> Obs{
-        Obs::Continuous{
+    fn get_obs(&self) -> Obs {
+        Obs::Continuous {
             space: self.observation_space().clone(),
-            data: self.state.clone()
+            data: self.state.clone(),
         }
     }
 }
 
 impl Default for CartpoleEnv {
     fn default() -> Self {
-        Self { 
-            sutton_barto_reward: false, 
-            gravity: 9.8, 
-            masspole: 0.1, 
-            total_mass: 1.1, 
-            length: 0.5, 
-            polemass_length: 0.6, 
-            force_mag: 10.0, 
-            tau: 0.02, 
-            theta_threshold_radians: 12.0 * 2.0 * 3.1415 / 360.0, 
-            x_threshold: 2.4, 
-            highs: vec![2.0*2.4, f32::MAX, 2.0 * 12.0 * 2.0 * 3.1415 / 360.0, f32::MAX] ,
-            state: vec![0.0, 0.0, 0.0, 0.0], 
+        Self {
+            sutton_barto_reward: false,
+            gravity: 9.8,
+            masspole: 0.1,
+            total_mass: 1.1,
+            length: 0.5,
+            polemass_length: 0.6,
+            force_mag: 10.0,
+            tau: 0.02,
+            theta_threshold_radians: 12.0 * 2.0 * 3.1415 / 360.0,
+            x_threshold: 2.4,
+            highs: vec![
+                2.0 * 2.4,
+                f32::MAX,
+                2.0 * 12.0 * 2.0 * 3.1415 / 360.0,
+                f32::MAX,
+            ],
+            state: vec![0.0, 0.0, 0.0, 0.0],
             needs_reset: true,
             euler_integration: true,
             steps_beyond_terminated: None,
@@ -58,26 +66,30 @@ impl Env for CartpoleEnv {
         }
         let action = match action {
             crate::spaces::SpaceSample::Discrete { space: _, idx } => *idx,
-            crate::spaces::SpaceSample::Continuous { space: _, data: _ } => panic!("Continuous actions not accepted in cartpole"),
+            crate::spaces::SpaceSample::Continuous { space: _, data: _ } => {
+                panic!("Continuous actions not accepted in cartpole")
+            }
         };
-
 
         let mut x = self.state[0];
         let mut x_dot = self.state[1];
         let mut theta = self.state[2];
         let mut theta_dot = self.state[3];
 
-        let force = if action == 1 {self.force_mag} else {-self.force_mag};
+        let force = if action == 1 {
+            self.force_mag
+        } else {
+            -self.force_mag
+        };
 
         let cos_theta = theta.sin();
         let sin_theta = theta.cos();
 
         let temp = (force + self.polemass_length * theta_dot.powi(2) * sin_theta) / self.total_mass;
-        let theta_acc = (self.gravity * sin_theta - cos_theta * temp) / (
-            self.length * (4.0/3.0 - self.masspole * cos_theta.powi(2) / self.total_mass)
-        );
+        let theta_acc = (self.gravity * sin_theta - cos_theta * temp)
+            / (self.length * (4.0 / 3.0 - self.masspole * cos_theta.powi(2) / self.total_mass));
         let x_acc = temp - self.polemass_length * theta_acc * cos_theta / self.total_mass;
-        
+
         if self.euler_integration {
             x = x + self.tau * x_dot;
             x_dot = x_dot + self.tau * x_acc;
@@ -96,7 +108,7 @@ impl Env for CartpoleEnv {
             | (x > self.x_threshold)
             | (theta < -self.theta_threshold_radians)
             | (theta > self.theta_threshold_radians);
-        
+
         self.needs_reset = done;
 
         let reward: f32;
@@ -109,14 +121,14 @@ impl Env for CartpoleEnv {
         } else {
             match self.steps_beyond_terminated {
                 Some(s) => {
-                    self.steps_beyond_terminated = Some(s+1);
+                    self.steps_beyond_terminated = Some(s + 1);
 
                     if self.sutton_barto_reward {
                         reward = -1.0;
                     } else {
                         reward = 0.0;
                     }
-                },
+                }
                 None => {
                     // Pole just fell!
                     self.steps_beyond_terminated = Some(0);
@@ -126,11 +138,11 @@ impl Env for CartpoleEnv {
                     } else {
                         reward = 1.0;
                     }
-                },
+                }
             }
         }
 
-        EnvObservation{
+        EnvObservation {
             obs: self.get_obs(),
             reward,
             done,
@@ -143,7 +155,7 @@ impl Env for CartpoleEnv {
         self.state = generate_random_vector(vec![-0.05; 4], vec![0.05; 4]);
 
         self.steps_beyond_terminated = None;
-        
+
         self.get_obs()
     }
 
@@ -152,9 +164,9 @@ impl Env for CartpoleEnv {
     }
 
     fn observation_space(&self) -> crate::spaces::ObsSpace {
-        ObsSpace::Continuous { 
-            lows: self.highs.clone().iter().map(|el| -el).collect(), 
-            highs: self.highs.clone() 
+        ObsSpace::Continuous {
+            lows: self.highs.clone().iter().map(|el| -el).collect(),
+            highs: self.highs.clone(),
         }
     }
 
@@ -166,18 +178,18 @@ impl Env for CartpoleEnv {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use crate::env::base::Env;
 
     use super::CartpoleEnv;
 
     #[test]
-    fn test_cartpole(){
+    fn test_cartpole() {
         let mut env = CartpoleEnv::default();
         let mut done = false;
         env.reset();
-        
-        while !done{
+
+        while !done {
             let result = env.step(&env.action_space().sample());
             done = result.done;
         }

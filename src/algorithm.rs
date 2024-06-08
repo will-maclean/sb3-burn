@@ -52,7 +52,9 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         offline_params: &OfflineAlgParams,
     ) -> Option<f32> {
         match self {
-            OfflineAlgorithm::DQN(agent) => agent.train_step(global_step, replay_buffer, offline_params),
+            OfflineAlgorithm::DQN(agent) => {
+                agent.train_step(global_step, replay_buffer, offline_params)
+            }
         }
     }
 

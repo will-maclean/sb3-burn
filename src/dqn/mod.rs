@@ -46,6 +46,7 @@ pub struct DQNNet<B: Backend> {
     l1: nn::Linear<B>,
     l2: nn::Linear<B>,
     l3: nn::Linear<B>,
+    adv: nn::Linear<B>,
 }
 
 impl<B: Backend> DQNNet<B> {
@@ -66,6 +67,7 @@ impl<B: Backend> DQNNet<B> {
                     l1: nn::LinearConfig::new(input_size, hidden_size).init(device),
                     l2: nn::LinearConfig::new(hidden_size, hidden_size).init(device),
                     l3: nn::LinearConfig::new(hidden_size, action_size).init(device),
+                    adv: nn::LinearConfig::new(hidden_size, 1).init(device),
                 }
             }
         }
@@ -74,7 +76,7 @@ impl<B: Backend> DQNNet<B> {
     pub fn forward(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
         let x = relu(self.l1.forward(state));
         let x = relu(self.l2.forward(x));
-        self.l3.forward(x)
+        self.adv.forward(x.clone()) - self.l3.forward(x)
     }
 }
 
@@ -93,17 +95,28 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
     fn predict(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
         self.forward(state)
     }
-    
+
     fn update(&mut self, from: &Self, tau: Option<f32>) {
-        self.l1 = update_linear(&from.l1, self.l1.clone(),  tau);
-        self.l2 = update_linear(&from.l2, self.l2.clone(),  tau);
-        self.l3 = update_linear(&from.l3, self.l3.clone(),  tau);
+        self.l1 = update_linear(&from.l1, self.l1.clone(), tau);
+        self.l2 = update_linear(&from.l2, self.l2.clone(), tau);
+        self.l3 = update_linear(&from.l3, self.l3.clone(), tau);
     }
 }
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
-    pub fn new(q1: DQNNet<B>, q2: DQNNet<B>, optim: OptimizerAdaptor<O, DQNNet<B>, B>, config: DQNConfig) -> Self {
-        Self { q1, q2, optim, config, last_update: 0 }
+    pub fn new(
+        q1: DQNNet<B>,
+        q2: DQNNet<B>,
+        optim: OptimizerAdaptor<O, DQNNet<B>, B>,
+        config: DQNConfig,
+    ) -> Self {
+        Self {
+            q1,
+            q2,
+            optim,
+            config,
+            last_update: 0,
+        }
     }
     pub fn act(&self, step: usize, state: &Obs, trainer: &OfflineTrainer<O, B>) -> Action {
         {
@@ -147,11 +160,11 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
 
                 self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
 
-                if global_step > (self.last_update + self.config.update_every){
+                if global_step > (self.last_update + self.config.update_every) {
                     // hard update
                     self.q2.update(&self.q1, None);
                     self.last_update = global_step
-                } 
+                }
 
                 Some(loss.into_scalar().elem())
             }
@@ -202,7 +215,7 @@ mod test {
         let agent = DQNAgent::<
             Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
             TrainingBacked,
-        >::new(q.clone(), q,  optim, DQNConfig::new());
+        >::new(q.clone(), q, optim, DQNConfig::new());
         let dqn_alg = OfflineAlgorithm::DQN(agent);
         let buffer = ReplayBuffer::new(
             offline_params.memory_size,

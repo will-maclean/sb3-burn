@@ -214,12 +214,12 @@ impl Env for ProbeEnvActionTest {
     }
 }
 
-// Two actions, random +1/-1 observation, one timestep long, action-and-obs 
-// dependent +1/-1 reward: Now we've got a dependence on both obs and action. 
-// The policy and value networks interact here, so there's a couple of 
-// things to verify: that the policy network learns to pick the right action 
+// Two actions, random +1/-1 observation, one timestep long, action-and-obs
+// dependent +1/-1 reward: Now we've got a dependence on both obs and action.
+// The policy and value networks interact here, so there's a couple of
+// things to verify: that the policy network learns to pick the right action
 // in each of the two states, and that the value network learns that the value
-//  of each state is +1. If everything's worked up until now, then if - for 
+//  of each state is +1. If everything's worked up until now, then if - for
 // example - the value network fails to learn here, it likely means your batching
 //  process is feeding the value network stale experience.
 #[derive(Debug, Clone, Default)]

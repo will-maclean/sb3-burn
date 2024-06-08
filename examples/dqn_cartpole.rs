@@ -66,8 +66,7 @@ fn main() {
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new()
-            .with_n_eval_episodes(10),
+        EvalConfig::new().with_n_eval_episodes(10),
     );
 
     trainer.train();

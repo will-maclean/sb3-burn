@@ -49,7 +49,6 @@ pub fn generate_random_vector(lows: Vec<f32>, highs: Vec<f32>) -> Vec<f32> {
     random_vector
 }
 
-
 #[cfg(test)]
 mod test {
     use crate::utils::mean;
