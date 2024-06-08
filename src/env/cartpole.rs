@@ -81,7 +81,7 @@ impl Env for CartpoleEnv {
         if self.euler_integration {
             x = x + self.tau * x_dot;
             x_dot = x_dot + self.tau * x_acc;
-            theta = theta + self.tau * theta_acc;
+            theta = theta + self.tau * theta_dot;
             theta_dot = theta_dot + self.tau * theta_dot;
         } else {
             x_dot = x_dot + self.tau * x_acc;

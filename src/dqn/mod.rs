@@ -41,6 +41,7 @@ pub struct DQNConfig {
 pub struct DQNNet<B: Backend> {
     l1: nn::Linear<B>,
     l2: nn::Linear<B>,
+    l3: nn::Linear<B>,
 }
 
 impl<B: Backend> DQNNet<B> {
@@ -59,16 +60,17 @@ impl<B: Backend> DQNNet<B> {
 
                 Self {
                     l1: nn::LinearConfig::new(input_size, hidden_size).init(device),
-                    l2: nn::LinearConfig::new(hidden_size, action_size).init(device),
+                    l2: nn::LinearConfig::new(hidden_size, hidden_size).init(device),
+                    l3: nn::LinearConfig::new(hidden_size, action_size).init(device),
                 }
             }
         }
     }
 
     pub fn forward(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
-        let x = self.l1.forward(state);
-        let x = relu(x);
-        self.l2.forward(x)
+        let x = relu(self.l1.forward(state));
+        let x = relu(self.l2.forward(x));
+        self.l3.forward(x)
     }
 }
 
@@ -91,6 +93,7 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
     fn update(&mut self, from: &Self, tau: Option<f32>) {
         self.l1 = update_linear(&from.l1, self.l1.clone(),  tau);
         self.l2 = update_linear(&from.l2, self.l2.clone(),  tau);
+        self.l3 = update_linear(&from.l3, self.l3.clone(),  tau);
     }
 }
 
