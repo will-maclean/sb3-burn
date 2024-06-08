@@ -173,13 +173,17 @@ mod test {
         let device = Default::default();
         let config_optimizer = AdamConfig::new();
         let optim = config_optimizer.init();
-        let offline_params = OfflineAlgParams::new();
+        let offline_params = OfflineAlgParams::new()
+            .with_n_steps(10)
+            .with_batch_size(2)
+            .with_memory_size(5)
+            .with_warmup_steps(2);
         let env = GridWorldEnv::default();
         let q = DQNNet::<TrainingBacked>::init(
             &device,
             env.observation_space().clone(),
             env.action_space().clone(),
-            16,
+            2,
         );
         let agent = DQNAgent::<
             Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
