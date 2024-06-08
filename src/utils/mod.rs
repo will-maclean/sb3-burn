@@ -1,5 +1,7 @@
 use rand::{seq::SliceRandom, thread_rng};
 
+pub mod module_update;
+
 pub fn generate_rand_bool_vector(size: usize, num_true: usize) -> Vec<bool> {
     // Create a vector of specified size initialized with false
     let mut vec = vec![false; size];

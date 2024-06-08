@@ -18,7 +18,7 @@ use crate::{
     buffer::ReplayBuffer,
     policy::Policy,
     spaces::{Action, ActionSpace, Obs, ObsSpace, ObsT},
-    utils::linear_decay,
+    utils::{linear_decay, module_update::update_linear},
 };
 
 pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
@@ -86,6 +86,11 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
 
     fn predict(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
         self.forward(state)
+    }
+    
+    fn update(&mut self, from: &Self, tau: Option<f32>) {
+        self.l1 = update_linear(&from.l1, self.l1.clone(),  tau);
+        self.l2 = update_linear(&from.l2, self.l2.clone(),  tau);
     }
 }
 
