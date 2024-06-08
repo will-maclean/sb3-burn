@@ -2,7 +2,7 @@ use crate::{spaces::{ActionSpace, Obs, ObsSpace}, utils::generate_random_vector}
 
 use super::base::{Env, EnvObservation};
 
-struct CartpoleEnv{
+pub struct CartpoleEnv{
     sutton_barto_reward: bool,
     gravity: f32,
     masspole: f32,
