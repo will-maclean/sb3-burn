@@ -38,7 +38,7 @@ fn main() {
     let agent = DQNAgent::<
         Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
         TrainingBacked,
-    >::new(q, optim, DQNConfig::new());
+    >::new(q.clone(), q, optim, DQNConfig::new());
     let dqn_alg = OfflineAlgorithm::DQN(agent);
     let buffer = ReplayBuffer::new(
         offline_params.memory_size,

@@ -47,11 +47,14 @@ pub enum OfflineAlgorithm<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBacken
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O, B> {
     fn train_step(
         &mut self,
+        global_step: usize,
         replay_buffer: &ReplayBuffer<B>,
         offline_params: &OfflineAlgParams,
     ) -> Option<f32> {
         match self {
-            OfflineAlgorithm::DQN(agent) => agent.train_step(replay_buffer, offline_params),
+            OfflineAlgorithm::DQN(agent) => {
+                agent.train_step(global_step, replay_buffer, offline_params)
+            }
         }
     }
 
@@ -63,7 +66,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
 
     fn eval(&self, env: &mut dyn Env, cfg: &EvalConfig, logger: &mut dyn Logger) {
         let eval_result = match self {
-            OfflineAlgorithm::DQN(agent) => evaluate_policy(&agent.q, env, cfg),
+            OfflineAlgorithm::DQN(agent) => evaluate_policy(&agent.q1, env, cfg),
         };
 
         logger.log(
@@ -159,7 +162,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             if i >= self.offline_params.warmup_steps {
                 let loss = self
                     .algorithm
-                    .train_step(&self.buffer, &self.offline_params);
+                    .train_step(i, &self.buffer, &self.offline_params);
                 self.callback.on_step(self, i, step_res.clone(), loss);
 
                 if let Some(loss) = loss {

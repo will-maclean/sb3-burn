@@ -3,6 +3,8 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::{collections::HashMap, path::PathBuf};
+use plotters::prelude::*;
+
 
 // Logger class for logging training and evaluation data
 pub trait Logger {
@@ -43,8 +45,6 @@ impl LogItem {
 pub struct CsvLogger {
     dump_path: PathBuf,
     to_stdout: bool,
-    //TODO: some pretty printing using the step key will make logs nicer
-    #[allow(dead_code)]
     step_key: Option<String>,
 
     data: Vec<LogItem>,
@@ -100,6 +100,15 @@ impl Logger for CsvLogger {
 
         wtr.flush()?;
 
+        if let Some(x) = &self.step_key{
+            let _ = create_plots(
+                self.data.clone(),
+                 vec!["ep_reward", "mean_loss"],
+                  self.dump_path.parent().unwrap().to_path_buf(),
+                   &x
+                );
+        }
+
         Ok(())
     }
 
@@ -122,6 +131,89 @@ impl Logger for CsvLogger {
             Ok(())
         }
     }
+}
+
+pub fn create_plots(mut data: Vec<LogItem>, create: Vec<&str>, dir: PathBuf, xvar: &str) -> Result<(), Box<dyn std::error::Error>> {    
+    let mut xmax = 10.0;
+
+    for yvar in create{
+        // bulid output file path
+        let mut path = dir.clone();
+        path.push(format!("{yvar}.png"));
+
+        // find mins and maxes, and build the data vecs
+        let mut ymin = f32::MAX;
+        let mut ymax = f32::MIN;
+        let mut plot_data = Vec::new();
+        for point in &data {
+            let plot_x: f32;
+            let plot_y: f32;
+
+            if !point.items.contains_key(xvar){
+                continue;
+            } 
+
+            match point.items.get(xvar).unwrap() {
+                LogData::String(_) => todo!(),
+                LogData::Float(x) => plot_x = *x,
+                LogData::Int(x) => plot_x = (*x) as f32,
+            }
+
+            if let Some(y) = point.items.get(yvar) {
+                match y{
+                    LogData::String(_) => todo!(),
+                    LogData::Float(y) => {
+                        plot_y = *y;
+
+                        if *y < ymin {
+                            ymin = *y;
+                        }
+        
+                        if *y > ymax {
+                            ymax = *y;
+                        }
+                    },
+                    LogData::Int(y) => {
+                        let y =(*y) as f32;
+
+                        plot_y = y;
+
+                        if y < ymin {
+                            ymin = y;
+                        }
+        
+                        if y > ymax {
+                            ymax = y;
+                        }
+                    },
+                }
+                
+                xmax = plot_x;
+                plot_data.push((plot_x, plot_y));
+            }
+        }
+
+        let title = format!("{yvar}");
+
+        let root_area = BitMapBackend::new(&path, (600, 400))
+            .into_drawing_area();
+        root_area.fill(&WHITE).unwrap();
+        
+        let mut ctx = ChartBuilder::on(&root_area)
+            .set_label_area_size(LabelAreaPosition::Left, 40)
+            .set_label_area_size(LabelAreaPosition::Bottom, 40)
+            .caption(title, ("sans-serif", 40))
+            .build_cartesian_2d(0.0..(xmax as f32), ymin.min(0.0)..ymax)
+            .unwrap();
+        
+        ctx.configure_mesh().draw().unwrap();
+        
+        ctx.draw_series(
+            LineSeries::new(plot_data, &GREEN)
+        ).unwrap();
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]

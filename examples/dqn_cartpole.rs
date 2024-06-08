@@ -8,7 +8,7 @@ use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer},
     buffer::ReplayBuffer,
     dqn::{DQNAgent, DQNConfig, DQNNet},
-    env::{base::Env, probe::ProbeEnvValueTest},
+    env::{base::Env, cartpole::CartpoleEnv},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
 };
@@ -21,21 +21,22 @@ fn main() {
     let config_optimizer = AdamConfig::new();
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(10)
+        .with_batch_size(256)
         .with_memory_size(1000)
-        .with_n_steps(1000)
+        .with_n_steps(100000)
         .with_warmup_steps(50)
-        .with_lr(5e-3)
+        .with_lr(0.0005)
+        .with_gamma(0.99)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_every_steps(10);
+        .with_evaluate_during_training(false);
 
-    let env = ProbeEnvValueTest::default();
+    let env = CartpoleEnv::default();
     let q = DQNNet::<TrainingBacked>::init(
         &device,
         env.observation_space().clone(),
         env.action_space().clone(),
-        1,
+        64,
     );
     let agent = DQNAgent::new(q.clone(), q, optim, DQNConfig::new());
     let dqn_alg = OfflineAlgorithm::DQN(agent);
@@ -45,7 +46,7 @@ fn main() {
         env.action_space().size(),
     );
     let logger = CsvLogger::new(
-        PathBuf::from("logs/log_dqn_probe1.csv"),
+        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
         false,
         Some("global_step".to_string()),
     );
@@ -58,18 +59,12 @@ fn main() {
     let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
-        Box::<ProbeEnvValueTest>::default(),
+        Box::<CartpoleEnv>::default(),
         dqn_alg,
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new()
-            .with_n_eval_episodes(1)
-            .with_print_action(true)
-            .with_print_obs(true)
-            .with_print_done(true)
-            .with_print_reward(true)
-            .with_print_prediction(true),
+        EvalConfig::new().with_n_eval_episodes(10),
     );
 
     trainer.train();
