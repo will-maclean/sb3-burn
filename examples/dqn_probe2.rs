@@ -38,6 +38,7 @@ fn main() {
         1,
     );
     let agent = DQNAgent::new(
+        q.clone(),
         q,
         optim,
         DQNConfig::new()

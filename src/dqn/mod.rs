@@ -22,9 +22,11 @@ use crate::{
 };
 
 pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
-    pub q: DQNNet<B>,
+    pub q1: DQNNet<B>,
+    pub q2: DQNNet<B>,
     pub optim: OptimizerAdaptor<O, DQNNet<B>, B>,
     pub config: DQNConfig,
+    pub last_update: usize,
 }
 
 #[derive(Config)]
@@ -35,6 +37,8 @@ pub struct DQNConfig {
     eps_end: f32,
     #[config(default = 0.1)]
     eps_end_frac: f32,
+    #[config(default = 1000)]
+    update_every: usize,
 }
 
 #[derive(Module, Debug)]
@@ -98,8 +102,8 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
 }
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
-    pub fn new(q: DQNNet<B>, optim: OptimizerAdaptor<O, DQNNet<B>, B>, config: DQNConfig) -> Self {
-        Self { q, optim, config }
+    pub fn new(q1: DQNNet<B>, q2: DQNNet<B>, optim: OptimizerAdaptor<O, DQNNet<B>, B>, config: DQNConfig) -> Self {
+        Self { q1, q2, optim, config, last_update: 0 }
     }
     pub fn act(&self, step: usize, state: &Obs, trainer: &OfflineTrainer<O, B>) -> Action {
         {
@@ -111,7 +115,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
                     self.config.eps_end_frac,
                 )
             {
-                self.q.act(state, trainer.env.action_space().clone())
+                self.q1.act(state, trainer.env.action_space().clone())
             } else {
                 trainer.env.action_space().sample()
             }
@@ -120,6 +124,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
 
     pub fn train_step(
         &mut self,
+        global_step: usize,
         replay_buffer: &ReplayBuffer<B>,
         offline_params: &OfflineAlgParams,
     ) -> Option<f32> {
@@ -128,9 +133,9 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
 
         match batch_sample {
             Some(sample) => {
-                let q_vals_ungathered = self.q.forward(sample.states);
+                let q_vals_ungathered = self.q1.forward(sample.states);
                 let q_vals = q_vals_ungathered.gather(1, sample.actions.int());
-                let next_q_vals_ungathered = self.q.forward(sample.next_states);
+                let next_q_vals_ungathered = self.q2.forward(sample.next_states);
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
                 let targets = sample.rewards
                     + sample.dones.bool().bool_not().float() * next_q_vals * offline_params.gamma;
@@ -138,9 +143,15 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
                 let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
                 let grads = loss.backward();
-                let grads = GradientsParams::from_grads(grads, &self.q);
+                let grads = GradientsParams::from_grads(grads, &self.q1);
 
-                self.q = self.optim.step(offline_params.lr, self.q.clone(), grads);
+                self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
+
+                if global_step > (self.last_update + self.config.update_every){
+                    // hard update
+                    self.q2.update(&self.q1, None);
+                    self.last_update = global_step
+                } 
 
                 Some(loss.into_scalar().elem())
             }
@@ -191,7 +202,7 @@ mod test {
         let agent = DQNAgent::<
             Adam<<Autodiff<NdArray> as AutodiffBackend>::InnerBackend>,
             TrainingBacked,
-        >::new(q, optim, DQNConfig::new());
+        >::new(q.clone(), q,  optim, DQNConfig::new());
         let dqn_alg = OfflineAlgorithm::DQN(agent);
         let buffer = ReplayBuffer::new(
             offline_params.memory_size,
