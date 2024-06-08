@@ -26,6 +26,7 @@ Environments:
 | Env | Implementation |
 | --------- | -------------- |
 | Gridworld       | Rust, done    |
+| Cartpole       | Rust, done    |
 | Gym classic control       | Python, In Progress        |
 | Snake       | Python, In Progress        |
 
