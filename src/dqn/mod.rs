@@ -82,7 +82,10 @@ impl<B: Backend> DQNNet<B> {
 
 impl<B: Backend> Policy<B> for DQNNet<B> {
     fn act(&self, state: &Obs, action_space: ActionSpace) -> Action {
-        let state_tensor = state.clone().to_train_tensor().unsqueeze_dim(0);
+        let binding = self.devices();
+        let device = binding.get(0).unwrap();
+
+        let state_tensor = state.clone().to_train_tensor().to_device(device).unsqueeze_dim(0);
         let q_vals = self.predict(state_tensor);
         let a: i32 = q_vals.squeeze::<1>(0).argmax(0).into_scalar().elem();
 
@@ -93,7 +96,10 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
     }
 
     fn predict(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
-        self.forward(state)
+        let binding = self.devices();
+        let device = binding.get(0).unwrap();
+
+        self.forward(state.to_device(device))
     }
 
     fn update(&mut self, from: &Self, tau: Option<f32>) {
@@ -140,12 +146,15 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
         global_step: usize,
         replay_buffer: &ReplayBuffer<B>,
         offline_params: &OfflineAlgParams,
+        train_device: &B::Device,
     ) -> Option<f32> {
         // sample from the replay buffer
         let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
 
         match batch_sample {
-            Some(sample) => {
+            Some(mut sample) => {
+                sample.to_device(train_device);
+
                 let q_vals_ungathered = self.q1.forward(sample.states);
                 let q_vals = q_vals_ungathered.gather(1, sample.actions.int());
                 let next_q_vals_ungathered = self.q2.forward(sample.next_states);
@@ -221,6 +230,7 @@ mod test {
             offline_params.memory_size,
             env.observation_space().size(),
             env.action_space().size(),
+            &device,
         );
         let logger = CsvLogger::new(
             PathBuf::from("logs/log.csv"),
@@ -237,6 +247,8 @@ mod test {
             Box::new(logger),
             None,
             EvalConfig::new(),
+            &device,
+            &device
         );
 
         trainer.train();

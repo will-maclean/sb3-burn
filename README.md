@@ -33,5 +33,14 @@ Environments:
 ## Usage
 The `examples` directory shows how algorithms and environemnts can be used.
 
+### GPU Training & Backends
+Traditionally, in PyTorch with Python, only Nvidia GPUs are supported with the cuda backend. Burn, the deep learning
+library which powers sb3-rust, is more flexible with backends. This is great but does mean that we need to handle 
+devices a bit differently. 
+
+If doing CPU only training or inference, the `Ndarray` backend should be fine. However, for GPU training and 
+inference, a backend that support GPU is required. The best supported option is `LibTorch`. This requires
+libtorch to be installed correctly, which can be a bit of a hassle. Follow [this](https://github.com/tracel-ai/burn/blob/main/crates/burn-tch/README.md) burn guide for installation
+instructions, or invsetigate the other burn backends for more specif scenarios. 
 ## Troubleshooting
 1. Run `export RUST_BACKTRACE=1` in your terminal to tell rust to output a backtrace on error - very useful for tracing issues.

@@ -18,7 +18,17 @@ pub struct BatchedReplayBufferSliceT<B: Backend> {
     pub dones: Tensor<B, 2, Int>,
 }
 
-pub struct ReplayBuffer<B: Backend> {
+impl <B: Backend> BatchedReplayBufferSliceT<B>{
+    pub fn to_device(&mut self, device: &B::Device){
+        self.states = self.states.clone().to_device(device);
+        self.actions = self.actions.clone().to_device(device);
+        self.next_states = self.next_states.clone().to_device(device);
+        self.rewards = self.rewards.clone().to_device(device);
+        self.dones = self.dones.clone().to_device(device);
+    }
+}
+
+pub struct ReplayBuffer<'a, B: Backend> {
     states: Tensor<B, 2>,
     actions: Tensor<B, 2>,
     next_states: Tensor<B, 2>,
@@ -27,11 +37,12 @@ pub struct ReplayBuffer<B: Backend> {
     size: usize,
     full: bool,
     ptr: usize,
+    device: &'a B::Device,
 }
 
-impl<B: Backend> ReplayBuffer<B> {
+impl<'a, B: Backend> ReplayBuffer<'a, B> {
     //TODO: probably want to take in spaces instead of usize's
-    pub fn new(size: usize, state_dim: usize, action_dim: usize) -> Self {
+    pub fn new(size: usize, state_dim: usize, action_dim: usize, device: &'a B::Device) -> Self {
         let d = Default::default();
         Self {
             states: Tensor::<B, 2>::zeros([size, state_dim], &d),
@@ -42,6 +53,7 @@ impl<B: Backend> ReplayBuffer<B> {
             size,
             full: false,
             ptr: 0,
+            device,
         }
     }
 
@@ -184,8 +196,10 @@ mod tests {
             highs: vec![1.0; 5],
         };
 
+        let device = Default::default();
+
         let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
 
         buffer.add(
             observation_space.sample(),
@@ -205,8 +219,10 @@ mod tests {
             highs: vec![1.0; 5],
         };
 
+        let device = Default::default();
+
         let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
 
         buffer.add(
             observation_space.sample(),
@@ -226,8 +242,10 @@ mod tests {
         };
         let action_space = Space::Discrete { size: 3 };
 
+        let device = Default::default();
+
         let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
 
         buffer.add(
             observation_space.sample(),
@@ -244,8 +262,10 @@ mod tests {
         let observation_space = Space::Discrete { size: 1 };
         let action_space = Space::Discrete { size: 3 };
 
+        let device = Default::default();
+
         let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
 
         buffer.add(
             observation_space.sample(),
@@ -261,8 +281,10 @@ mod tests {
         let observation_space = Space::Discrete { size: 1 };
         let action_space = Space::Discrete { size: 3 };
 
-        let buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+        let device = Default::default();
+
+        let mut buffer =
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
 
         let sample = buffer.batch_sample(64);
 
@@ -274,8 +296,10 @@ mod tests {
         let observation_space = Space::Discrete { size: 1 };
         let action_space = Space::Discrete { size: 3 };
 
+        let device = Default::default();
+
         let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size());
+            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
 
         for _ in 0..32 {
             buffer.add(

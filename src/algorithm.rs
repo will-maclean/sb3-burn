@@ -54,10 +54,11 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         global_step: usize,
         replay_buffer: &ReplayBuffer<B>,
         offline_params: &OfflineAlgParams,
+        train_device: &B::Device,
     ) -> Option<f32> {
         match self {
             OfflineAlgorithm::DQN(agent) => {
-                agent.train_step(global_step, replay_buffer, offline_params)
+                agent.train_step(global_step, replay_buffer, offline_params, train_device)
             }
         }
     }
@@ -87,27 +88,31 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
     }
 }
 
-pub struct OfflineTrainer<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
+pub struct OfflineTrainer<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
     pub offline_params: OfflineAlgParams,
     pub env: Box<dyn Env>,
     eval_env: Box<dyn Env>,
     pub algorithm: OfflineAlgorithm<O, B>,
-    pub buffer: ReplayBuffer<B>,
+    pub buffer: ReplayBuffer<'a, B>,
     pub logger: Box<dyn Logger>,
     pub callback: Box<dyn Callback<O, B>>,
     pub eval_cfg: EvalConfig,
+    pub train_device: &'a B::Device,
+    pub buffer_device: &'a B::Device,
 }
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, B> {
+impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<'a, O, B> {
     pub fn new(
         offline_params: OfflineAlgParams,
         env: Box<dyn Env>,
         eval_env: Box<dyn Env>,
         algorithm: OfflineAlgorithm<O, B>,
-        buffer: ReplayBuffer<B>,
+        buffer: ReplayBuffer<'a, B>,
         logger: Box<dyn Logger>,
         callback: Option<Box<dyn Callback<O, B>>>,
         eval_cfg: EvalConfig,
+        train_device: &'a B::Device,
+        buffer_device: &'a B::Device,
     ) -> Self {
         let c = match callback {
             Some(callback) => callback,
@@ -123,6 +128,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             logger,
             callback: c,
             eval_cfg,
+            train_device,
+            buffer_device,
         }
     }
 
@@ -163,13 +170,14 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             self.buffer
                 .add(state, action, next_obs.clone(), reward, done);
 
-            if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0) {
+            if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0)
+            {
                 for _ in 0..self.offline_params.grad_steps {
                     let loss = self
                         .algorithm
-                        .train_step(i, &self.buffer, &self.offline_params);
+                        .train_step(i, &self.buffer, &self.offline_params, self.train_device);
                     self.callback.on_step(self, i, step_res.clone(), loss);
-    
+
                     if let Some(loss) = loss {
                         running_loss.push(loss);
                     }

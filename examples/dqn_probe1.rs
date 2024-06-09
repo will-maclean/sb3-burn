@@ -43,6 +43,7 @@ fn main() {
         offline_params.memory_size,
         env.observation_space().size(),
         env.action_space().size(),
+        &device,
     );
     let logger = CsvLogger::new(
         PathBuf::from("logs/log_dqn_probe1.csv"),
@@ -70,6 +71,8 @@ fn main() {
             .with_print_done(true)
             .with_print_reward(true)
             .with_print_prediction(true),
+        &device,
+        &device,
     );
 
     trainer.train();

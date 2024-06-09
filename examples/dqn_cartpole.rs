@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{Autodiff, NdArray},
-    optim::AdamConfig,
+    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch, NdArray},
+    optim::AdamConfig, train,
 };
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer},
@@ -16,12 +16,15 @@ use sb3_burn::{
 extern crate sb3_burn;
 
 fn main() {
-    type TrainingBacked = Autodiff<NdArray>;
-    let device = Default::default();
+    type TrainingBacked = Autodiff<LibTorch>;
+
+    let train_device = LibTorchDevice::Cuda(0);
+    let buffer_device = LibTorchDevice::Cpu;
+
     let config_optimizer = AdamConfig::new();
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(32)
+        .with_batch_size(256)
         .with_memory_size(50000)
         .with_n_steps(100000)
         .with_warmup_steps(50)
@@ -35,20 +38,19 @@ fn main() {
 
     let env = CartpoleEnv::default();
     let q = DQNNet::<TrainingBacked>::init(
-        &device,
+        &train_device,
         env.observation_space().clone(),
         env.action_space().clone(),
         256,
     );
-    let dqn_config = DQNConfig::new()
-        .with_update_every(500)
-        .with_eps_end(0.02);
+    let dqn_config = DQNConfig::new().with_update_every(500).with_eps_end(0.02);
     let agent = DQNAgent::new(q.clone(), q, optim, dqn_config);
     let dqn_alg = OfflineAlgorithm::DQN(agent);
     let buffer = ReplayBuffer::new(
         offline_params.memory_size,
         env.observation_space().size(),
         env.action_space().size(),
+        &buffer_device,
     );
     let logger = CsvLogger::new(
         PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
@@ -70,6 +72,8 @@ fn main() {
         Box::new(logger),
         None,
         EvalConfig::new().with_n_eval_episodes(10),
+        &train_device,
+        &buffer_device,
     );
 
     trainer.train();

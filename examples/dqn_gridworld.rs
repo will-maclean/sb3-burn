@@ -44,6 +44,7 @@ fn main() {
         offline_params.memory_size,
         env.observation_space().size(),
         env.action_space().size(),
+        &device,
     );
     let logger = CsvLogger::new(
         PathBuf::from("logs/log.csv"),
@@ -65,6 +66,8 @@ fn main() {
         Box::new(logger),
         None,
         EvalConfig::new(),
+        &device,
+        &device,
     );
 
     trainer.train();
