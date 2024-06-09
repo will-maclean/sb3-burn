@@ -28,7 +28,7 @@ impl<B: Backend> BatchedReplayBufferSliceT<B> {
     }
 }
 
-pub struct ReplayBuffer<'a, B: Backend> {
+pub struct ReplayBuffer<B: Backend> {
     states: Tensor<B, 2>,
     actions: Tensor<B, 2>,
     next_states: Tensor<B, 2>,
@@ -37,23 +37,20 @@ pub struct ReplayBuffer<'a, B: Backend> {
     size: usize,
     full: bool,
     ptr: usize,
-    device: &'a B::Device,
 }
 
-impl<'a, B: Backend> ReplayBuffer<'a, B> {
+impl<B: Backend> ReplayBuffer<B> {
     //TODO: probably want to take in spaces instead of usize's
-    pub fn new(size: usize, state_dim: usize, action_dim: usize, device: &'a B::Device) -> Self {
-        let d = Default::default();
+    pub fn new(size: usize, state_dim: usize, action_dim: usize, device: &B::Device) -> Self {
         Self {
-            states: Tensor::<B, 2>::zeros([size, state_dim], &d),
-            actions: Tensor::<B, 2>::zeros([size, action_dim], &d),
-            next_states: Tensor::<B, 2>::zeros([size, state_dim], &d),
-            rewards: Tensor::<B, 2>::zeros([size, 1], &d),
-            dones: Tensor::<B, 2, Int>::empty([size, 1], &d),
+            states: Tensor::<B, 2>::zeros([size, state_dim], &device),
+            actions: Tensor::<B, 2>::zeros([size, action_dim], &device),
+            next_states: Tensor::<B, 2>::zeros([size, state_dim], &device),
+            rewards: Tensor::<B, 2>::zeros([size, 1], &device),
+            dones: Tensor::<B, 2, Int>::empty([size, 1], &device),
             size,
             full: false,
             ptr: 0,
-            device,
         }
     }
 
