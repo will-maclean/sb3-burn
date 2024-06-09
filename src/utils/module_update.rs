@@ -44,7 +44,9 @@ mod test {
         tensor::backend::Backend,
     };
 
+    use crate::logger::LogItem;
     use crate::policy::Policy;
+    use crate::spaces::SpaceSample;
 
     use super::update_linear;
 
@@ -66,7 +68,7 @@ mod test {
             &self,
             _state: &crate::spaces::Obs,
             _action_space: crate::spaces::ActionSpace,
-        ) -> crate::spaces::Action {
+        ) -> (SpaceSample, Option<LogItem>) {
             todo!()
         }
 
