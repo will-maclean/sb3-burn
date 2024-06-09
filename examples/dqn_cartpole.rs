@@ -23,15 +23,13 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(256)
         .with_memory_size(1000)
-        .with_n_steps(50000)
+        .with_n_steps(100000)
         .with_warmup_steps(50)
         .with_lr(0.0005)
         .with_gamma(0.99)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(false);
-
-    //i am in desperate need of love i am sosooooooooooooo sorry please do not hate, love, termites united, nad termite
 
     let env = CartpoleEnv::default();
     let q = DQNNet::<TrainingBacked>::init(
@@ -48,7 +46,7 @@ fn main() {
         env.action_space().size(),
     );
     let logger = CsvLogger::new(
-        PathBuf::from("logs/log_dqn_cartpole.csv"),
+        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
         false,
         Some("global_step".to_string()),
     );
