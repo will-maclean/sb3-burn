@@ -133,7 +133,7 @@ impl Logger for CsvLogger {
     }
 }
 
-pub fn create_plots(mut data: Vec<LogItem>, create: Vec<&str>, dir: PathBuf, xvar: &str) -> Result<(), Box<dyn std::error::Error>> {    
+pub fn create_plots(data: Vec<LogItem>, create: Vec<&str>, dir: PathBuf, xvar: &str) -> Result<(), Box<dyn std::error::Error>> {    
     let mut xmax = 10.0;
 
     for yvar in create{

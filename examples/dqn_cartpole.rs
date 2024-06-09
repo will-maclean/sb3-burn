@@ -21,24 +21,29 @@ fn main() {
     let config_optimizer = AdamConfig::new();
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(256)
-        .with_memory_size(1000)
+        .with_batch_size(32)
+        .with_memory_size(50000)
         .with_n_steps(100000)
         .with_warmup_steps(50)
-        .with_lr(0.0005)
-        .with_gamma(0.99)
+        .with_lr(1e-3)
+        .with_gamma(0.95)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_during_training(false);
+        .with_evaluate_during_training(false)
+        .with_grad_steps(1)
+        .with_train_every(1);
 
     let env = CartpoleEnv::default();
     let q = DQNNet::<TrainingBacked>::init(
         &device,
         env.observation_space().clone(),
         env.action_space().clone(),
-        64,
+        256,
     );
-    let agent = DQNAgent::new(q.clone(), q, optim, DQNConfig::new());
+    let dqn_config = DQNConfig::new()
+        .with_update_every(500)
+        .with_eps_end(0.02);
+    let agent = DQNAgent::new(q.clone(), q, optim, dqn_config);
     let dqn_alg = OfflineAlgorithm::DQN(agent);
     let buffer = ReplayBuffer::new(
         offline_params.memory_size,

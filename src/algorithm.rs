@@ -37,6 +37,10 @@ pub struct OfflineAlgParams {
     pub eval_at_start_of_training: bool,
     #[config(default = true)]
     pub eval_at_end_of_training: bool,
+    #[config(default = 1)]
+    pub train_every: usize,
+    #[config(default = 1)]
+    pub grad_steps: usize,
 }
 
 // I think this current layout will do for now, will likely need to be refactored at some point
@@ -159,14 +163,16 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
             self.buffer
                 .add(state, action, next_obs.clone(), reward, done);
 
-            if i >= self.offline_params.warmup_steps {
-                let loss = self
-                    .algorithm
-                    .train_step(i, &self.buffer, &self.offline_params);
-                self.callback.on_step(self, i, step_res.clone(), loss);
-
-                if let Some(loss) = loss {
-                    running_loss.push(loss);
+            if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0) {
+                for _ in 0..self.offline_params.grad_steps {
+                    let loss = self
+                        .algorithm
+                        .train_step(i, &self.buffer, &self.offline_params);
+                    self.callback.on_step(self, i, step_res.clone(), loss);
+    
+                    if let Some(loss) = loss {
+                        running_loss.push(loss);
+                    }
                 }
             }
 
