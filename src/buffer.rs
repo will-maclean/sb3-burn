@@ -283,7 +283,7 @@ mod tests {
 
         let device = Default::default();
 
-        let mut buffer =
+        let buffer =
             ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
 
         let sample = buffer.batch_sample(64);

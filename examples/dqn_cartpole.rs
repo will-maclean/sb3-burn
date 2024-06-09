@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch, NdArray},
-    optim::AdamConfig, train,
+    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
+    optim::AdamConfig,
 };
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer},

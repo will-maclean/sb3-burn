@@ -106,15 +106,11 @@ impl Env for ProbeEnvBackpropTest {
 // reward at the end: If my agent can learn the value in (2.)
 // but not this one, it must be that my reward discounting is broken.
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct ProbeEnvDiscountingTest {
     done_next: bool,
 }
 
-impl Default for ProbeEnvDiscountingTest {
-    fn default() -> Self {
-        Self { done_next: false }
-    }
-}
 
 impl Env for ProbeEnvDiscountingTest {
     fn step(&mut self, _action: &SpaceSample) -> EnvObservation {

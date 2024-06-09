@@ -60,7 +60,7 @@ fn main() {
     let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
-        Box::new(ProbeEnvStateActionTest::default()),
+        Box::<ProbeEnvStateActionTest>::default(),
         dqn_alg,
         buffer,
         Box::new(logger),

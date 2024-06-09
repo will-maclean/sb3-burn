@@ -91,15 +91,15 @@ impl Env for CartpoleEnv {
         let x_acc = temp - self.polemass_length * theta_acc * cos_theta / self.total_mass;
 
         if self.euler_integration {
-            x = x + self.tau * x_dot;
-            x_dot = x_dot + self.tau * x_acc;
-            theta = theta + self.tau * theta_dot;
+            x += self.tau * x_dot;
+            x_dot += self.tau * x_acc;
+            theta += self.tau * theta_dot;
             theta_dot = theta_dot + self.tau * theta_dot;
         } else {
-            x_dot = x_dot + self.tau * x_acc;
-            x = x + self.tau * x_dot;
-            theta_dot = theta_dot + self.tau * theta_acc;
-            theta = theta + self.tau * theta_dot;
+            x_dot += self.tau * x_acc;
+            x += self.tau * x_dot;
+            theta_dot += self.tau * theta_acc;
+            theta += self.tau * theta_dot;
         }
 
         self.state = vec![x, x_dot, theta, theta_dot];

@@ -104,7 +104,7 @@ impl Logger for CsvLogger {
                 self.data.clone(),
                 vec!["ep_reward", "mean_loss"],
                 self.dump_path.parent().unwrap().to_path_buf(),
-                &x,
+                x,
             );
         }
 
@@ -197,7 +197,7 @@ pub fn create_plots(
             }
         }
 
-        let title = format!("{yvar}");
+        let title = yvar.to_string();
 
         let root_area = BitMapBackend::new(&path, (600, 400)).into_drawing_area();
         root_area.fill(&WHITE).unwrap();
@@ -206,7 +206,7 @@ pub fn create_plots(
             .set_label_area_size(LabelAreaPosition::Left, 40)
             .set_label_area_size(LabelAreaPosition::Bottom, 40)
             .caption(title, ("sans-serif", 40))
-            .build_cartesian_2d(0.0..(xmax as f32), ymin.min(0.0)..ymax)
+            .build_cartesian_2d(0.0..xmax, ymin.min(0.0)..ymax)
             .unwrap();
 
         ctx.configure_mesh().draw().unwrap();

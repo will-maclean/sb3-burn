@@ -26,8 +26,7 @@ jobs:
         with:
           command: build
 
-      # Temporarily removed so build will pass for PR
-      # - name: 🔎 Test
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: test
+      - name: 🔎 Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test

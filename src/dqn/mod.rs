@@ -83,7 +83,7 @@ impl<B: Backend> DQNNet<B> {
 impl<B: Backend> Policy<B> for DQNNet<B> {
     fn act(&self, state: &Obs, action_space: ActionSpace) -> Action {
         let binding = self.devices();
-        let device = binding.get(0).unwrap();
+        let device = binding.first().unwrap();
 
         let state_tensor = state.clone().to_train_tensor().to_device(device).unsqueeze_dim(0);
         let q_vals = self.predict(state_tensor);
@@ -97,7 +97,7 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
 
     fn predict(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
         let binding = self.devices();
-        let device = binding.get(0).unwrap();
+        let device = binding.first().unwrap();
 
         self.forward(state.to_device(device))
     }
