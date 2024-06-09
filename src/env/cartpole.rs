@@ -21,6 +21,8 @@ pub struct CartpoleEnv {
     needs_reset: bool,
     euler_integration: bool,
     steps_beyond_terminated: Option<i32>,
+    max_steps: usize,
+    curr_steps: usize,
 }
 
 impl CartpoleEnv {
@@ -55,6 +57,8 @@ impl Default for CartpoleEnv {
             needs_reset: true,
             euler_integration: true,
             steps_beyond_terminated: None,
+            max_steps: 200,
+            curr_steps: 0,
         }
     }
 }
@@ -104,19 +108,16 @@ impl Env for CartpoleEnv {
 
         self.state = vec![x, x_dot, theta, theta_dot];
 
-        let done = (x < -self.x_threshold)
+        let mut done = (x < -self.x_threshold)
             | (x > self.x_threshold)
             | (theta < -self.theta_threshold_radians)
             | (theta > self.theta_threshold_radians);
 
-        self.needs_reset = done;
-
-        let reward: f32;
-        if !done {
+        let reward: f32 = if !done {
             if self.sutton_barto_reward {
-                reward = 0.0;
+                0.0
             } else {
-                reward = 1.0;
+                1.0
             }
         } else {
             match self.steps_beyond_terminated {
@@ -124,9 +125,9 @@ impl Env for CartpoleEnv {
                     self.steps_beyond_terminated = Some(s + 1);
 
                     if self.sutton_barto_reward {
-                        reward = -1.0;
+                        -1.0
                     } else {
-                        reward = 0.0;
+                        0.0
                     }
                 }
                 None => {
@@ -134,13 +135,17 @@ impl Env for CartpoleEnv {
                     self.steps_beyond_terminated = Some(0);
 
                     if self.sutton_barto_reward {
-                        reward = -1.0;
+                        -1.0
                     } else {
-                        reward = 1.0;
+                        1.0
                     }
                 }
             }
-        }
+        };
+
+        self.curr_steps += 1;
+        done |= self.curr_steps > self.max_steps;
+        self.needs_reset = done;
 
         EnvObservation {
             obs: self.get_obs(),
@@ -155,6 +160,7 @@ impl Env for CartpoleEnv {
         self.state = generate_random_vector(vec![-0.05; 4], vec![0.05; 4]);
 
         self.steps_beyond_terminated = None;
+        self.curr_steps = 0;
 
         self.get_obs()
     }

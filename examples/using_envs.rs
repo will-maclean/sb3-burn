@@ -1,20 +1,24 @@
 extern crate sb3_burn;
 
-use sb3_burn::env::{base::Env, gridworld::GridWorldEnv};
+use sb3_burn::env::{base::Env, cartpole::CartpoleEnv};
 
 fn main() {
     // create a GridWorld Env
-    let mut gridworld = GridWorldEnv::default();
+    let mut env = CartpoleEnv::default();
 
     let mut done = false;
     let mut reward = 0.0;
-    gridworld.reset();
+    env.reset();
 
     while !done {
-        let obs = gridworld.step(&gridworld.action_space().sample());
+        let a = env.action_space().sample();
+        let obs = env.step(&a);
+
+        println!("action: {:?}", a);
+        println!("obs: {:?}", obs);
 
         done = obs.done;
-        reward = obs.reward;
+        reward += obs.reward;
     }
 
     println!("Finished random action episode. Reward: {reward}");
