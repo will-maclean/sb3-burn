@@ -34,6 +34,35 @@ impl CartpoleEnv {
     }
 }
 
+impl CartpoleEnv {
+    pub fn new(max_len: usize) -> Self {
+        Self {
+            sutton_barto_reward: false,
+            gravity: 9.8,
+            masspole: 0.1,
+            total_mass: 1.1,
+            length: 0.5,
+            polemass_length: 0.6,
+            force_mag: 10.0,
+            tau: 0.02,
+            theta_threshold_radians: 12.0 * 2.0 * 3.1415 / 360.0,
+            x_threshold: 2.4,
+            highs: vec![
+                2.0 * 2.4,
+                f32::MAX,
+                2.0 * 12.0 * 2.0 * 3.1415 / 360.0,
+                f32::MAX,
+            ],
+            state: vec![0.0, 0.0, 0.0, 0.0],
+            needs_reset: true,
+            euler_integration: true,
+            steps_beyond_terminated: None,
+            max_steps: max_len,
+            curr_steps: 0,
+        }
+    }
+}
+
 impl Default for CartpoleEnv {
     fn default() -> Self {
         Self {

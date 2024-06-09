@@ -18,8 +18,8 @@ pub struct BatchedReplayBufferSliceT<B: Backend> {
     pub dones: Tensor<B, 2, Int>,
 }
 
-impl <B: Backend> BatchedReplayBufferSliceT<B>{
-    pub fn to_device(&mut self, device: &B::Device){
+impl<B: Backend> BatchedReplayBufferSliceT<B> {
+    pub fn to_device(&mut self, device: &B::Device) {
         self.states = self.states.clone().to_device(device);
         self.actions = self.actions.clone().to_device(device);
         self.next_states = self.next_states.clone().to_device(device);
@@ -198,8 +198,12 @@ mod tests {
 
         let device = Default::default();
 
-        let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
+        let mut buffer = ReplayBuffer::<MyBackend>::new(
+            100,
+            observation_space.size(),
+            action_space.size(),
+            &device,
+        );
 
         buffer.add(
             observation_space.sample(),
@@ -221,8 +225,12 @@ mod tests {
 
         let device = Default::default();
 
-        let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
+        let mut buffer = ReplayBuffer::<MyBackend>::new(
+            100,
+            observation_space.size(),
+            action_space.size(),
+            &device,
+        );
 
         buffer.add(
             observation_space.sample(),
@@ -244,8 +252,12 @@ mod tests {
 
         let device = Default::default();
 
-        let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
+        let mut buffer = ReplayBuffer::<MyBackend>::new(
+            100,
+            observation_space.size(),
+            action_space.size(),
+            &device,
+        );
 
         buffer.add(
             observation_space.sample(),
@@ -264,8 +276,12 @@ mod tests {
 
         let device = Default::default();
 
-        let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
+        let mut buffer = ReplayBuffer::<MyBackend>::new(
+            100,
+            observation_space.size(),
+            action_space.size(),
+            &device,
+        );
 
         buffer.add(
             observation_space.sample(),
@@ -283,8 +299,12 @@ mod tests {
 
         let device = Default::default();
 
-        let buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
+        let buffer = ReplayBuffer::<MyBackend>::new(
+            100,
+            observation_space.size(),
+            action_space.size(),
+            &device,
+        );
 
         let sample = buffer.batch_sample(64);
 
@@ -298,8 +318,12 @@ mod tests {
 
         let device = Default::default();
 
-        let mut buffer =
-            ReplayBuffer::<MyBackend>::new(100, observation_space.size(), action_space.size(), &device);
+        let mut buffer = ReplayBuffer::<MyBackend>::new(
+            100,
+            observation_space.size(),
+            action_space.size(),
+            &device,
+        );
 
         for _ in 0..32 {
             buffer.add(

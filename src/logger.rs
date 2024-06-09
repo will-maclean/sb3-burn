@@ -45,7 +45,7 @@ pub struct CsvLogger {
     dump_path: PathBuf,
     to_stdout: bool,
     step_key: Option<String>,
-
+    keys: Vec<String>,
     data: Vec<LogItem>,
 }
 
@@ -56,6 +56,7 @@ impl CsvLogger {
             to_stdout,
             data: Vec::new(),
             step_key,
+            keys: Vec::new(),
         }
     }
 }
@@ -66,7 +67,13 @@ impl Logger for CsvLogger {
             println!("{:?}", data);
         }
 
-        self.data.push(data);
+        self.data.push(data.clone());
+
+        for key in data.items.keys() {
+            if !self.keys.contains(key) {
+                self.keys.push(key.clone());
+            }
+        }
     }
     fn dump(&self) -> Result<(), Box<dyn Error>> {
         let mut wtr = Writer::from_path(self.dump_path.clone()).unwrap();
@@ -102,7 +109,7 @@ impl Logger for CsvLogger {
         if let Some(x) = &self.step_key {
             let _ = create_plots(
                 self.data.clone(),
-                vec!["ep_reward", "mean_loss"],
+                self.keys.clone(),
                 self.dump_path.parent().unwrap().to_path_buf(),
                 x,
             );
@@ -134,7 +141,7 @@ impl Logger for CsvLogger {
 
 pub fn create_plots(
     data: Vec<LogItem>,
-    create: Vec<&str>,
+    create: Vec<String>,
     dir: PathBuf,
     xvar: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -163,7 +170,7 @@ pub fn create_plots(
                 LogData::Int(x) => plot_x = (*x) as f32,
             }
 
-            if let Some(y) = point.items.get(yvar) {
+            if let Some(y) = point.items.get(yvar.as_str()) {
                 match y {
                     LogData::String(_) => todo!(),
                     LogData::Float(y) => {

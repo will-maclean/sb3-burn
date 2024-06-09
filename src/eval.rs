@@ -43,7 +43,7 @@ pub fn evaluate_policy<B: Backend, P: Policy<B>>(
             println!("state: {:?}", state);
         }
 
-        let action = policy.act(&state, env.action_space().clone());
+        let (action, _) = policy.act(&state, env.action_space().clone());
 
         if cfg.print_prediction {
             let pred = policy.predict(state.to_train_tensor().unsqueeze_dim(0));

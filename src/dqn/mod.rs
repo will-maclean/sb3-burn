@@ -16,6 +16,7 @@ use burn::{
 use crate::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
+    logger::{LogData, LogItem},
     policy::Policy,
     spaces::{Action, ActionSpace, Obs, ObsSpace, ObsT},
     utils::{linear_decay, module_update::update_linear},
@@ -35,7 +36,7 @@ pub struct DQNConfig {
     eps_start: f32,
     #[config(default = 0.05)]
     eps_end: f32,
-    #[config(default = 0.1)]
+    #[config(default = 0.9)]
     eps_end_frac: f32,
     #[config(default = 1000)]
     update_every: usize,
@@ -45,7 +46,7 @@ pub struct DQNConfig {
 pub struct DQNNet<B: Backend> {
     l1: nn::Linear<B>,
     l2: nn::Linear<B>,
-    // l3: nn::Linear<B>,
+    l3: nn::Linear<B>,
     adv: nn::Linear<B>,
 }
 
@@ -65,8 +66,8 @@ impl<B: Backend> DQNNet<B> {
 
                 Self {
                     l1: nn::LinearConfig::new(input_size, hidden_size).init(device),
-                    l2: nn::LinearConfig::new(hidden_size, action_size).init(device),
-                    // l3: nn::LinearConfig::new(hidden_size, action_size).init(device),
+                    l2: nn::LinearConfig::new(hidden_size, hidden_size).init(device),
+                    l3: nn::LinearConfig::new(hidden_size, action_size).init(device),
                     adv: nn::LinearConfig::new(hidden_size, 1).init(device),
                 }
             }
@@ -75,24 +76,31 @@ impl<B: Backend> DQNNet<B> {
 
     pub fn forward(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
         let x = relu(self.l1.forward(state));
-        // let x = relu(self.l2.forward(x));
-        self.adv.forward(x.clone()) - self.l2.forward(x)
+        let x = relu(self.l2.forward(x));
+        self.adv.forward(x.clone()) - self.l3.forward(x)
     }
 }
 
 impl<B: Backend> Policy<B> for DQNNet<B> {
-    fn act(&self, state: &Obs, action_space: ActionSpace) -> Action {
+    fn act(&self, state: &Obs, action_space: ActionSpace) -> (Action, Option<LogItem>) {
         let binding = self.devices();
         let device = binding.first().unwrap();
 
-        let state_tensor = state.clone().to_train_tensor().to_device(device).unsqueeze_dim(0);
+        let state_tensor = state
+            .clone()
+            .to_train_tensor()
+            .to_device(device)
+            .unsqueeze_dim(0);
         let q_vals = self.predict(state_tensor);
         let a: i32 = q_vals.squeeze::<1>(0).argmax(0).into_scalar().elem();
 
-        Action::Discrete {
-            space: action_space,
-            idx: a,
-        }
+        (
+            Action::Discrete {
+                space: action_space,
+                idx: a,
+            },
+            None,
+        )
     }
 
     fn predict(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
@@ -105,7 +113,8 @@ impl<B: Backend> Policy<B> for DQNNet<B> {
     fn update(&mut self, from: &Self, tau: Option<f32>) {
         self.l1 = update_linear(&from.l1, self.l1.clone(), tau);
         self.l2 = update_linear(&from.l2, self.l2.clone(), tau);
-        // self.l3 = update_linear(&from.l3, self.l3.clone(), tau);
+        self.l3 = update_linear(&from.l3, self.l3.clone(), tau);
+        self.adv = update_linear(&from.adv, self.adv.clone(), tau);
     }
 }
 
@@ -124,20 +133,39 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
             last_update: 0,
         }
     }
-    pub fn act(&self, step: usize, state: &Obs, trainer: &OfflineTrainer<O, B>) -> Action {
-        {
-            if rand::random::<f32>()
-                > linear_decay(
-                    step as f32 / trainer.offline_params.n_steps as f32,
-                    self.config.eps_start,
-                    self.config.eps_end,
-                    self.config.eps_end_frac,
-                )
-            {
-                self.q1.act(state, trainer.env.action_space().clone())
-            } else {
-                trainer.env.action_space().sample()
+    pub fn act(
+        &self,
+        step: usize,
+        state: &Obs,
+        trainer: &OfflineTrainer<O, B>,
+    ) -> (Action, Option<LogItem>) {
+        let eps = linear_decay(
+            step as f32 / trainer.offline_params.n_steps as f32,
+            self.config.eps_start,
+            self.config.eps_end,
+            self.config.eps_end_frac,
+        );
+
+        if rand::random::<f32>() > eps {
+            let (a, log) = self.q1.act(state, trainer.env.action_space().clone());
+
+            match log {
+                Some(mut log) => {
+                    log = log.push("eps".to_string(), LogData::Float(eps));
+                    (a, Some(log))
+                }
+                None => {
+                    let mut log = LogItem::default();
+                    log = log.push("eps".to_string(), LogData::Float(eps));
+                    (a, Some(log))
+                }
             }
+        } else {
+            let a = trainer.env.action_space().sample();
+            let mut log = LogItem::default();
+            log = log.push("eps".to_string(), LogData::Float(eps));
+
+            (a, Some(log))
         }
     }
 
@@ -254,7 +282,7 @@ mod test {
             None,
             EvalConfig::new(),
             &device,
-            &device
+            &device,
         );
 
         trainer.train();

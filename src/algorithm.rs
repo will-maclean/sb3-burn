@@ -63,7 +63,12 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O
         }
     }
 
-    fn act(&self, state: &Obs, step: usize, trainer: &OfflineTrainer<O, B>) -> Action {
+    fn act(
+        &self,
+        state: &Obs,
+        step: usize,
+        trainer: &OfflineTrainer<O, B>,
+    ) -> (Action, Option<LogItem>) {
         match self {
             OfflineAlgorithm::DQN(agent) => agent.act(step, state, trainer),
         }
@@ -152,10 +157,14 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             .unwrap();
 
         for i in (0..self.offline_params.n_steps).progress_with_style(style) {
-            let action = match i < self.offline_params.warmup_steps {
-                true => self.env.action_space().sample(),
+            let (action, log) = match i < self.offline_params.warmup_steps {
+                true => (self.env.action_space().sample(), None),
                 false => self.algorithm.act(&state, i, self),
             };
+
+            if let Some(log) = log {
+                self.logger.log(log);
+            }
 
             let step_res = self.env.step(&action);
 
@@ -173,9 +182,12 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0)
             {
                 for _ in 0..self.offline_params.grad_steps {
-                    let loss = self
-                        .algorithm
-                        .train_step(i, &self.buffer, &self.offline_params, self.train_device);
+                    let loss = self.algorithm.train_step(
+                        i,
+                        &self.buffer,
+                        &self.offline_params,
+                        self.train_device,
+                    );
                     self.callback.on_step(self, i, step_res.clone(), loss);
 
                     if let Some(loss) = loss {

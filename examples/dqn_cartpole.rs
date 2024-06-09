@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use burn::{
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
+    grad_clipping::GradientClippingConfig,
     optim::AdamConfig,
 };
 use sb3_burn::{
@@ -16,34 +17,41 @@ use sb3_burn::{
 extern crate sb3_burn;
 
 fn main() {
+    // Using parameters from:
+    // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
+
     type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
     let buffer_device = LibTorchDevice::Cpu;
 
-    let config_optimizer = AdamConfig::new();
+    let config_optimizer =
+        AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(256)
+        .with_batch_size(64)
         .with_memory_size(50000)
-        .with_n_steps(100000)
-        .with_warmup_steps(50)
-        .with_lr(1e-3)
-        .with_gamma(0.95)
+        .with_n_steps(50000)
+        .with_warmup_steps(1000)
+        .with_lr(2.3e-3)
+        .with_gamma(0.99)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(false)
-        .with_grad_steps(1)
-        .with_train_every(1);
+        .with_grad_steps(128)
+        .with_train_every(256);
 
-    let env = CartpoleEnv::default();
+    let env = CartpoleEnv::new(500);
     let q = DQNNet::<TrainingBacked>::init(
         &train_device,
         env.observation_space().clone(),
         env.action_space().clone(),
         256,
     );
-    let dqn_config = DQNConfig::new().with_update_every(500).with_eps_end(0.02);
+    let dqn_config = DQNConfig::new()
+        .with_update_every(10)
+        .with_eps_end(0.04)
+        .with_eps_end_frac(0.84);
     let agent = DQNAgent::new(q.clone(), q, optim, dqn_config);
     let dqn_alg = OfflineAlgorithm::DQN(agent);
     let buffer = ReplayBuffer::new(
@@ -66,7 +74,7 @@ fn main() {
     let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
-        Box::<CartpoleEnv>::default(),
+        Box::new(CartpoleEnv::new(500)),
         dqn_alg,
         buffer,
         Box::new(logger),

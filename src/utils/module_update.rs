@@ -16,7 +16,7 @@ fn soft_update_tensor<B: Backend, const D: usize>(
 pub fn update_linear<B: Backend>(from: &Linear<B>, to: Linear<B>, tau: Option<f32>) -> Linear<B> {
     assert_eq!(from.weight.shape(), to.weight.shape());
 
-    let mut result = to.clone(); // already does a hard copy
+    let mut result = from.clone(); // already does a hard copy
 
     match tau {
         Some(tau) => {
