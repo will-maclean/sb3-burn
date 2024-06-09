@@ -179,10 +179,10 @@ impl<'a, B: Backend> ReplayBuffer<'a, B> {
 #[cfg(test)]
 mod tests {
     use crate::spaces::Space;
-    use burn::backend::{wgpu::AutoGraphicsApi, Wgpu};
+    use burn::backend::NdArray;
 
     use super::ReplayBuffer;
-    type MyBackend = Wgpu<AutoGraphicsApi, f32, i32>;
+    type MyBackend = NdArray;
 
     #[test]
     fn test_create_replay_buffer1() {
