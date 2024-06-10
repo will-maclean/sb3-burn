@@ -141,7 +141,6 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
     }
 
     pub fn train(&mut self) {
-        
         self.callback.on_training_start(self);
 
         let mut running_loss = Vec::new();

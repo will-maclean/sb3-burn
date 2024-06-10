@@ -9,7 +9,7 @@ use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer},
     buffer::ReplayBuffer,
     dqn::{DQNAgent, DQNConfig, DQNNet},
-    env::{base::Env, cartpole::CartpoleEnv},
+    env::{base::Env, classic_control::cartpole::CartpoleEnv},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
 };

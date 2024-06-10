@@ -1,9 +1,8 @@
 use crate::{
+    env::base::{Env, EnvObservation},
     spaces::{ActionSpace, Obs, ObsSpace},
     utils::generate_random_vector,
 };
-
-use super::base::{Env, EnvObservation};
 
 pub struct CartpoleEnv {
     sutton_barto_reward: bool,
@@ -93,7 +92,7 @@ impl Default for CartpoleEnv {
 }
 
 impl Env for CartpoleEnv {
-    fn step(&mut self, action: &crate::spaces::SpaceSample) -> super::base::EnvObservation {
+    fn step(&mut self, action: &crate::spaces::SpaceSample) -> EnvObservation {
         if self.needs_reset {
             panic!("Reset required");
         }

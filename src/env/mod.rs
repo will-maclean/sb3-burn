@@ -1,4 +1,4 @@
 pub mod base;
-pub mod cartpole;
+pub mod classic_control;
 pub mod gridworld;
 pub mod probe;
