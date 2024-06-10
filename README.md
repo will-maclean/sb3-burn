@@ -18,7 +18,7 @@ Algorithms:
 
 | Algorithm | Implementation |
 | --------- | -------------- |
-| DQN       | In Progress    |
+| DQN       | Implemented    |
 | SAC       | Planned        |
 | PPO       | Planned        |
 
@@ -27,6 +27,7 @@ Environments:
 | --------- | -------------- |
 | Gridworld       | Rust, done    |
 | Cartpole       | Rust, done    |
+| MoubntainCar       | Rust, done    |
 | Gym classic control       | Python, In Progress        |
 | Snake       | Python, In Progress        |
 
