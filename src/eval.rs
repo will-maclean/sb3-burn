@@ -1,6 +1,5 @@
 use burn::{config::Config, tensor::backend::Backend};
-
-use crate::{env::base::Env, policy::Policy, utils::mean};
+use crate::{env::base::{Env, EnvError}, policy::Policy, utils::mean};
 
 pub struct EvalResult {
     pub mean_len: f32,
@@ -13,23 +12,23 @@ pub struct EvalConfig {
     n_eval_episodes: usize,
 }
 
-pub fn evaluate_policy<B: Backend, P: Policy<B>>(
+pub async fn evaluate_policy<B: Backend, P: Policy<B>>(
     policy: &P,
     env: &mut dyn Env,
     cfg: &EvalConfig,
-) -> EvalResult {
+) -> Result<EvalResult, EnvError> {
     let mut episode_rewards = Vec::new();
     let mut episode_lengths = Vec::new();
     let mut completed_episodes = 0;
 
-    let mut state = env.reset();
+    let mut state = env.reset().await?;
     let mut running_reward = 0.0;
     let mut ep_len = 0.0;
 
     while completed_episodes < cfg.n_eval_episodes {
         let action = policy.act(&state, env.action_space().clone());
 
-        let step_sample = env.step(&action);
+        let step_sample = env.step(&action).await?;
 
         let (next_obs, reward, done) = (step_sample.obs, step_sample.reward, step_sample.done);
         running_reward += reward;
@@ -47,8 +46,8 @@ pub fn evaluate_policy<B: Backend, P: Policy<B>>(
         }
     }
 
-    EvalResult {
+    Ok(EvalResult {
         mean_len: mean(&episode_lengths),
         mean_reward: mean(&episode_rewards),
-    }
+    })
 }

@@ -67,25 +67,27 @@ class GymSocketMgr:
         env_builder = make_full_env if self.running_params["env_type"] == "full" else make_simple_env
         self.env = env_builder(gym.make(self.running_params["env_name"]))
 
-        observation = self.env.reset()
+        _ = self.env.reset() # Confirm env can be reset
         print(f"\nLoaded {self.running_params['env_type']} gym environment {self.running_params['env_name']}")
 
         # Send the observation, action, and reward space information to the client
         env_info = {
             'observation_space': list(self.env.observation_space.shape),
             'action_space': self.env.action_space.n,
-            'reward_range': list(self.env.reward_range),
-            'initial_observation': observation.tolist()
+            'reward_range': list(self.env.reward_range)
         }
 
         # Look for infinity values and replace with string for json compatibility
-        for v in env_info.values():
+        for k, v in env_info.items():
             if isinstance(v, list):
                 for i, el in enumerate(v):
                     if el == -np.inf:
                         v[i] = '-inf'
                     elif el == np.inf:
                         v[i] = 'inf'
+                if k == "reward_range":
+                    env_info[k] = [str(el) for el in v] 
+
 
         print(f"Sending env info: \n{env_info}")
         self._send_message(env_info)
@@ -106,9 +108,12 @@ class GymSocketMgr:
 
                 if action == "quit":
                     return
-
-                # Step through the environment with the received action
-                observation, reward, done, info = self.env.step(action)
+                elif action == "reset":
+                    observation = self.env.reset()
+                    reward, done = 0.0, False   # dummy values
+                else:
+                    # Step through the environment with the received action
+                    observation, reward, done, _ = self.env.step(action)
 
                 # Render the env if requested by client
                 if render:
@@ -116,17 +121,12 @@ class GymSocketMgr:
 
                 # Send the resulting state, reward, and done state back to the client
                 response = {
-                    'observation': observation.tolist(),
+                    'obs': observation.tolist(),
                     'reward': reward,
-                    'done': done,
-                    'info': info
+                    'done': done
                 }
 
                 self._send_message(response)
-
-                if done:
-                    observation = self.env.reset()
-                    print("Completed an episode")
 
         except Exception as e:
             print(e.with_traceback())

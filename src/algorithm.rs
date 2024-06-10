@@ -11,6 +11,8 @@ use crate::logger::{LogData, LogItem, Logger};
 use crate::spaces::{Action, Obs};
 use crate::utils::mean;
 
+use std::error::Error;
+
 use crate::dqn::DQNAgent;
 
 #[derive(Config)]
@@ -106,8 +108,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
         }
     }
 
-    pub fn train(&mut self) {
-        let mut state = self.env.reset();
+    pub async fn train(&mut self) -> Result<>{
+        let mut state = self.env.reset().await?;
 
         let device = B::Device::default();
 
@@ -143,7 +145,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
                 false => self.algorithm.act(&state, i, self),
             };
 
-            let step_res = self.env.step(&action);
+            let step_res = self.env.step(&action).await?;
 
             if self.offline_params.render & self.env.renderable() {
                 self.env.render();
@@ -176,7 +178,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
                         .push("ep_reward".to_string(), LogData::Float(running_reward)),
                 );
 
-                state = self.env.reset();
+                state = self.env.reset().await?;
                 episodes += 1;
                 running_reward = 0.0;
                 running_loss = Vec::new();
@@ -187,5 +189,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<O, 
 
         self.callback.on_training_end(self);
         let _ = self.logger.dump();
+
+        Ok(())
     }
 }

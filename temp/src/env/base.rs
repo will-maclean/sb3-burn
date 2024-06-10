@@ -2,9 +2,10 @@ use crate::spaces::{ActionSpace, Obs, ObsSpace, SpaceSample};
 
 use async_trait::async_trait;
 
-
+#[derive(Debug)]
 pub enum EnvError {
-    FatalEnvError
+    InitError(String),
+    FatalEnvError(String),
 }
 
 #[derive(Clone, Debug)]
