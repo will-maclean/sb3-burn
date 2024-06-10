@@ -1,3 +1,5 @@
+use std::time;
+
 use burn::config::Config;
 use burn::optim::SimpleOptimizer;
 use burn::tensor::backend::AutodiffBackend;
@@ -139,13 +141,13 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
     }
 
     pub fn train(&mut self) {
-        let mut state = self.env.reset();
-
+        
         self.callback.on_training_start(self);
 
         let mut running_loss = Vec::new();
         let mut running_reward = 0.0;
         let mut episodes = 0;
+        let mut ep_len = 0;
 
         if self.offline_params.eval_at_start_of_training {
             self.algorithm
@@ -155,6 +157,9 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
         let style = ProgressStyle::default_bar()
             .template("{pos:>7}/{len:7} {bar} [{elapsed_precise}], eta: [{eta}]")
             .unwrap();
+
+        let mut state = self.env.reset();
+        let mut ep_start_time = time::Instant::now();
 
         for i in (0..self.offline_params.n_steps).progress_with_style(style) {
             let (action, log) = match i < self.offline_params.warmup_steps {
@@ -175,6 +180,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             let (next_obs, reward, done) = (step_res.obs.clone(), step_res.reward, step_res.done);
 
             running_reward += reward;
+            ep_len += 1;
 
             self.buffer
                 .add(state, action, next_obs.clone(), reward, done);
@@ -204,18 +210,24 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             }
 
             if done {
+                let ep_end_time = time::Instant::now();
+                let ep_fps = (ep_len as f32) / (ep_end_time - ep_start_time).as_secs_f32();
                 self.logger.log(
                     LogItem::default()
                         .push("global_step".to_string(), LogData::Int(i as i32))
                         .push("ep_num".to_string(), LogData::Int(episodes))
                         .push("mean_loss".to_string(), LogData::Float(mean(&running_loss)))
-                        .push("ep_reward".to_string(), LogData::Float(running_reward)),
+                        .push("ep_reward".to_string(), LogData::Float(running_reward))
+                        .push("ep_len".to_string(), LogData::Int(ep_len))
+                        .push("ep_fps".to_string(), LogData::Float(ep_fps)),
                 );
 
+                ep_start_time = time::Instant::now();
                 state = self.env.reset();
                 episodes += 1;
                 running_reward = 0.0;
                 running_loss = Vec::new();
+                ep_len = 0;
             } else {
                 state = next_obs;
             }

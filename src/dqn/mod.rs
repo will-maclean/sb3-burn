@@ -264,7 +264,7 @@ mod test {
         // create the logs dir
         let mut log_dir = std::env::current_dir().unwrap();
         log_dir.push("tmp_logs");
-        std::fs::create_dir(&log_dir);
+        let _ = std::fs::create_dir(&log_dir);
 
         let logger = CsvLogger::new(
             PathBuf::from("tmp_logs/log.csv"),
@@ -287,6 +287,6 @@ mod test {
 
         trainer.train();
 
-        std::fs::remove_dir_all(log_dir);
+        let _ = std::fs::remove_dir_all(log_dir);
     }
 }
