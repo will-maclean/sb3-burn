@@ -2,7 +2,7 @@
 
 [![Continuous Integration](https://github.com/will-maclean/sb3-burn/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/will-maclean/sb3-burn/actions/workflows/rust.yml)
 
-Stable-baselines3 port written in rust using the burn library.
+[Stable-baselines3](https://github.com/DLR-RM/stable-baselines3/tree/master) port written in rust using the [burn](https://github.com/tracel-ai/burn) library.
 
 WIP, contributors welcome :)
 
