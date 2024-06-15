@@ -7,7 +7,8 @@ pub struct ReplayBufferSlice<B: Backend> {
     action: Tensor<B, 1>,
     next_state: Tensor<B, 1>,
     reward: f32,
-    done: bool,
+    terminated: bool,
+    truncated: bool,
 }
 
 pub struct BatchedReplayBufferSliceT<B: Backend> {
@@ -15,7 +16,8 @@ pub struct BatchedReplayBufferSliceT<B: Backend> {
     pub actions: Tensor<B, 2>,
     pub next_states: Tensor<B, 2>,
     pub rewards: Tensor<B, 2>,
-    pub dones: Tensor<B, 2, Int>,
+    pub terminated: Tensor<B, 2, Int>,
+    pub truncated: Tensor<B, 2, Int>,
 }
 
 impl<B: Backend> BatchedReplayBufferSliceT<B> {
@@ -24,7 +26,8 @@ impl<B: Backend> BatchedReplayBufferSliceT<B> {
         self.actions = self.actions.clone().to_device(device);
         self.next_states = self.next_states.clone().to_device(device);
         self.rewards = self.rewards.clone().to_device(device);
-        self.dones = self.dones.clone().to_device(device);
+        self.terminated = self.terminated.clone().to_device(device);
+        self.truncated = self.truncated.clone().to_device(device);
     }
 }
 
@@ -33,7 +36,8 @@ pub struct ReplayBuffer<B: Backend> {
     actions: Tensor<B, 2>,
     next_states: Tensor<B, 2>,
     rewards: Tensor<B, 2>,
-    dones: Tensor<B, 2, Int>,
+    terminated: Tensor<B, 2, Int>,
+    truncated: Tensor<B, 2, Int>,
     size: usize,
     full: bool,
     ptr: usize,
@@ -47,7 +51,8 @@ impl<B: Backend> ReplayBuffer<B> {
             actions: Tensor::<B, 2>::zeros([size, action_dim], &device),
             next_states: Tensor::<B, 2>::zeros([size, state_dim], &device),
             rewards: Tensor::<B, 2>::zeros([size, 1], &device),
-            dones: Tensor::<B, 2, Int>::empty([size, 1], &device),
+            terminated: Tensor::<B, 2, Int>::empty([size, 1], &device),
+            truncated: Tensor::<B, 2, Int>::empty([size, 1], &device),
             size,
             full: false,
             ptr: 0,
@@ -71,14 +76,13 @@ impl<B: Backend> ReplayBuffer<B> {
             state: self.states.clone().slice([idx..idx + 1]).squeeze(0),
             action: self.actions.clone().slice([idx..idx + 1]).squeeze(0),
             next_state: self.next_states.clone().slice([idx..idx + 1]).squeeze(0),
-            reward: 0.0, // FIXME: self.rewards.to_data().value[0],
-            done: false, // FIXME: self.dones.clone().slice([idx..idx+1]).squeeze::<1>(0).into_scalar(),
+            reward: self.rewards.clone().slice([idx..idx + 1]).squeeze::<1>(0).into_scalar().elem(),
+            terminated: self.terminated.clone().slice([idx..idx + 1]).squeeze::<1>(0).into_scalar().elem::<i32>() != 0,
+            truncated: self.truncated.clone().slice([idx..idx + 1]).squeeze::<1>(0).into_scalar().elem::<i32>() != 0,
         })
     }
 
     pub fn add_slice(&mut self, item: ReplayBufferSlice<B>) {
-        // let d = Default::default();
-
         self.states = self
             .states
             .clone()
@@ -96,9 +100,14 @@ impl<B: Backend> ReplayBuffer<B> {
             [self.ptr..self.ptr + 1],
             Tensor::<B, 1>::from_floats([item.reward], &self.rewards.device()).unsqueeze_dim(0),
         );
-        self.dones = self.dones.clone().slice_assign(
+        self.terminated = self.terminated.clone().slice_assign(
             [self.ptr..self.ptr + 1],
-            Tensor::<B, 1, Int>::from_ints([item.done as i32], &self.dones.device())
+            Tensor::<B, 1, Int>::from_ints([item.terminated as i32], &self.terminated.device())
+                .unsqueeze_dim(0),
+        );
+        self.truncated = self.truncated.clone().slice_assign(
+            [self.ptr..self.ptr + 1],
+            Tensor::<B, 1, Int>::from_ints([item.truncated as i32], &self.truncated.device())
                 .unsqueeze_dim(0),
         );
 
@@ -115,14 +124,16 @@ impl<B: Backend> ReplayBuffer<B> {
         action: Tensor<B, 1>,
         next_state: Tensor<B, 1>,
         reward: f32,
-        done: bool,
+        terminated: bool,
+        truncated: bool,
     ) {
         self.add_slice(ReplayBufferSlice {
             state,
             action,
             next_state,
             reward,
-            done,
+            terminated,
+            truncated,
         })
     }
 
@@ -132,14 +143,16 @@ impl<B: Backend> ReplayBuffer<B> {
         action: SpaceSample,
         next_state: SpaceSample,
         reward: f32,
-        done: bool,
+        terminated: bool,
+        truncated: bool,
     ) {
         self.add_processed(
             state.to_train_tensor(),
             action.to_tensor(),
             next_state.to_train_tensor(),
             reward,
-            done,
+            terminated,
+            truncated,
         )
     }
 
@@ -168,7 +181,8 @@ impl<B: Backend> ReplayBuffer<B> {
             actions: self.actions.clone().select(0, indices.clone()),
             next_states: self.next_states.clone().select(0, indices.clone()),
             rewards: self.rewards.clone().select(0, indices.clone()),
-            dones: self.dones.clone().select(0, indices.clone()),
+            terminated: self.terminated.clone().select(0, indices.clone()),
+            truncated: self.truncated.clone().select(0, indices.clone()),
         })
     }
 }
@@ -208,6 +222,7 @@ mod tests {
             observation_space.sample(),
             0.5,
             false,
+            false,
         );
     }
 
@@ -234,6 +249,7 @@ mod tests {
             action_space.sample(),
             observation_space.sample(),
             0.5,
+            false,
             false,
         );
     }
@@ -262,6 +278,7 @@ mod tests {
             observation_space.sample(),
             0.5,
             false,
+            false,
         );
     }
 
@@ -285,6 +302,7 @@ mod tests {
             action_space.sample(),
             observation_space.sample(),
             0.5,
+            false,
             false,
         );
     }
@@ -328,6 +346,7 @@ mod tests {
                 action_space.sample(),
                 observation_space.sample(),
                 0.5,
+                false,
                 false,
             );
         }

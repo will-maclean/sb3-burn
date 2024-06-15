@@ -8,7 +8,7 @@ fn main() {
 
     let mut done = false;
     let mut reward = 0.0;
-    env.reset();
+    env.reset(None, None);
 
     while !done {
         let a = env.action_space().sample();
@@ -17,7 +17,7 @@ fn main() {
         println!("action: {:?}", a);
         println!("obs: {:?}", obs);
 
-        done = obs.done;
+        done = obs.truncated | obs.terminated;
         reward += obs.reward;
     }
 

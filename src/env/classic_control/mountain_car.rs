@@ -1,5 +1,5 @@
 use crate::{
-    env::base::{Env, EnvObservation},
+    env::base::{Env, EnvObservation, ResetOptions, RewardRange},
     spaces::{ActionSpace, Obs, ObsSpace},
     utils::generate_random_vector,
 };
@@ -73,23 +73,24 @@ impl Env for MountainCarEnv {
             v = 0.0;
         }
 
-        let mut done = (p >= self.goal_position) & (v >= self.goal_velocity);
+        let terminated = (p >= self.goal_position) & (v >= self.goal_velocity);
 
         self.curr_steps += 1;
-        done |= self.curr_steps > self.max_steps;
+        let truncated = self.curr_steps > self.max_steps;
 
-        self.needs_reset = done;
+        self.needs_reset = terminated | truncated;
         let reward = -1.0;
         self.state = vec![p, v];
 
         EnvObservation {
             obs: self.get_obs(),
             reward,
-            done,
+            terminated,
+            truncated
         }
     }
 
-    fn reset(&mut self) -> crate::spaces::Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> crate::spaces::Obs {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.6, 0.0], vec![-0.4, 0.0]);
@@ -115,6 +116,12 @@ impl Env for MountainCarEnv {
     fn renderable(&self) -> bool {
         false
     }
+    
+    fn reward_range(&self) -> crate::env::base::RewardRange {RewardRange{low: -1.0, high: -1.0}}
+    
+    fn close (&mut self) {}
+    
+    fn unwrapped(&self) -> &dyn Env {self}
 }
 
 #[cfg(test)]
@@ -127,11 +134,11 @@ mod test {
     fn test_mountaincar() {
         let mut env = MountainCarEnv::default();
         let mut done = false;
-        env.reset();
+        env.reset(None, None);
 
         while !done {
             let result = env.step(&env.action_space().sample());
-            done = result.done;
+            done = result.truncated | result.terminated;
         }
     }
 }
