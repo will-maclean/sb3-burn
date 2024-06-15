@@ -179,7 +179,8 @@ impl Env for CartpoleEnv {
             obs: self.get_obs(),
             reward,
             terminated: done,
-            truncated
+            truncated,
+            info: Default::default(),
         }
     }
 

@@ -86,7 +86,8 @@ impl Env for MountainCarEnv {
             obs: self.get_obs(),
             reward,
             terminated,
-            truncated
+            truncated,
+            info: Default::default(),
         }
     }
 

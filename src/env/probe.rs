@@ -18,6 +18,7 @@ impl Env for ProbeEnvValueTest {
             reward: 1.0,
             terminated: true,
             truncated: false,
+            info: Default::default(),
         }
     }
 
@@ -82,6 +83,7 @@ impl Env for ProbeEnvBackpropTest {
             reward,
             terminated: true,
             truncated: false,
+            info: Default::default(),
         }
     }
 
@@ -134,6 +136,7 @@ impl Env for ProbeEnvDiscountingTest {
                 reward: 1.0,
                 terminated: true,
                 truncated: false,
+                info: Default::default(),
             }
         } else {
             self.done_next = true;
@@ -146,6 +149,7 @@ impl Env for ProbeEnvDiscountingTest {
                 reward: 0.0,
                 terminated: false,
                 truncated: false,
+                info: Default::default(),
             }
         }
     }
@@ -203,6 +207,7 @@ impl Env for ProbeEnvActionTest {
                     reward,
                     terminated: true,
                     truncated: false,
+                    info: Default::default(),
                 }
             }
         }
@@ -274,6 +279,7 @@ impl Env for ProbeEnvStateActionTest {
                     reward,
                     terminated: true,
                     truncated: false,
+                    info: Default::default(),
                 }
             }
         }

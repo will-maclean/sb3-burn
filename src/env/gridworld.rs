@@ -167,7 +167,8 @@ impl Env for GridWorldEnv {
             },
             reward,
             terminated,
-            truncated
+            truncated,
+            info: Default::default(),
         }
     }
 

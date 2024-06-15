@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
-use crate::spaces::{ActionSpace, Obs, ObsSpace, SpaceSample};
+use crate::{logger::LogData, spaces::{ActionSpace, Obs, ObsSpace, SpaceSample}};
+
+pub type ResetOptions = HashMap<String, LogData>;
+pub type Info = HashMap<String, LogData>;
 
 #[derive(Clone, Debug)]
 pub struct EnvObservation {
@@ -8,15 +11,9 @@ pub struct EnvObservation {
     pub reward: f32,
     pub terminated: bool,
     pub truncated: bool,
+    pub info: Info,
 }
 
-pub enum OptionData {
-    Float(f32),
-    Int(i32),
-    String(String)
-}
-
-pub type ResetOptions = HashMap<String, OptionData>;
 
 #[derive(Clone, Debug, Copy)]
 pub struct RewardRange{
