@@ -1,9 +1,18 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use crate::{logger::LogData, spaces::{ActionSpace, Obs, ObsSpace, SpaceSample}};
 
+#[derive(Debug, Clone)]
+pub enum InfoData {
+    String(String),
+    Float(f32),
+    Int(i32),
+    Obs(SpaceSample),
+    InfoDict(Info)
+}
+
 pub type ResetOptions = HashMap<String, LogData>;
-pub type Info = HashMap<String, LogData>;
+pub type Info = HashMap<String, InfoData>;
 
 #[derive(Clone, Debug)]
 pub struct EnvObservation {

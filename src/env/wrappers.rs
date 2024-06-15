@@ -1,4 +1,4 @@
-use super::base::Env;
+use super::base::{Env, InfoData};
 
 pub struct TimeLimitWrapper {
     env: Box<dyn Env>,
@@ -72,8 +72,19 @@ impl Env for AutoResetWrapper {
         let mut step_result = self.env.step(action);
 
         if step_result.truncated | step_result.terminated {
-            let new_obs = self.reset(None, None);
 
+            if step_result.info.contains_key(&"final_observation".to_string()){
+                panic!("info dict cannot contain key \"final_observation\"");
+            }
+
+            if step_result.info.contains_key(&"final_info".to_string()){
+                panic!("info dict cannot contain key \"final_info\"");
+            }
+
+            step_result.info.insert("final_observation".to_string(), InfoData::Obs(step_result.obs.clone()));
+            step_result.info.insert("final_info".to_string(), InfoData::InfoDict(step_result.info.clone()));
+
+            let new_obs = self.reset(None, None);
             step_result.obs = new_obs;
         }
 
