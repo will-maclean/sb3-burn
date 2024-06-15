@@ -190,7 +190,9 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
 
                 //FIXME: check that we should be using terminated and essentially ignoring truncated
                 let targets = sample.rewards
-                    + sample.terminated.bool().bool_not().float() * next_q_vals * offline_params.gamma;
+                    + sample.terminated.bool().bool_not().float()
+                        * next_q_vals
+                        * offline_params.gamma;
 
                 let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 

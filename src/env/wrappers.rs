@@ -8,7 +8,11 @@ pub struct TimeLimitWrapper {
 
 impl TimeLimitWrapper {
     pub fn new(env: Box<dyn Env>, max_steps: usize) -> Self {
-        Self { env, max_steps, curr_steps: 0 }
+        Self {
+            env,
+            max_steps,
+            curr_steps: 0,
+        }
     }
 }
 
@@ -22,7 +26,11 @@ impl Env for TimeLimitWrapper {
         step_result
     }
 
-    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<super::base::ResetOptions>) -> crate::spaces::Obs {
+    fn reset(
+        &mut self,
+        seed: Option<[u8; 32]>,
+        options: Option<super::base::ResetOptions>,
+    ) -> crate::spaces::Obs {
         self.curr_steps = 0;
 
         self.env.reset(seed, options)
@@ -48,12 +56,12 @@ impl Env for TimeLimitWrapper {
         self.env.renderable()
     }
 
-    fn close (&mut self) {
+    fn close(&mut self) {
         self.env.close()
     }
 
     fn unwrapped(&self) -> &dyn Env {
-        & *self.env
+        &*self.env
     }
 }
 
@@ -72,17 +80,25 @@ impl Env for AutoResetWrapper {
         let mut step_result = self.env.step(action);
 
         if step_result.truncated | step_result.terminated {
-
-            if step_result.info.contains_key(&"final_observation".to_string()){
+            if step_result
+                .info
+                .contains_key(&"final_observation".to_string())
+            {
                 panic!("info dict cannot contain key \"final_observation\"");
             }
 
-            if step_result.info.contains_key(&"final_info".to_string()){
+            if step_result.info.contains_key(&"final_info".to_string()) {
                 panic!("info dict cannot contain key \"final_info\"");
             }
 
-            step_result.info.insert("final_observation".to_string(), InfoData::Obs(step_result.obs.clone()));
-            step_result.info.insert("final_info".to_string(), InfoData::InfoDict(step_result.info.clone()));
+            step_result.info.insert(
+                "final_observation".to_string(),
+                InfoData::Obs(step_result.obs.clone()),
+            );
+            step_result.info.insert(
+                "final_info".to_string(),
+                InfoData::InfoDict(step_result.info.clone()),
+            );
 
             let new_obs = self.reset(None, None);
             step_result.obs = new_obs;
@@ -91,7 +107,11 @@ impl Env for AutoResetWrapper {
         step_result
     }
 
-    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<super::base::ResetOptions>) -> crate::spaces::Obs {
+    fn reset(
+        &mut self,
+        seed: Option<[u8; 32]>,
+        options: Option<super::base::ResetOptions>,
+    ) -> crate::spaces::Obs {
         self.env.reset(seed, options)
     }
 
@@ -115,12 +135,12 @@ impl Env for AutoResetWrapper {
         self.env.renderable()
     }
 
-    fn close (&mut self) {
+    fn close(&mut self) {
         self.env.close()
     }
 
     fn unwrapped(&self) -> &dyn Env {
-        & *self.env
+        &*self.env
     }
 }
 
@@ -131,7 +151,7 @@ mod test {
     use super::TimeLimitWrapper;
 
     #[test]
-    fn test_time_limit_wrapper(){
+    fn test_time_limit_wrapper() {
         let truncate_steps = 5;
         let unwrapped_env = CartpoleEnv::new(200);
         let mut wrapped_env = TimeLimitWrapper::new(Box::new(unwrapped_env), truncate_steps);

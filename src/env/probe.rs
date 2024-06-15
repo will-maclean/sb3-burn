@@ -42,12 +42,19 @@ impl Env for ProbeEnvValueTest {
     fn renderable(&self) -> bool {
         false
     }
-    
-    fn reward_range(&self) -> super::base::RewardRange {RewardRange{low: 1.0, high: 1.0}}
-    
-    fn close (&mut self) {}
-    
-    fn unwrapped(&self) -> &dyn Env {self}
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 1.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 // One action, random +1/0 observation, one timestep long, obs-dependent +1/0
@@ -109,12 +116,19 @@ impl Env for ProbeEnvBackpropTest {
     fn renderable(&self) -> bool {
         false
     }
-    
-    fn reward_range(&self) -> super::base::RewardRange {RewardRange{low: 0.0, high: 1.0}}
-    
-    fn close (&mut self) {}
-    
-    fn unwrapped(&self) -> &dyn Env {self}
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 // One action, zero-then-one observation, two timesteps long, +1
@@ -175,12 +189,19 @@ impl Env for ProbeEnvDiscountingTest {
     fn renderable(&self) -> bool {
         false
     }
-    
-    fn reward_range(&self) -> super::base::RewardRange {RewardRange{low: 0.0, high: 1.0}}
-    
-    fn close (&mut self) {}
-    
-    fn unwrapped(&self) -> &dyn Env {self}
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 // Two actions, zero observation, one timestep long, action-dependent
@@ -233,12 +254,19 @@ impl Env for ProbeEnvActionTest {
     fn renderable(&self) -> bool {
         false
     }
-    
-    fn reward_range(&self) -> super::base::RewardRange {RewardRange{low: 0.0, high: 1.0}}
-    
-    fn close (&mut self) {}
-    
-    fn unwrapped(&self) -> &dyn Env {self}
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 // Two actions, random +1/-1 observation, one timestep long, action-and-obs
@@ -306,10 +334,17 @@ impl Env for ProbeEnvStateActionTest {
     fn renderable(&self) -> bool {
         false
     }
-    
-    fn reward_range(&self) -> super::base::RewardRange {RewardRange{low: 0.0, high: 1.0}}
-    
-    fn close (&mut self) {}
-    
-    fn unwrapped(&self) -> &dyn Env {self}
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }

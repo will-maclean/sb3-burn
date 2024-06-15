@@ -76,9 +76,29 @@ impl<B: Backend> ReplayBuffer<B> {
             state: self.states.clone().slice([idx..idx + 1]).squeeze(0),
             action: self.actions.clone().slice([idx..idx + 1]).squeeze(0),
             next_state: self.next_states.clone().slice([idx..idx + 1]).squeeze(0),
-            reward: self.rewards.clone().slice([idx..idx + 1]).squeeze::<1>(0).into_scalar().elem(),
-            terminated: self.terminated.clone().slice([idx..idx + 1]).squeeze::<1>(0).into_scalar().elem::<i32>() != 0,
-            truncated: self.truncated.clone().slice([idx..idx + 1]).squeeze::<1>(0).into_scalar().elem::<i32>() != 0,
+            reward: self
+                .rewards
+                .clone()
+                .slice([idx..idx + 1])
+                .squeeze::<1>(0)
+                .into_scalar()
+                .elem(),
+            terminated: self
+                .terminated
+                .clone()
+                .slice([idx..idx + 1])
+                .squeeze::<1>(0)
+                .into_scalar()
+                .elem::<i32>()
+                != 0,
+            truncated: self
+                .truncated
+                .clone()
+                .slice([idx..idx + 1])
+                .squeeze::<1>(0)
+                .into_scalar()
+                .elem::<i32>()
+                != 0,
         })
     }
 

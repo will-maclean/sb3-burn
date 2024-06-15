@@ -184,7 +184,11 @@ impl Env for CartpoleEnv {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> crate::spaces::Obs {
+    fn reset(
+        &mut self,
+        _seed: Option<[u8; 32]>,
+        _options: Option<ResetOptions>,
+    ) -> crate::spaces::Obs {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.05; 4], vec![0.05; 4]);
@@ -211,18 +215,26 @@ impl Env for CartpoleEnv {
     fn renderable(&self) -> bool {
         false
     }
-    
+
     fn reward_range(&self) -> crate::env::base::RewardRange {
         if self.sutton_barto_reward {
-            RewardRange{low: -1.0, high: 0.0}
+            RewardRange {
+                low: -1.0,
+                high: 0.0,
+            }
         } else {
-            RewardRange{low: 0.0, high: 1.0}
+            RewardRange {
+                low: 0.0,
+                high: 1.0,
+            }
         }
     }
-    
-    fn close (&mut self) {}
-    
-    fn unwrapped(&self) -> &dyn Env {self}
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 #[cfg(test)]

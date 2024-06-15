@@ -181,8 +181,14 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             running_reward += step_res.reward;
             ep_len += 1;
 
-            self.buffer
-                .add(state, action, step_res.obs.clone(), step_res.reward, step_res.terminated, step_res.truncated);
+            self.buffer.add(
+                state,
+                action,
+                step_res.obs.clone(),
+                step_res.reward,
+                step_res.terminated,
+                step_res.truncated,
+            );
 
             if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0)
             {

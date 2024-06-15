@@ -227,15 +227,15 @@ impl Env for GridWorldEnv {
     fn renderable(&self) -> bool {
         false
     }
-    
+
     fn reward_range(&self) -> super::base::RewardRange {
         todo!()
     }
-    
-    fn close (&mut self) {
+
+    fn close(&mut self) {
         todo!()
     }
-    
+
     fn unwrapped(&self) -> &dyn Env {
         todo!()
     }

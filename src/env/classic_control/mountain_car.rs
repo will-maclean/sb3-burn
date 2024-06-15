@@ -91,7 +91,11 @@ impl Env for MountainCarEnv {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> crate::spaces::Obs {
+    fn reset(
+        &mut self,
+        _seed: Option<[u8; 32]>,
+        _options: Option<ResetOptions>,
+    ) -> crate::spaces::Obs {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.6, 0.0], vec![-0.4, 0.0]);
@@ -117,12 +121,19 @@ impl Env for MountainCarEnv {
     fn renderable(&self) -> bool {
         false
     }
-    
-    fn reward_range(&self) -> crate::env::base::RewardRange {RewardRange{low: -1.0, high: -1.0}}
-    
-    fn close (&mut self) {}
-    
-    fn unwrapped(&self) -> &dyn Env {self}
+
+    fn reward_range(&self) -> crate::env::base::RewardRange {
+        RewardRange {
+            low: -1.0,
+            high: -1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 #[cfg(test)]

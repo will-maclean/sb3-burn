@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::{logger::LogData, spaces::{ActionSpace, Obs, ObsSpace, SpaceSample}};
+use crate::{
+    logger::LogData,
+    spaces::{ActionSpace, Obs, ObsSpace, SpaceSample},
+};
 
 #[derive(Debug, Clone)]
 pub enum InfoData {
@@ -8,7 +11,7 @@ pub enum InfoData {
     Float(f32),
     Int(i32),
     Obs(SpaceSample),
-    InfoDict(Info)
+    InfoDict(Info),
 }
 
 pub type ResetOptions = HashMap<String, LogData>;
@@ -23,9 +26,8 @@ pub struct EnvObservation {
     pub info: Info,
 }
 
-
 #[derive(Clone, Debug, Copy)]
-pub struct RewardRange{
+pub struct RewardRange {
     pub low: f32,
     pub high: f32,
 }
@@ -38,6 +40,6 @@ pub trait Env {
     fn reward_range(&self) -> RewardRange;
     fn render(&self);
     fn renderable(&self) -> bool;
-    fn close (&mut self);
+    fn close(&mut self);
     fn unwrapped(&self) -> &dyn Env;
 }
