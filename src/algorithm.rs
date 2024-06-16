@@ -99,7 +99,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + De
 
         if self.offline_params.eval_at_start_of_training {
             let log = self.agent
-                .eval(&mut *self.eval_env, &self.eval_cfg);
+                .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
             //TODO: log the log
         }
@@ -167,7 +167,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + De
                 & (i % self.offline_params.evaluate_every_steps == 0)
             {
                 let log = self.agent
-                    .eval(&mut *self.eval_env, &self.eval_cfg);
+                    .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
                 //TODO: log the log
             }
@@ -198,7 +198,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + De
 
         if self.offline_params.eval_at_end_of_training {
             let log = self.agent
-                .eval(&mut *self.eval_env, &self.eval_cfg);
+                .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
             // TODO: log the logger
         }

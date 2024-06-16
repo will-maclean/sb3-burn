@@ -101,7 +101,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>,
         // sample from the replay buffer
         let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
 
-        let mut log = LogItem::default();
+        // can make this mut when we want to log stuff in the loss step
+        let log = LogItem::default();
 
         let loss = match batch_sample {
             Some(sample) => {
@@ -147,8 +148,9 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>,
         &mut self,
         env: &mut dyn Env<Vec<f32>, usize>,
         cfg: &EvalConfig,
+        eval_device: &B::Device
     ) -> LogItem{
-        let eval_result = evaluate_policy(&self.q1, env, cfg);
+        let eval_result = evaluate_policy(self, env, cfg, eval_device);
 
         LogItem::default()
             .push(

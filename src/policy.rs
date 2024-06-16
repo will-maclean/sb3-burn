@@ -25,6 +25,7 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
         &mut self,
         env: &mut dyn Env<O, A>,
         cfg: &EvalConfig,
+        eval_device: &B::Device,
     ) -> LogItem;
 
     fn observation_space(&self) -> Box<dyn Space<O>>;
