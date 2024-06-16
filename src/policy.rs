@@ -2,7 +2,7 @@ use burn::module::Module;
 use burn::tensor::backend::Backend;
 
 use crate::{
-    algorithm::OfflineAlgParams, buffer::ReplayBuffer, logger::LogItem, spaces::Space
+    algorithm::OfflineAlgParams, buffer::ReplayBuffer, env::base::Env, eval::EvalConfig, logger::LogItem, spaces::Space
 };
 
 pub trait Agent<B: Backend, O: Clone, A: Clone> {
@@ -16,15 +16,16 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     fn train_step(
         &mut self,
         global_step: usize,
-        replay_buffer: ReplayBuffer<O, A>,
+        replay_buffer: &ReplayBuffer<O, A>,
         offline_params: &OfflineAlgParams,
         train_device: &B::Device,
     ) -> (Option<f32>, LogItem);
 
     fn eval(
         &mut self,
-        n_eps: usize,
-    );
+        env: &mut dyn Env<O, A>,
+        cfg: &EvalConfig,
+    ) -> LogItem;
 
     fn observation_space(&self) -> Box<dyn Space<O>>;
     fn action_space(&self) -> Box<dyn Space<A>>;

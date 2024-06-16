@@ -1,6 +1,8 @@
 use rand::{rngs::StdRng, SeedableRng};
+use dyn_clone::DynClone;
 
-pub trait Space<T: Clone> : Clone {
+
+pub trait Space<T: Clone>: DynClone {
     fn contains(&self, sample: &T) -> bool;
     fn sample(&mut self) -> T;
     fn seed(&mut self);
