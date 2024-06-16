@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::time;
 
 use burn::config::Config;
@@ -50,13 +51,13 @@ pub struct OfflineTrainer<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBa
     pub agent: Box<dyn Agent<B, OS, AS>>,
     pub buffer: ReplayBuffer<OS, AS>,
     pub logger: Box<dyn Logger>,
-    pub callback: Box<dyn Callback<O, B>>,
+    pub callback: Box<dyn Callback<O, B, OS, AS>>,
     pub eval_cfg: EvalConfig,
     pub train_device: &'a B::Device,
     pub buffer_device: &'a B::Device,
 }
 
-impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS: Clone> OfflineTrainer<'a, O, B, OS, AS> {
+impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + Debug, AS: Clone + Debug> OfflineTrainer<'a, O, B, OS, AS> {
     pub fn new(
         offline_params: OfflineAlgParams,
         env: Box<dyn Env<OS, AS>>,
@@ -64,7 +65,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS:
         agent: Box<dyn Agent<B, OS, AS>>,
         buffer: ReplayBuffer<OS, AS>,
         logger: Box<dyn Logger>,
-        callback: Option<Box<dyn Callback<O, B>>>,
+        callback: Option<Box<dyn Callback<O, B, OS, AS>>>,
         eval_cfg: EvalConfig,
         train_device: &'a B::Device,
         buffer_device: &'a B::Device,

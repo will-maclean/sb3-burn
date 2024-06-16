@@ -1,7 +1,7 @@
 use ndarray::{indices_of, Array, Dim};
 use rand::{thread_rng, Rng};
 
-use crate::spaces::{Action, ActionSpace, Obs, ObsSpace};
+use crate::spaces::{BoxSpace, Discrete, Space};
 
 use super::base::{Env, EnvObservation, ResetOptions};
 
@@ -39,17 +39,6 @@ pub struct GridWorldEnv {
     pos: Pos,
     needs_reset: bool,
 
-    // Continuous
-    // shape -> width * height = dim * dim (always square)
-    observation_space: ObsSpace,
-
-    // discrete
-    // 0 -> left
-    // 1 -> up
-    // 2 -> right
-    // 3 -> down
-    action_space: ActionSpace,
-
     obstacle_prob: f32,
 }
 
@@ -59,11 +48,6 @@ impl Default for GridWorldEnv {
             field: Array::<f32, _>::zeros((4, 4)),
             dim: 4,
             pos: Pos { x: 0, y: 0 },
-            observation_space: ObsSpace::Continuous {
-                lows: vec![0.0; 16],
-                highs: vec![3.0; 16],
-            },
-            action_space: ActionSpace::Discrete { size: 4 },
             obstacle_prob: 0.1,
             maxlen: 20,
             curr_len: 0,
@@ -78,11 +62,6 @@ impl GridWorldEnv {
             field: Array::<f32, _>::zeros((dim, dim)),
             dim,
             pos: Pos { x: 0, y: 0 },
-            observation_space: ObsSpace::Continuous {
-                lows: vec![0.0; dim * dim],
-                highs: vec![3.0; dim * dim],
-            },
-            action_space: ActionSpace::Discrete { size: 4 },
             obstacle_prob,
             maxlen,
             curr_len: 0,
@@ -91,20 +70,14 @@ impl GridWorldEnv {
     }
 }
 
-impl Env for GridWorldEnv {
-    fn step(&mut self, action: &Action) -> EnvObservation {
+impl Env<Vec<f32>, usize> for GridWorldEnv {
+    fn step(&mut self, action: &usize) -> EnvObservation<Vec<f32>> {
         if self.needs_reset {
             panic!("Need to reset the environment before using it!");
         }
 
         // first, check if we've got a valid action
-        let a: i32;
-        match action {
-            Action::Discrete { space: _, idx } => a = *idx,
-            Action::Continuous { space: _, data: _ } => {
-                panic!("Continuous actions are not supported!")
-            }
-        }
+        let a = *action as i32;
 
         let mut dead = false;
         let mut win = false;
@@ -157,14 +130,11 @@ impl Env for GridWorldEnv {
         self.needs_reset = terminated | truncated;
 
         EnvObservation {
-            obs: Obs::Continuous {
-                space: self.observation_space.clone(),
-                data: self
-                    .field
-                    .to_shape((self.dim * self.dim,))
-                    .unwrap()
-                    .to_vec(),
-            },
+            obs: self
+                .field
+                .to_shape((self.dim * self.dim,))
+                .unwrap()
+                .to_vec(),
             reward,
             terminated,
             truncated,
@@ -172,7 +142,7 @@ impl Env for GridWorldEnv {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.field = Array::<f32, _>::zeros((self.dim, self.dim));
         self.curr_len = 0;
 
@@ -205,22 +175,29 @@ impl Env for GridWorldEnv {
 
         self.needs_reset = false;
 
-        Obs::Continuous {
-            space: self.observation_space.clone(),
-            data: self
-                .field
-                .to_shape((self.dim * self.dim,))
-                .unwrap()
-                .to_vec(),
-        }
+        self
+            .field
+            .to_shape((self.dim * self.dim,))
+            .unwrap()
+            .to_vec()
     }
 
-    fn action_space(&self) -> ActionSpace {
-        self.action_space.clone()
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        // discrete
+        // 0 -> left
+        // 1 -> up
+        // 2 -> right
+        // 3 -> down
+        Box::new(Discrete::from(4))
     }
 
-    fn observation_space(&self) -> ObsSpace {
-        self.observation_space.clone()
+    fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
+        // Continuous
+        // shape -> width * height = dim * dim (always square)
+        Box::new(BoxSpace::from((
+            vec![0.0; self.dim * self.dim],
+            vec![3.0; self.dim * self.dim],
+        )))
     }
 
     fn render(&self) {}
@@ -236,7 +213,7 @@ impl Env for GridWorldEnv {
         todo!()
     }
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<Vec<f32>, usize> {
         todo!()
     }
 }
@@ -270,28 +247,21 @@ mod tests {
         let obs = gridworld.reset(None, None);
 
         // check there is only one goal and one player
-        match obs {
-            crate::spaces::SpaceSample::Discrete { space: _, idx: _ } => {
-                panic!("GridWorldEnv should return a continuous space sample")
-            }
-            crate::spaces::SpaceSample::Continuous { space: _, data } => {
-                let mut n_players = 0;
-                let mut n_goals = 0;
+        let mut n_players = 0;
+        let mut n_goals = 0;
 
-                for item in data.into_iter() {
-                    if item == 2.0 {
-                        // goal
-                        n_goals += 1;
-                    } else if item == 3.0 {
-                        // player
-                        n_players += 1;
-                    }
-                }
-
-                assert_eq!(n_goals, 1);
-                assert_eq!(n_players, 1);
+        for item in obs {
+            if item == 2.0 {
+                // goal
+                n_goals += 1;
+            } else if item == 3.0 {
+                // player
+                n_players += 1;
             }
         }
+
+        assert_eq!(n_goals, 1);
+        assert_eq!(n_players, 1);
     }
 
     #[test]
@@ -299,7 +269,7 @@ mod tests {
     fn test_gridworld_step_without_reset_errors() {
         let mut gridworld = GridWorldEnv::default();
 
-        let action = gridworld.action_space.sample();
+        let action = gridworld.action_space().sample();
         gridworld.step(&action);
     }
 
@@ -308,6 +278,6 @@ mod tests {
         let mut gridworld = GridWorldEnv::default();
 
         gridworld.reset(None, None);
-        gridworld.step(&gridworld.action_space.sample());
+        gridworld.step(&gridworld.action_space().sample());
     }
 }

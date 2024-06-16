@@ -1,13 +1,17 @@
-use super::base::{Env, InfoData};
+use std::fmt::Debug;
 
-pub struct TimeLimitWrapper {
-    env: Box<dyn Env>,
+use crate::spaces::Space;
+
+use super::base::{Env, EnvObservation, InfoData, RewardRange};
+
+pub struct TimeLimitWrapper<O: Clone + Debug, A: Clone + Debug> {
+    env: Box<dyn Env<O, A>>,
     max_steps: usize,
     curr_steps: usize,
 }
 
-impl TimeLimitWrapper {
-    pub fn new(env: Box<dyn Env>, max_steps: usize) -> Self {
+impl<O: Clone + Debug, A: Clone + Debug> TimeLimitWrapper<O, A> {
+    pub fn new(env: Box<dyn Env<O, A>>, max_steps: usize) -> Self {
         Self {
             env,
             max_steps,
@@ -16,8 +20,8 @@ impl TimeLimitWrapper {
     }
 }
 
-impl Env for TimeLimitWrapper {
-    fn step(&mut self, action: &crate::spaces::SpaceSample) -> super::base::EnvObservation {
+impl<O: Clone + Debug, A: Clone + Debug> Env<O, A> for TimeLimitWrapper<O, A> {
+    fn step(&mut self, action: &A) -> EnvObservation<O> {
         let mut step_result = self.env.step(action);
 
         self.curr_steps += 1;
@@ -30,17 +34,17 @@ impl Env for TimeLimitWrapper {
         &mut self,
         seed: Option<[u8; 32]>,
         options: Option<super::base::ResetOptions>,
-    ) -> crate::spaces::Obs {
+    ) -> O {
         self.curr_steps = 0;
 
         self.env.reset(seed, options)
     }
 
-    fn action_space(&self) -> crate::spaces::ActionSpace {
+    fn action_space(&self) -> Box<dyn Space<A>> {
         self.env.action_space()
     }
 
-    fn observation_space(&self) -> crate::spaces::ObsSpace {
+    fn observation_space(&self) -> Box<dyn Space<O>> {
         self.env.observation_space()
     }
 
@@ -60,23 +64,23 @@ impl Env for TimeLimitWrapper {
         self.env.close()
     }
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<O, A> {
         &*self.env
     }
 }
 
-pub struct AutoResetWrapper {
-    env: Box<dyn Env>,
+pub struct AutoResetWrapper<O: Clone + Debug, A: Clone + Debug> {
+    env: Box<dyn Env<O, A>>,
 }
 
-impl AutoResetWrapper {
-    pub fn new(env: Box<dyn Env>) -> Self {
+impl<O: Clone + Debug, A: Clone + Debug> AutoResetWrapper<O, A> {
+    pub fn new(env: Box<dyn Env<O, A>>) -> Self {
         Self { env }
     }
 }
 
-impl Env for AutoResetWrapper {
-    fn step(&mut self, action: &crate::spaces::SpaceSample) -> super::base::EnvObservation {
+impl<O: Clone + Debug, A: Clone + Debug> Env<O, A> for AutoResetWrapper<O, A> {
+    fn step(&mut self, action: &A) -> EnvObservation<O> {
         let mut step_result = self.env.step(action);
 
         if step_result.truncated | step_result.terminated {
@@ -111,19 +115,19 @@ impl Env for AutoResetWrapper {
         &mut self,
         seed: Option<[u8; 32]>,
         options: Option<super::base::ResetOptions>,
-    ) -> crate::spaces::Obs {
+    ) -> O {
         self.env.reset(seed, options)
     }
 
-    fn action_space(&self) -> crate::spaces::ActionSpace {
+    fn action_space(&self) -> Box<dyn Space<A>> {
         self.env.action_space()
     }
 
-    fn observation_space(&self) -> crate::spaces::ObsSpace {
+    fn observation_space(&self) -> Box<dyn Space<O>>{
         self.env.observation_space()
     }
 
-    fn reward_range(&self) -> super::base::RewardRange {
+    fn reward_range(&self) -> RewardRange {
         self.env.reward_range()
     }
 
@@ -139,7 +143,7 @@ impl Env for AutoResetWrapper {
         self.env.close()
     }
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<O, A> {
         &*self.env
     }
 }

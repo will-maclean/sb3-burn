@@ -1,6 +1,6 @@
 use burn::{config::Config, tensor::backend::Backend};
-
-use crate::{env::base::Env, policy::Policy, utils::mean};
+use core::fmt::Debug;
+use crate::{env::base::Env, policy::{Agent, Policy}, utils::mean};
 
 pub struct EvalResult {
     pub mean_len: f32,
@@ -23,10 +23,11 @@ pub struct EvalConfig {
     print_prediction: bool,
 }
 
-pub fn evaluate_policy<B: Backend, P: Policy<B>>(
-    policy: &P,
-    env: &mut dyn Env,
+pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: Clone + Debug>(
+    agent: &A,
+    env: &mut dyn Env<OS, AS>,
     cfg: &EvalConfig,
+    device: &B::Device,
 ) -> EvalResult {
     let mut episode_rewards = Vec::new();
     let mut episode_lengths = Vec::new();
@@ -43,13 +44,7 @@ pub fn evaluate_policy<B: Backend, P: Policy<B>>(
             println!("state: {:?}", state);
         }
 
-        let (action, _) = policy.act(&state, env.action_space().clone());
-
-        if cfg.print_prediction {
-            let pred = policy.predict(state.to_train_tensor().unsqueeze_dim(0));
-
-            println!("Prediction: {pred}");
-        }
+        let (action, _) = agent.act(0, 1.0, &state, device);
 
         if cfg.print_action {
             println!("action: {:?}", action);

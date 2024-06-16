@@ -1,6 +1,6 @@
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::spaces::{ActionSpace, Obs, ObsSpace, SpaceSample};
+use crate::spaces::{BoxSpace, Discrete, Space};
 
 use super::base::{Env, EnvObservation, ResetOptions, RewardRange};
 
@@ -11,8 +11,8 @@ use super::base::{Env, EnvObservation, ResetOptions, RewardRange};
 #[derive(Debug, Default, Clone, Copy)]
 pub struct ProbeEnvValueTest {}
 
-impl Env for ProbeEnvValueTest {
-    fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
+impl Env<Vec<f32>, usize> for ProbeEnvValueTest {
+    fn step(&mut self, _action: &usize) -> EnvObservation<Vec<f32>> {
         EnvObservation {
             obs: self.observation_space().sample(),
             reward: 1.0,
@@ -22,19 +22,8 @@ impl Env for ProbeEnvValueTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
-        self.action_space().sample()
-    }
-
-    fn action_space(&self) -> ActionSpace {
-        ActionSpace::Discrete { size: 1 }
-    }
-
-    fn observation_space(&self) -> ObsSpace {
-        ObsSpace::Continuous {
-            lows: vec![0.0],
-            highs: vec![1.0],
-        }
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
+        self.observation_space().sample()
     }
 
     fn render(&self) {}
@@ -43,7 +32,7 @@ impl Env for ProbeEnvValueTest {
         false
     }
 
-    fn reward_range(&self) -> super::base::RewardRange {
+    fn reward_range(&self) -> RewardRange {
         RewardRange {
             low: 1.0,
             high: 1.0,
@@ -52,8 +41,16 @@ impl Env for ProbeEnvValueTest {
 
     fn close(&mut self) {}
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<Vec<f32>, usize> {
         self
+    }
+    
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(1))
+    }
+    
+    fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
+        Box::new(BoxSpace::from((vec![0.0], vec![1.0])))
     }
 }
 
@@ -63,12 +60,12 @@ impl Env for ProbeEnvValueTest {
 // must be that backpropagation through my network is broken.
 #[derive(Debug, Default, Clone)]
 pub struct ProbeEnvBackpropTest {
-    last_obs: i32,
+    last_obs: usize,
     rng: ThreadRng,
 }
 
 impl ProbeEnvBackpropTest {
-    fn gen_obs(&mut self) -> i32 {
+    fn gen_obs(&mut self) -> usize {
         if self.rng.gen_bool(0.5) {
             1
         } else {
@@ -77,16 +74,13 @@ impl ProbeEnvBackpropTest {
     }
 }
 
-impl Env for ProbeEnvBackpropTest {
-    fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
+impl Env<usize, usize> for ProbeEnvBackpropTest {
+    fn step(&mut self, _action: &usize) -> EnvObservation<usize> {
         let reward = self.last_obs as f32;
         self.last_obs = self.gen_obs();
 
         EnvObservation {
-            obs: Obs::Discrete {
-                space: self.observation_space().clone(),
-                idx: self.last_obs,
-            },
+            obs: self.observation_space().sample(),
             reward,
             terminated: true,
             truncated: false,
@@ -94,21 +88,18 @@ impl Env for ProbeEnvBackpropTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
         self.last_obs = self.gen_obs();
 
-        Obs::Discrete {
-            space: self.observation_space().clone(),
-            idx: self.last_obs,
-        }
+        self.last_obs
     }
 
-    fn action_space(&self) -> ActionSpace {
-        ActionSpace::Discrete { size: 1 }
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(1))
     }
 
-    fn observation_space(&self) -> ObsSpace {
-        ObsSpace::Discrete { size: 2 }
+    fn observation_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(2))
     }
 
     fn render(&self) {}
@@ -126,7 +117,7 @@ impl Env for ProbeEnvBackpropTest {
 
     fn close(&mut self) {}
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<usize, usize> {
         self
     }
 }
@@ -139,14 +130,11 @@ pub struct ProbeEnvDiscountingTest {
     done_next: bool,
 }
 
-impl Env for ProbeEnvDiscountingTest {
-    fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
+impl Env<usize, usize> for ProbeEnvDiscountingTest {
+    fn step(&mut self, _action: &usize) -> EnvObservation<usize> {
         if self.done_next {
             EnvObservation {
-                obs: Obs::Discrete {
-                    space: self.observation_space().clone(),
-                    idx: 1,
-                },
+                obs: 1,
                 reward: 1.0,
                 terminated: true,
                 truncated: false,
@@ -156,10 +144,7 @@ impl Env for ProbeEnvDiscountingTest {
             self.done_next = true;
 
             EnvObservation {
-                obs: Obs::Discrete {
-                    space: self.observation_space().clone(),
-                    idx: 1,
-                },
+                obs: 1,
                 reward: 0.0,
                 terminated: false,
                 truncated: false,
@@ -168,20 +153,18 @@ impl Env for ProbeEnvDiscountingTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
         self.done_next = false;
-        Obs::Discrete {
-            space: self.observation_space().clone(),
-            idx: 0,
-        }
+        
+        0
     }
 
-    fn action_space(&self) -> ActionSpace {
-        ActionSpace::Discrete { size: 1 }
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(1))
     }
 
-    fn observation_space(&self) -> ObsSpace {
-        ObsSpace::Discrete { size: 2 }
+    fn observation_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(2))
     }
 
     fn render(&self) {}
@@ -199,7 +182,7 @@ impl Env for ProbeEnvDiscountingTest {
 
     fn close(&mut self) {}
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<usize, usize> {
         self
     }
 }
@@ -214,39 +197,29 @@ impl Env for ProbeEnvDiscountingTest {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ProbeEnvActionTest {}
 
-impl Env for ProbeEnvActionTest {
-    fn step(&mut self, action: &SpaceSample) -> EnvObservation {
-        match action {
-            SpaceSample::Continuous { space: _, data: _ } => {
-                panic!("Only discrete actions are accepted here")
-            }
-            SpaceSample::Discrete { space: _, idx } => {
-                let reward = (*idx == 1) as i32 as f32;
+impl Env<usize, usize> for ProbeEnvActionTest {
+    fn step(&mut self, action: &usize) -> EnvObservation<usize> {
+        let reward = (*action == 1) as i32 as f32;
 
-                EnvObservation {
-                    obs: self.observation_space().sample(),
-                    reward,
-                    terminated: true,
-                    truncated: false,
-                    info: Default::default(),
-                }
-            }
+        EnvObservation {
+            obs: self.observation_space().sample(),
+            reward,
+            terminated: true,
+            truncated: false,
+            info: Default::default(),
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
-        Obs::Discrete {
-            space: self.observation_space().clone(),
-            idx: 0,
-        }
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
+        0
     }
 
-    fn action_space(&self) -> ActionSpace {
-        ActionSpace::Discrete { size: 2 }
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(2))
     }
 
-    fn observation_space(&self) -> ObsSpace {
-        ObsSpace::Discrete { size: 1 }
+    fn observation_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(1))
     }
 
     fn render(&self) {}
@@ -264,7 +237,7 @@ impl Env for ProbeEnvActionTest {
 
     fn close(&mut self) {}
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<usize, usize> {
         self
     }
 }
@@ -280,11 +253,11 @@ impl Env for ProbeEnvActionTest {
 #[derive(Debug, Clone, Default)]
 pub struct ProbeEnvStateActionTest {
     rng: ThreadRng,
-    obs: i32,
+    obs: usize,
 }
 
 impl ProbeEnvStateActionTest {
-    fn gen_obs(&mut self) -> i32 {
+    fn gen_obs(&mut self) -> usize {
         if self.rng.gen_bool(0.5) {
             1
         } else {
@@ -293,40 +266,30 @@ impl ProbeEnvStateActionTest {
     }
 }
 
-impl Env for ProbeEnvStateActionTest {
-    fn step(&mut self, action: &SpaceSample) -> EnvObservation {
-        match action {
-            SpaceSample::Continuous { space: _, data: _ } => {
-                panic!("Only discrete actions are accepted here")
-            }
-            SpaceSample::Discrete { space: _, idx } => {
-                let reward = (*idx == self.obs) as i32 as f32;
+impl Env<usize, usize> for ProbeEnvStateActionTest {
+    fn step(&mut self, action: &usize) -> EnvObservation<usize> {
+        let reward = (*action == self.obs) as i32 as f32;
 
-                EnvObservation {
-                    obs: self.observation_space().sample(),
-                    reward,
-                    terminated: true,
-                    truncated: false,
-                    info: Default::default(),
-                }
-            }
+        EnvObservation {
+            obs: self.observation_space().sample(),
+            reward,
+            terminated: true,
+            truncated: false,
+            info: Default::default(),
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
         self.obs = self.gen_obs();
-        Obs::Discrete {
-            space: self.observation_space().clone(),
-            idx: self.obs,
-        }
+        self.obs
     }
 
-    fn action_space(&self) -> ActionSpace {
-        ActionSpace::Discrete { size: 2 }
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(2))
     }
 
-    fn observation_space(&self) -> ObsSpace {
-        ObsSpace::Discrete { size: 2 }
+    fn observation_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(2))
     }
 
     fn render(&self) {}
@@ -344,7 +307,7 @@ impl Env for ProbeEnvStateActionTest {
 
     fn close(&mut self) {}
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<usize, usize> {
         self
     }
 }

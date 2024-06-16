@@ -54,12 +54,7 @@ fn main() {
         .with_eps_end_frac(0.84);
     let agent = DQNAgent::new(q.clone(), q, optim, dqn_config);
     let dqn_alg = OfflineAlgorithm::DQN(agent);
-    let buffer = ReplayBuffer::new(
-        offline_params.memory_size,
-        env.observation_space().size(),
-        env.action_space().size(),
-        &buffer_device,
-    );
+    let buffer = ReplayBuffer::new(offline_params.memory_size);
     let logger = CsvLogger::new(
         PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
         false,
