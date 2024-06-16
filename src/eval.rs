@@ -32,7 +32,7 @@ pub fn evaluate_policy<B: Backend, P: Policy<B>>(
     let mut episode_lengths = Vec::new();
     let mut completed_episodes = 0;
 
-    let mut state = env.reset();
+    let mut state = env.reset(None, None);
     let mut running_reward = 0.0;
     let mut ep_len = 0.0;
 
@@ -57,12 +57,12 @@ pub fn evaluate_policy<B: Backend, P: Policy<B>>(
 
         let step_sample = env.step(&action);
 
-        let (next_obs, reward, done) = (step_sample.obs, step_sample.reward, step_sample.done);
-        running_reward += reward;
+        let done = step_sample.terminated | step_sample.truncated;
+        running_reward += step_sample.reward;
         ep_len += 1.0;
 
         if cfg.print_reward {
-            println!("reward: {:?}", reward);
+            println!("reward: {:?}", step_sample.reward);
         }
 
         if cfg.print_done {
@@ -77,9 +77,9 @@ pub fn evaluate_policy<B: Backend, P: Policy<B>>(
             running_reward = 0.0;
             ep_len = 0.0;
 
-            state = env.reset();
+            state = env.reset(None, None);
         } else {
-            state = next_obs;
+            state = step_sample.obs;
         }
     }
 

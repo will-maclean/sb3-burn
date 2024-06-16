@@ -2,7 +2,7 @@ use rand::{rngs::ThreadRng, Rng};
 
 use crate::spaces::{ActionSpace, Obs, ObsSpace, SpaceSample};
 
-use super::base::{Env, EnvObservation};
+use super::base::{Env, EnvObservation, ResetOptions, RewardRange};
 
 // One action, zero observation, one timestep long, +1 reward every timestep: This
 // isolates the value network. If my agent can't learn that the value of the only
@@ -16,11 +16,13 @@ impl Env for ProbeEnvValueTest {
         EnvObservation {
             obs: self.observation_space().sample(),
             reward: 1.0,
-            done: true,
+            terminated: true,
+            truncated: false,
+            info: Default::default(),
         }
     }
 
-    fn reset(&mut self) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
         self.action_space().sample()
     }
 
@@ -39,6 +41,19 @@ impl Env for ProbeEnvValueTest {
 
     fn renderable(&self) -> bool {
         false
+    }
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 1.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
     }
 }
 
@@ -65,7 +80,6 @@ impl ProbeEnvBackpropTest {
 impl Env for ProbeEnvBackpropTest {
     fn step(&mut self, _action: &SpaceSample) -> EnvObservation {
         let reward = self.last_obs as f32;
-        let done = true;
         self.last_obs = self.gen_obs();
 
         EnvObservation {
@@ -74,11 +88,13 @@ impl Env for ProbeEnvBackpropTest {
                 idx: self.last_obs,
             },
             reward,
-            done,
+            terminated: true,
+            truncated: false,
+            info: Default::default(),
         }
     }
 
-    fn reset(&mut self) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
         self.last_obs = self.gen_obs();
 
         Obs::Discrete {
@@ -100,6 +116,19 @@ impl Env for ProbeEnvBackpropTest {
     fn renderable(&self) -> bool {
         false
     }
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 // One action, zero-then-one observation, two timesteps long, +1
@@ -119,7 +148,9 @@ impl Env for ProbeEnvDiscountingTest {
                     idx: 1,
                 },
                 reward: 1.0,
-                done: true,
+                terminated: true,
+                truncated: false,
+                info: Default::default(),
             }
         } else {
             self.done_next = true;
@@ -130,12 +161,14 @@ impl Env for ProbeEnvDiscountingTest {
                     idx: 1,
                 },
                 reward: 0.0,
-                done: false,
+                terminated: false,
+                truncated: false,
+                info: Default::default(),
             }
         }
     }
 
-    fn reset(&mut self) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
         self.done_next = false;
         Obs::Discrete {
             space: self.observation_space().clone(),
@@ -155,6 +188,19 @@ impl Env for ProbeEnvDiscountingTest {
 
     fn renderable(&self) -> bool {
         false
+    }
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
     }
 }
 
@@ -180,13 +226,15 @@ impl Env for ProbeEnvActionTest {
                 EnvObservation {
                     obs: self.observation_space().sample(),
                     reward,
-                    done: true,
+                    terminated: true,
+                    truncated: false,
+                    info: Default::default(),
                 }
             }
         }
     }
 
-    fn reset(&mut self) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
         Obs::Discrete {
             space: self.observation_space().clone(),
             idx: 0,
@@ -205,6 +253,19 @@ impl Env for ProbeEnvActionTest {
 
     fn renderable(&self) -> bool {
         false
+    }
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
     }
 }
 
@@ -244,13 +305,15 @@ impl Env for ProbeEnvStateActionTest {
                 EnvObservation {
                     obs: self.observation_space().sample(),
                     reward,
-                    done: true,
+                    terminated: true,
+                    truncated: false,
+                    info: Default::default(),
                 }
             }
         }
     }
 
-    fn reset(&mut self) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
         self.obs = self.gen_obs();
         Obs::Discrete {
             space: self.observation_space().clone(),
@@ -270,5 +333,18 @@ impl Env for ProbeEnvStateActionTest {
 
     fn renderable(&self) -> bool {
         false
+    }
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        RewardRange {
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
     }
 }

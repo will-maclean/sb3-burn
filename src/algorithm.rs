@@ -157,7 +157,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             .template("{pos:>7}/{len:7} {bar} [{elapsed_precise}], eta: [{eta}]")
             .unwrap();
 
-        let mut state = self.env.reset();
+        let mut state = self.env.reset(None, None);
         let mut ep_start_time = time::Instant::now();
 
         for i in (0..self.offline_params.n_steps).progress_with_style(style) {
@@ -176,13 +176,19 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
                 self.env.render();
             }
 
-            let (next_obs, reward, done) = (step_res.obs.clone(), step_res.reward, step_res.done);
+            let done = step_res.terminated | step_res.truncated;
 
-            running_reward += reward;
+            running_reward += step_res.reward;
             ep_len += 1;
 
-            self.buffer
-                .add(state, action, next_obs.clone(), reward, done);
+            self.buffer.add(
+                state,
+                action,
+                step_res.obs.clone(),
+                step_res.reward,
+                step_res.terminated,
+                step_res.truncated,
+            );
 
             if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0)
             {
@@ -222,13 +228,13 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
                 );
 
                 ep_start_time = time::Instant::now();
-                state = self.env.reset();
+                state = self.env.reset(None, None);
                 episodes += 1;
                 running_reward = 0.0;
                 running_loss = Vec::new();
                 ep_len = 0;
             } else {
-                state = next_obs;
+                state = step_res.obs;
             }
         }
 

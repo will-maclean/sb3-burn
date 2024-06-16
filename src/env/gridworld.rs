@@ -3,7 +3,7 @@ use rand::{thread_rng, Rng};
 
 use crate::spaces::{Action, ActionSpace, Obs, ObsSpace};
 
-use super::base::{Env, EnvObservation};
+use super::base::{Env, EnvObservation, ResetOptions};
 
 #[derive(Clone, Debug, Copy)]
 struct Pos {
@@ -151,11 +151,10 @@ impl Env for GridWorldEnv {
         }
 
         self.curr_len += 1;
-        let done = win | dead | (self.curr_len >= self.maxlen);
+        let terminated = win | dead;
+        let truncated = self.curr_len >= self.maxlen;
 
-        if done {
-            self.needs_reset = true;
-        }
+        self.needs_reset = terminated | truncated;
 
         EnvObservation {
             obs: Obs::Continuous {
@@ -167,11 +166,13 @@ impl Env for GridWorldEnv {
                     .to_vec(),
             },
             reward,
-            done,
+            terminated,
+            truncated,
+            info: Default::default(),
         }
     }
 
-    fn reset(&mut self) -> Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Obs {
         self.field = Array::<f32, _>::zeros((self.dim, self.dim));
         self.curr_len = 0;
 
@@ -226,6 +227,18 @@ impl Env for GridWorldEnv {
     fn renderable(&self) -> bool {
         false
     }
+
+    fn reward_range(&self) -> super::base::RewardRange {
+        todo!()
+    }
+
+    fn close(&mut self) {
+        todo!()
+    }
+
+    fn unwrapped(&self) -> &dyn Env {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -254,7 +267,7 @@ mod tests {
     fn test_gridworld_reset() {
         let mut gridworld = GridWorldEnv::default();
 
-        let obs = gridworld.reset();
+        let obs = gridworld.reset(None, None);
 
         // check there is only one goal and one player
         match obs {
@@ -294,7 +307,7 @@ mod tests {
     fn test_gridworld_steps() {
         let mut gridworld = GridWorldEnv::default();
 
-        gridworld.reset();
+        gridworld.reset(None, None);
         gridworld.step(&gridworld.action_space.sample());
     }
 }

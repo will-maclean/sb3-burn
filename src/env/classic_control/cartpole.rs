@@ -1,5 +1,5 @@
 use crate::{
-    env::base::{Env, EnvObservation},
+    env::base::{Env, EnvObservation, ResetOptions, RewardRange},
     spaces::{ActionSpace, Obs, ObsSpace},
     utils::generate_random_vector,
 };
@@ -136,7 +136,7 @@ impl Env for CartpoleEnv {
 
         self.state = vec![x, x_dot, theta, theta_dot];
 
-        let mut done = (x < -self.x_threshold)
+        let done = (x < -self.x_threshold)
             | (x > self.x_threshold)
             | (theta < -self.theta_threshold_radians)
             | (theta > self.theta_threshold_radians);
@@ -172,17 +172,23 @@ impl Env for CartpoleEnv {
         };
 
         self.curr_steps += 1;
-        done |= self.curr_steps > self.max_steps;
-        self.needs_reset = done;
+        let truncated = self.curr_steps > self.max_steps;
+        self.needs_reset = done | truncated;
 
         EnvObservation {
             obs: self.get_obs(),
             reward,
-            done,
+            terminated: done,
+            truncated,
+            info: Default::default(),
         }
     }
 
-    fn reset(&mut self) -> crate::spaces::Obs {
+    fn reset(
+        &mut self,
+        _seed: Option<[u8; 32]>,
+        _options: Option<ResetOptions>,
+    ) -> crate::spaces::Obs {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.05; 4], vec![0.05; 4]);
@@ -209,6 +215,26 @@ impl Env for CartpoleEnv {
     fn renderable(&self) -> bool {
         false
     }
+
+    fn reward_range(&self) -> crate::env::base::RewardRange {
+        if self.sutton_barto_reward {
+            RewardRange {
+                low: -1.0,
+                high: 0.0,
+            }
+        } else {
+            RewardRange {
+                low: 0.0,
+                high: 1.0,
+            }
+        }
+    }
+
+    fn close(&mut self) {}
+
+    fn unwrapped(&self) -> &dyn Env {
+        self
+    }
 }
 
 #[cfg(test)]
@@ -221,11 +247,11 @@ mod test {
     fn test_cartpole() {
         let mut env = CartpoleEnv::default();
         let mut done = false;
-        env.reset();
+        env.reset(None, None);
 
         while !done {
             let result = env.step(&env.action_space().sample());
-            done = result.done;
+            done = result.truncated | result.terminated;
         }
     }
 }
