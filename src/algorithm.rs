@@ -10,7 +10,6 @@ use crate::callback::{Callback, EmptyCallback};
 use crate::env::base::Env;
 use crate::eval::{evaluate_policy, EvalConfig};
 use crate::logger::{LogData, LogItem, Logger};
-use crate::spaces::{Action, Obs};
 use crate::utils::mean;
 
 use crate::dqn::DQNAgent;

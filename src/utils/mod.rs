@@ -1,3 +1,4 @@
+use burn::tensor::{backend::Backend, Data, Shape, Tensor, TensorKind};
 use rand::{seq::SliceRandom, thread_rng, Rng};
 
 pub mod module_update;

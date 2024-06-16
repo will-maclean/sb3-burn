@@ -12,22 +12,22 @@ use burn::{
         ElementConversion, Tensor,
     },
 };
+use module::DQNNet;
 
 use crate::{
-    algorithm::{OfflineAlgParams, OfflineTrainer},
-    buffer::ReplayBuffer,
-    logger::{LogData, LogItem},
-    policy::Policy,
-    spaces::{Action, ActionSpace, Obs, ObsSpace, ObsT},
-    utils::{linear_decay, module_update::update_linear},
+    algorithm::{OfflineAlgParams, OfflineTrainer}, buffer::ReplayBuffer, logger::{LogData, LogItem}, policy::{Agent, Policy}, spaces::Space, to_tensor::{ToTensorB, ToTensorF, ToTensorI}, utils::linear_decay
 };
 
-pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
+pub mod module;
+
+pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS: Clone> {
     pub q1: DQNNet<B>,
     pub q2: DQNNet<B>,
     pub optim: OptimizerAdaptor<O, DQNNet<B>, B>,
     pub config: DQNConfig,
     pub last_update: usize,
+    observation_space: Box<dyn Space<OS>>,
+    action_space: Box<dyn Space<AS>>,
 }
 
 #[derive(Config)]
@@ -42,88 +42,14 @@ pub struct DQNConfig {
     update_every: usize,
 }
 
-#[derive(Module, Debug)]
-pub struct DQNNet<B: Backend> {
-    l1: nn::Linear<B>,
-    l2: nn::Linear<B>,
-    l3: nn::Linear<B>,
-    adv: nn::Linear<B>,
-}
-
-impl<B: Backend> DQNNet<B> {
-    pub fn init(
-        device: &B::Device,
-        observation_space: ObsSpace,
-        action_space: ActionSpace,
-        hidden_size: usize,
-    ) -> Self {
-        match action_space {
-            ActionSpace::Continuous { lows: _, highs: _ } => {
-                panic!("Continuous actions are not supported by DQN")
-            }
-            ActionSpace::Discrete { size: action_size } => {
-                let input_size = observation_space.size();
-
-                Self {
-                    l1: nn::LinearConfig::new(input_size, hidden_size).init(device),
-                    l2: nn::LinearConfig::new(hidden_size, hidden_size).init(device),
-                    l3: nn::LinearConfig::new(hidden_size, action_size).init(device),
-                    adv: nn::LinearConfig::new(hidden_size, 1).init(device),
-                }
-            }
-        }
-    }
-
-    pub fn forward(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
-        let x = relu(self.l1.forward(state));
-        let x = relu(self.l2.forward(x));
-        self.adv.forward(x.clone()) - self.l3.forward(x)
-    }
-}
-
-impl<B: Backend> Policy<B> for DQNNet<B> {
-    fn act(&self, state: &Obs, action_space: ActionSpace) -> (Action, Option<LogItem>) {
-        let binding = self.devices();
-        let device = binding.first().unwrap();
-
-        let state_tensor = state
-            .clone()
-            .to_train_tensor()
-            .to_device(device)
-            .unsqueeze_dim(0);
-        let q_vals = self.predict(state_tensor);
-        let a: i32 = q_vals.squeeze::<1>(0).argmax(0).into_scalar().elem();
-
-        (
-            Action::Discrete {
-                space: action_space,
-                idx: a,
-            },
-            None,
-        )
-    }
-
-    fn predict(&self, state: ObsT<B, 2>) -> Tensor<B, 2> {
-        let binding = self.devices();
-        let device = binding.first().unwrap();
-
-        self.forward(state.to_device(device))
-    }
-
-    fn update(&mut self, from: &Self, tau: Option<f32>) {
-        self.l1 = update_linear(&from.l1, self.l1.clone(), tau);
-        self.l2 = update_linear(&from.l2, self.l2.clone(), tau);
-        self.l3 = update_linear(&from.l3, self.l3.clone(), tau);
-        self.adv = update_linear(&from.adv, self.adv.clone(), tau);
-    }
-}
-
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS: Clone> DQNAgent<O, B, OS, AS> {
     pub fn new(
         q1: DQNNet<B>,
         q2: DQNNet<B>,
         optim: OptimizerAdaptor<O, DQNNet<B>, B>,
         config: DQNConfig,
+        observation_space: Box<dyn Space<OS>>,
+        action_space: Box<dyn Space<AS>>,
     ) -> Self {
         Self {
             q1,
@@ -131,66 +57,68 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
             optim,
             config,
             last_update: 0,
+            observation_space,
+            action_space,
         }
     }
-    pub fn act(
-        &self,
-        step: usize,
-        state: &Obs,
-        trainer: &OfflineTrainer<O, B>,
-    ) -> (Action, Option<LogItem>) {
+}
+
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>, usize> for DQNAgent<O, B, Vec<f32>, usize>{
+    fn act(&self,
+        _global_step: usize,
+        global_frac: f32,
+        obs: &Vec<f32>,
+        inference_device: &<B as Backend>::Device,
+    ) -> (usize, LogItem) {
         let eps = linear_decay(
-            step as f32 / trainer.offline_params.n_steps as f32,
+            global_frac,
             self.config.eps_start,
             self.config.eps_end,
             self.config.eps_end_frac,
         );
 
-        if rand::random::<f32>() > eps {
-            let (a, log) = self.q1.act(state, trainer.env.action_space().clone());
-
-            match log {
-                Some(mut log) => {
-                    log = log.push("eps".to_string(), LogData::Float(eps));
-                    (a, Some(log))
-                }
-                None => {
-                    let mut log = LogItem::default();
-                    log = log.push("eps".to_string(), LogData::Float(eps));
-                    (a, Some(log))
-                }
-            }
+        let a: usize = if rand::random::<f32>() > eps {
+            let state = obs.clone().to_tensor(inference_device).unsqueeze_dim(0);
+            let q: Tensor<B, 1> = self.q1.forward(state).squeeze(0);
+            q.argmax(0).into_scalar().elem::<i32>() as usize
         } else {
-            let a = trainer.env.action_space().sample();
-            let mut log = LogItem::default();
-            log = log.push("eps".to_string(), LogData::Float(eps));
+            self.action_space().sample()
+        };
 
-            (a, Some(log))
-        }
+        let log = LogItem::default()
+            .push("eps".to_string(), LogData::Float(eps));
+
+        (a, log)
     }
 
-    pub fn train_step(
+    fn train_step(
         &mut self,
         global_step: usize,
-        replay_buffer: &ReplayBuffer<B>,
+        replay_buffer: ReplayBuffer<Vec<f32>, usize>,
         offline_params: &OfflineAlgParams,
-        train_device: &B::Device,
-    ) -> Option<f32> {
+        train_device: &<B as Backend>::Device,
+    ) -> (Option<f32>, LogItem) {
         // sample from the replay buffer
         let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
 
-        match batch_sample {
-            Some(mut sample) => {
-                sample.to_device(train_device);
+        let mut log = LogItem::default();
 
-                let q_vals_ungathered = self.q1.forward(sample.states);
-                let q_vals = q_vals_ungathered.gather(1, sample.actions.int());
-                let next_q_vals_ungathered = self.q2.forward(sample.next_states);
+        let loss = match batch_sample {
+            Some(sample) => {
+                let states = sample.states.to_tensor(train_device);
+                let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
+                let next_states = sample.next_states.to_tensor(train_device);
+                let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
+                let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
+
+                let q_vals_ungathered = self.q1.forward(states);
+                let q_vals = q_vals_ungathered.gather(1, actions);
+                let next_q_vals_ungathered = self.q2.forward(next_states);
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
                 //FIXME: check that we should be using terminated and essentially ignoring truncated
-                let targets = sample.rewards
-                    + sample.terminated.bool().bool_not().float()
+                let targets = rewards
+                    + terminated.bool_not().float()
                         * next_q_vals
                         * offline_params.gamma;
 
@@ -210,7 +138,16 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> DQNAgent<O, B> {
                 Some(loss.into_scalar().elem())
             }
             None => None,
-        }
+        };
+
+        (loss, log)
+    }
+
+    fn eval(
+        &mut self,
+        n_eps: usize,
+    ) {
+        todo!()
     }
 }
 
