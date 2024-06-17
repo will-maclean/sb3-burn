@@ -132,6 +132,7 @@ impl<
                     i,
                     (i as f32) / (self.offline_params.n_steps as f32),
                     &state,
+                    false,
                     self.train_device,
                 ),
             };

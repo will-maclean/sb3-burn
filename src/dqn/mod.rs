@@ -90,6 +90,7 @@ where
         _global_step: usize,
         global_frac: f32,
         obs: &Vec<f32>,
+        greedy: bool,
         inference_device: &<B as Backend>::Device,
     ) -> (usize, LogItem) {
         let eps = linear_decay(
@@ -99,7 +100,7 @@ where
             self.config.eps_end_frac,
         );
 
-        let a: usize = if rand::random::<f32>() > eps {
+        let a: usize = if (rand::random::<f32>() > eps) | greedy {
             let state = obs.clone().to_tensor(inference_device).unsqueeze_dim(0);
             let q: Tensor<B, 1> = self.q1.forward(state).squeeze(0);
             q.argmax(0).into_scalar().elem::<i32>() as usize
@@ -199,6 +200,7 @@ where
         _global_step: usize,
         global_frac: f32,
         obs: &usize,
+        greedy: bool,
         inference_device: &<B as Backend>::Device,
     ) -> (usize, LogItem) {
         let eps = linear_decay(
@@ -208,7 +210,7 @@ where
             self.config.eps_end_frac,
         );
 
-        let a: usize = if rand::random::<f32>() > eps {
+        let a: usize = if (rand::random::<f32>() > eps) | greedy {
             let state = Tensor::one_hot(*obs, self.observation_space().shape(), inference_device);
             let q: Tensor<B, 1> = self.q1.forward(state).squeeze(0);
             q.argmax(0).into_scalar().elem::<i32>() as usize

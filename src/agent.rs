@@ -12,6 +12,7 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
         global_step: usize,
         global_frac: f32,
         obs: &O,
+        greedy: bool,
         inference_device: &<B as Backend>::Device,
     ) -> (A, LogItem);
 

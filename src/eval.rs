@@ -48,7 +48,7 @@ pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: C
             println!("state: {:?}", state);
         }
 
-        let (action, _) = agent.act(0, 1.0, &state, device);
+        let (action, _) = agent.act(0, 1.0, &state, true, device);
 
         if cfg.print_action {
             println!("action: {:?}", action);
