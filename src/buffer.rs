@@ -27,7 +27,6 @@ pub struct ReplayBuffer<O: Clone, A: Clone> {
     terminated: Vec<bool>,
     truncated: Vec<bool>,
     size: usize,
-    full: bool,
     ptr: usize,
 }
 
@@ -41,17 +40,16 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
             terminated: Vec::with_capacity(size),
             truncated: Vec::with_capacity(size),
             size,
-            full: false,
             ptr: 0,
         }
     }
 
     pub fn full(&self) -> bool {
-        self.full
+        self.len() == self.size
     }
 
     pub fn len(&self) -> usize {
-        self.size
+        self.states.len()
     }
 
     pub fn get(&self, idx: usize) -> Result<ReplayBufferSlice<O, A>, &'static str> {
@@ -82,10 +80,6 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
             self.truncated.push(item.truncated);
         }
 
-        if self.ptr == self.len() - 1 {
-            self.full = true;
-        }
-
         self.ptr = (self.ptr + 1) % self.len();
     }
 
@@ -109,7 +103,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
     }
 
     pub fn batch_sample(&self, batch_size: usize) -> BatchedReplayBufferSlice<O, A> {
-        if (self.full & (batch_size > self.size)) | (!self.full & (batch_size > self.ptr)) {
+        if (self.full() & (batch_size > self.size)) | (!self.full() & (batch_size > self.ptr)) {
             panic!("Not enough samples in here! self.len: {:?}, batch_size: {:?}", self.len(), batch_size);
         }
 
@@ -201,5 +195,24 @@ mod tests {
         }
 
         let _ = buffer.batch_sample(4);
+    }
+
+    #[test]
+    fn test_full(){
+        let mut buffer: ReplayBuffer<usize, usize> = ReplayBuffer::new(5);
+
+        for _ in 0..5{
+            assert!(!buffer.full());
+            buffer.add(0, 0, 0, 0.0, false, false)
+        }
+
+        assert!(buffer.full());
+    }
+
+    #[test]
+    fn allocated_vec_sanity_check(){
+        let v1: Vec<usize> = Vec::with_capacity(10);
+
+        assert_eq!(v1.len(), 0);
     }
 }
