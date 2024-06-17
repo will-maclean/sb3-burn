@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::time;
 
 use burn::config::Config;
@@ -8,12 +9,10 @@ use indicatif::{ProgressIterator, ProgressStyle};
 use crate::buffer::ReplayBuffer;
 use crate::callback::{Callback, EmptyCallback};
 use crate::env::base::Env;
-use crate::eval::{evaluate_policy, EvalConfig};
+use crate::eval::EvalConfig;
 use crate::logger::{LogData, LogItem, Logger};
-use crate::spaces::{Action, Obs};
+use crate::agent::Agent;
 use crate::utils::mean;
-
-use crate::dqn::DQNAgent;
 
 #[derive(Config)]
 pub struct OfflineAlgParams {
@@ -45,78 +44,41 @@ pub struct OfflineAlgParams {
     pub grad_steps: usize,
 }
 
-// I think this current layout will do for now, will likely need to be refactored at some point
-pub enum OfflineAlgorithm<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
-    DQN(DQNAgent<O, B>),
-}
-
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineAlgorithm<O, B> {
-    fn train_step(
-        &mut self,
-        global_step: usize,
-        replay_buffer: &ReplayBuffer<B>,
-        offline_params: &OfflineAlgParams,
-        train_device: &B::Device,
-    ) -> Option<f32> {
-        match self {
-            OfflineAlgorithm::DQN(agent) => {
-                agent.train_step(global_step, replay_buffer, offline_params, train_device)
-            }
-        }
-    }
-
-    fn act(
-        &self,
-        state: &Obs,
-        step: usize,
-        trainer: &OfflineTrainer<O, B>,
-    ) -> (Action, Option<LogItem>) {
-        match self {
-            OfflineAlgorithm::DQN(agent) => agent.act(step, state, trainer),
-        }
-    }
-
-    fn eval(&self, env: &mut dyn Env, cfg: &EvalConfig, logger: &mut dyn Logger) {
-        let eval_result = match self {
-            OfflineAlgorithm::DQN(agent) => evaluate_policy(&agent.q1, env, cfg),
-        };
-
-        logger.log(
-            LogItem::default()
-                .push(
-                    "eval_ep_mean_reward".to_string(),
-                    LogData::Float(eval_result.mean_reward),
-                )
-                .push(
-                    "eval_ep_mean_len".to_string(),
-                    LogData::Float(eval_result.mean_len),
-                ),
-        );
-    }
-}
-
-pub struct OfflineTrainer<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
+pub struct OfflineTrainer<
+    'a,
+    O: SimpleOptimizer<B::InnerBackend>,
+    B: AutodiffBackend,
+    OS: Clone,
+    AS: Clone,
+> {
     pub offline_params: OfflineAlgParams,
-    pub env: Box<dyn Env>,
-    eval_env: Box<dyn Env>,
-    pub algorithm: OfflineAlgorithm<O, B>,
-    pub buffer: ReplayBuffer<B>,
+    pub env: Box<dyn Env<OS, AS>>,
+    pub eval_env: Box<dyn Env<OS, AS>>,
+    pub agent: Box<dyn Agent<B, OS, AS>>,
+    pub buffer: ReplayBuffer<OS, AS>,
     pub logger: Box<dyn Logger>,
-    pub callback: Box<dyn Callback<O, B>>,
+    pub callback: Box<dyn Callback<O, B, OS, AS>>,
     pub eval_cfg: EvalConfig,
     pub train_device: &'a B::Device,
     pub buffer_device: &'a B::Device,
 }
 
-impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer<'a, O, B> {
+impl<
+        'a,
+        O: SimpleOptimizer<B::InnerBackend>,
+        B: AutodiffBackend,
+        OS: Clone + Debug,
+        AS: Clone + Debug,
+    > OfflineTrainer<'a, O, B, OS, AS>
+{
     pub fn new(
         offline_params: OfflineAlgParams,
-        env: Box<dyn Env>,
-        eval_env: Box<dyn Env>,
-        algorithm: OfflineAlgorithm<O, B>,
-        buffer: ReplayBuffer<B>,
+        env: Box<dyn Env<OS, AS>>,
+        eval_env: Box<dyn Env<OS, AS>>,
+        agent: Box<dyn Agent<B, OS, AS>>,
+        buffer: ReplayBuffer<OS, AS>,
         logger: Box<dyn Logger>,
-        callback: Option<Box<dyn Callback<O, B>>>,
+        callback: Option<Box<dyn Callback<O, B, OS, AS>>>,
         eval_cfg: EvalConfig,
         train_device: &'a B::Device,
         buffer_device: &'a B::Device,
@@ -130,7 +92,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             offline_params,
             env,
             eval_env,
-            algorithm,
+            agent,
             buffer,
             logger,
             callback: c,
@@ -149,8 +111,11 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
         let mut ep_len = 0;
 
         if self.offline_params.eval_at_start_of_training {
-            self.algorithm
-                .eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
+            let log = self
+                .agent
+                .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
+
+            self.logger.log(log);
         }
 
         let style = ProgressStyle::default_bar()
@@ -162,13 +127,16 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
 
         for i in (0..self.offline_params.n_steps).progress_with_style(style) {
             let (action, log) = match i < self.offline_params.warmup_steps {
-                true => (self.env.action_space().sample(), None),
-                false => self.algorithm.act(&state, i, self),
+                true => (self.env.action_space().sample(), Default::default()),
+                false => self.agent.act(
+                    i,
+                    (i as f32) / (self.offline_params.n_steps as f32),
+                    &state,
+                    self.train_device,
+                ),
             };
 
-            if let Some(log) = log {
-                self.logger.log(log);
-            }
+            self.logger.log(log);
 
             let step_res = self.env.step(&action);
 
@@ -193,7 +161,7 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
             if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0)
             {
                 for _ in 0..self.offline_params.grad_steps {
-                    let loss = self.algorithm.train_step(
+                    let (loss, log) = self.agent.train_step(
                         i,
                         &self.buffer,
                         &self.offline_params,
@@ -204,14 +172,19 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
                     if let Some(loss) = loss {
                         running_loss.push(loss);
                     }
+
+                    self.logger.log(log)
                 }
             }
 
             if self.offline_params.evaluate_during_training
                 & (i % self.offline_params.evaluate_every_steps == 0)
             {
-                self.algorithm
-                    .eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
+                let log = self
+                    .agent
+                    .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
+
+                self.logger.log(log);
             }
 
             if done {
@@ -239,8 +212,11 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> OfflineTrainer
         }
 
         if self.offline_params.eval_at_end_of_training {
-            self.algorithm
-                .eval(&mut *self.eval_env, &self.eval_cfg, &mut *self.logger);
+            let log = self
+                .agent
+                .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
+
+            self.logger.log(log);
         }
 
         self.callback.on_training_end(self);

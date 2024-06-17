@@ -1,6 +1,6 @@
 use crate::{
     env::base::{Env, EnvObservation, ResetOptions, RewardRange},
-    spaces::{ActionSpace, Obs, ObsSpace},
+    spaces::{self, BoxSpace, Discrete},
     utils::generate_random_vector,
 };
 
@@ -25,11 +25,8 @@ pub struct CartpoleEnv {
 }
 
 impl CartpoleEnv {
-    fn get_obs(&self) -> Obs {
-        Obs::Continuous {
-            space: self.observation_space().clone(),
-            data: self.state.clone(),
-        }
+    fn get_obs(&self) -> Vec<f32> {
+        self.state.clone()
     }
 }
 
@@ -91,17 +88,13 @@ impl Default for CartpoleEnv {
     }
 }
 
-impl Env for CartpoleEnv {
-    fn step(&mut self, action: &crate::spaces::SpaceSample) -> EnvObservation {
+impl Env<Vec<f32>, usize> for CartpoleEnv {
+    fn step(&mut self, action: &usize) -> EnvObservation<Vec<f32>> {
+        let action = *action;
+
         if self.needs_reset {
             panic!("Reset required");
         }
-        let action = match action {
-            crate::spaces::SpaceSample::Discrete { space: _, idx } => *idx,
-            crate::spaces::SpaceSample::Continuous { space: _, data: _ } => {
-                panic!("Continuous actions not accepted in cartpole")
-            }
-        };
 
         let mut x = self.state[0];
         let mut x_dot = self.state[1];
@@ -184,11 +177,7 @@ impl Env for CartpoleEnv {
         }
     }
 
-    fn reset(
-        &mut self,
-        _seed: Option<[u8; 32]>,
-        _options: Option<ResetOptions>,
-    ) -> crate::spaces::Obs {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.05; 4], vec![0.05; 4]);
@@ -199,15 +188,15 @@ impl Env for CartpoleEnv {
         self.get_obs()
     }
 
-    fn action_space(&self) -> crate::spaces::ActionSpace {
-        ActionSpace::Discrete { size: 2 }
+    fn action_space(&self) -> Box<(dyn spaces::Space<usize> + 'static)> {
+        Box::new(Discrete::from(2))
     }
 
-    fn observation_space(&self) -> crate::spaces::ObsSpace {
-        ObsSpace::Continuous {
-            lows: self.highs.clone().iter().map(|el| -el).collect(),
-            highs: self.highs.clone(),
-        }
+    fn observation_space(&self) -> Box<(dyn spaces::Space<Vec<f32>> + 'static)> {
+        Box::new(BoxSpace::from((
+            self.highs.clone().iter().map(|el| -el).collect(),
+            self.highs.clone(),
+        )))
     }
 
     fn render(&self) {}
@@ -232,7 +221,7 @@ impl Env for CartpoleEnv {
 
     fn close(&mut self) {}
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<Vec<f32>, usize> {
         self
     }
 }

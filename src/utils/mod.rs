@@ -1,23 +1,7 @@
-use rand::{seq::SliceRandom, thread_rng, Rng};
+use burn::tensor::{backend::Backend, Float, Tensor};
+use rand::Rng;
 
 pub mod module_update;
-
-pub fn generate_rand_bool_vector(size: usize, num_true: usize) -> Vec<bool> {
-    // Create a vector of specified size initialized with false
-    let mut vec = vec![false; size];
-
-    // Generate a list of indices and shuffle them
-    let mut indices: Vec<usize> = (0..size).collect();
-    let mut rng = thread_rng();
-    indices.shuffle(&mut rng);
-
-    // Set the first num_true elements to true
-    for i in 0..num_true {
-        vec[indices[i]] = true;
-    }
-
-    vec
-}
 
 pub fn linear_decay(curr_frac: f32, start: f32, end: f32, end_frac: f32) -> f32 {
     if curr_frac > end_frac {
@@ -47,6 +31,19 @@ pub fn generate_random_vector(lows: Vec<f32>, highs: Vec<f32>) -> Vec<f32> {
     }
 
     random_vector
+}
+
+pub fn vec_usize_to_one_hot<B: Backend>(
+    data: Vec<usize>,
+    classes: usize,
+    device: &B::Device,
+) -> Tensor<B, 2, Float> {
+    Tensor::stack(
+        data.iter()
+            .map(|d| Tensor::<B, 1>::one_hot(*d, classes, device))
+            .collect(),
+        0,
+    )
 }
 
 #[cfg(test)]

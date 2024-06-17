@@ -1,6 +1,6 @@
-use burn::{optim::SimpleOptimizer, tensor::backend::AutodiffBackend};
-
 use crate::{algorithm::OfflineTrainer, env::base::EnvObservation};
+use burn::{optim::SimpleOptimizer, tensor::backend::AutodiffBackend};
+use core::fmt::Debug;
 
 // Callbacks in stable-baselines3 do not take in specific parameters - rather, they
 // take in the local and global variable namespaces. I'm not sure how this would be
@@ -11,32 +11,44 @@ use crate::{algorithm::OfflineTrainer, env::base::EnvObservation};
 // The Callback trait, which handles flexible functionality to be called at various
 // times during training. The Callback is a useful too for implementing unique
 // functionality without needing to modify the core training loop.
-pub trait Callback<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> {
-    fn on_training_start(&self, trainer: &OfflineTrainer<O, B>);
+pub trait Callback<
+    O: SimpleOptimizer<B::InnerBackend>,
+    B: AutodiffBackend,
+    OS: Clone + Debug,
+    AS: Clone + Debug,
+>
+{
+    fn on_training_start(&self, trainer: &OfflineTrainer<O, B, OS, AS>);
     fn on_step(
         &self,
-        trainer: &OfflineTrainer<O, B>,
+        trainer: &OfflineTrainer<O, B, OS, AS>,
         step: usize,
-        env_obs: EnvObservation,
+        env_obs: EnvObservation<OS>,
         loss: Option<f32>,
     );
-    fn on_training_end(&self, trainer: &OfflineTrainer<O, B>);
+    fn on_training_end(&self, trainer: &OfflineTrainer<O, B, OS, AS>);
 }
 
 // A stub callback that does nothing.
 pub struct EmptyCallback {}
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Callback<O, B> for EmptyCallback {
-    fn on_training_start(&self, _trainer: &OfflineTrainer<O, B>) {}
+impl<
+        O: SimpleOptimizer<B::InnerBackend>,
+        B: AutodiffBackend,
+        OS: Clone + Debug,
+        AS: Clone + Debug,
+    > Callback<O, B, OS, AS> for EmptyCallback
+{
+    fn on_training_start(&self, _trainer: &OfflineTrainer<O, B, OS, AS>) {}
 
     fn on_step(
         &self,
-        _trainer: &OfflineTrainer<O, B>,
+        _trainer: &OfflineTrainer<O, B, OS, AS>,
         _step: usize,
-        _env_obs: EnvObservation,
+        _env_obs: EnvObservation<OS>,
         _loss: Option<f32>,
     ) {
     }
 
-    fn on_training_end(&self, _trainer: &OfflineTrainer<O, B>) {}
+    fn on_training_end(&self, _trainer: &OfflineTrainer<O, B, OS, AS>) {}
 }
