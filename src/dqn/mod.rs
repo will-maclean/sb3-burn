@@ -1,13 +1,8 @@
 use burn::{
     config::Config,
-    module::Module,
-    nn::{
-        self,
-        loss::{MseLoss, Reduction},
-    },
+    nn::loss::{MseLoss, Reduction},
     optim::{adaptor::OptimizerAdaptor, GradientsParams, Optimizer, SimpleOptimizer},
     tensor::{
-        activation::relu,
         backend::{AutodiffBackend, Backend},
         ElementConversion, Tensor,
     },
@@ -15,15 +10,15 @@ use burn::{
 use module::DQNNet;
 
 use crate::{
-    algorithm::{OfflineAlgParams, OfflineTrainer},
+    algorithm::OfflineAlgParams,
     buffer::ReplayBuffer,
     env::base::Env,
     eval::{evaluate_policy, EvalConfig},
     logger::{LogData, LogItem},
-    policy::{Agent, Policy},
+    policy::Agent,
     spaces::Space,
     to_tensor::{ToTensorB, ToTensorF, ToTensorI},
-    utils::linear_decay,
+    utils::{linear_decay, vec_usize_to_one_hot},
 };
 
 pub mod module;
@@ -189,6 +184,116 @@ where
     }
 
     fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
+        dyn_clone::clone_box(&*self.observation_space)
+    }
+
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        dyn_clone::clone_box(&*self.action_space)
+    }
+}
+
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, Q> Agent<B, usize, usize>
+    for DQNAgent<O, B, usize, usize, Q, 2>
+where 
+    Q: DQNNet<B, 2> + burn::module::AutodiffModule<B>,
+{
+    fn act(
+        &self,
+        _global_step: usize,
+        global_frac: f32,
+        obs: &usize,
+        inference_device: &<B as Backend>::Device,
+    ) -> (usize, LogItem) {
+        let eps = linear_decay(
+            global_frac,
+            self.config.eps_start,
+            self.config.eps_end,
+            self.config.eps_end_frac,
+        );
+
+        let a: usize = if rand::random::<f32>() > eps {
+            let state = Tensor::one_hot(*obs, self.observation_space().shape(), inference_device);
+            let q: Tensor<B, 1> = self.q1.forward(state).squeeze(0);
+            q.argmax(0).into_scalar().elem::<i32>() as usize
+        } else {
+            self.action_space().sample()
+        };
+
+        let log = LogItem::default().push("eps".to_string(), LogData::Float(eps));
+
+        (a, log)
+    }
+
+    fn train_step(
+        &mut self,
+        global_step: usize,
+        replay_buffer: &ReplayBuffer<usize, usize>,
+        offline_params: &OfflineAlgParams,
+        train_device: &<B as Backend>::Device,
+    ) -> (Option<f32>, LogItem) {
+        let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
+
+        // can make this mut when we want to log stuff in the loss step
+        let log = LogItem::default();
+
+        let loss = match batch_sample {
+            Some(sample) => {
+                let states = vec_usize_to_one_hot(sample.states, self.observation_space().shape(), train_device);
+                let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
+                let next_states = vec_usize_to_one_hot(sample.next_states, self.observation_space().shape(), train_device);
+                let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
+                let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
+
+                let q_vals_ungathered = self.q1.forward(states);
+                let q_vals = q_vals_ungathered.gather(1, actions);
+                let next_q_vals_ungathered = self.q2.forward(next_states);
+                let next_q_vals = next_q_vals_ungathered.max_dim(1);
+
+                //FIXME: check that we should be using terminated and essentially ignoring truncated
+                let targets =
+                    rewards + terminated.bool_not().float() * next_q_vals * offline_params.gamma;
+
+                let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
+
+                let grads = loss.backward();
+                let grads = GradientsParams::from_grads(grads, &self.q1);
+
+                self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
+
+                if global_step > (self.last_update + self.config.update_every) {
+                    // hard update
+                    self.q2.update(&self.q1, None);
+                    self.last_update = global_step
+                }
+
+                Some(loss.into_scalar().elem())
+            }
+            None => None,
+        };
+
+        (loss, log)
+    }
+
+    fn eval(
+        &mut self,
+        env: &mut dyn Env<usize, usize>,
+        cfg: &EvalConfig,
+        eval_device: &<B as Backend>::Device,
+    ) -> LogItem {
+        let eval_result = evaluate_policy(self, env, cfg, eval_device);
+
+        LogItem::default()
+            .push(
+                "eval_ep_mean_reward".to_string(),
+                LogData::Float(eval_result.mean_reward),
+            )
+            .push(
+                "eval_ep_mean_len".to_string(),
+                LogData::Float(eval_result.mean_len),
+            )
+    }
+
+    fn observation_space(&self) -> Box<dyn Space<usize>> {
         dyn_clone::clone_box(&*self.observation_space)
     }
 

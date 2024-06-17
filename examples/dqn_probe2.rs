@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{Autodiff, NdArray},
-    optim::AdamConfig,
+    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
+    grad_clipping::GradientClippingConfig,
+    optim::{Adam, AdamConfig},
 };
 use sb3_burn::{
-    algorithm::{OfflineAlgParams, OfflineAlgorithm, OfflineTrainer},
+    algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{DQNAgent, DQNConfig, DQNNet},
+    dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
     env::{base::Env, probe::ProbeEnvBackpropTest},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -16,14 +17,21 @@ use sb3_burn::{
 extern crate sb3_burn;
 
 fn main() {
-    type TrainingBacked = Autodiff<NdArray>;
-    let device = Default::default();
-    let config_optimizer = AdamConfig::new();
+    // Using parameters from:
+    // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
+
+    type TrainingBacked = Autodiff<LibTorch>;
+
+    let train_device = LibTorchDevice::Cuda(0);
+    let buffer_device = LibTorchDevice::Cpu;
+
+    let config_optimizer =
+        AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(3)
+        .with_batch_size(10)
         .with_memory_size(1000)
-        .with_n_steps(10000)
+        .with_n_steps(1000)
         .with_warmup_steps(50)
         .with_lr(5e-3)
         .with_eval_at_end_of_training(true)
@@ -31,30 +39,26 @@ fn main() {
         .with_evaluate_during_training(false);
 
     let env = ProbeEnvBackpropTest::default();
-    let q = DQNNet::<TrainingBacked>::init(
-        &device,
-        env.observation_space().clone(),
-        env.action_space().clone(),
+    let q = LinearAdvDQNNet::<TrainingBacked>::init(
+        &train_device,
+        env.observation_space().shape(),
+        env.action_space().shape(),
         1,
     );
+    let dqn_config = DQNConfig::new();
     let agent = DQNAgent::new(
-        q.clone(),
-        q,
-        optim,
-        DQNConfig::new()
-            .with_eps_end(0.0)
-            .with_eps_end_frac(0.0)
-            .with_eps_start(0.0),
+        q.clone(), 
+        q, 
+        optim, 
+        dqn_config,
+        env.observation_space(),
+        env.action_space()
     );
-    let dqn_alg = OfflineAlgorithm::DQN(agent);
-    let buffer = ReplayBuffer::new(
-        offline_params.memory_size,
-        env.observation_space().size(),
-        env.action_space().size(),
-        &device,
-    );
+    
+    let buffer = ReplayBuffer::new(offline_params.memory_size);
+
     let logger = CsvLogger::new(
-        PathBuf::from("logs/log_dqn_probe2.csv"),
+        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
         false,
         Some("global_step".to_string()),
     );
@@ -64,23 +68,17 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<Adam<LibTorch>, Autodiff<LibTorch>, usize, usize> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
-        Box::<ProbeEnvBackpropTest>::default(),
-        dqn_alg,
+        Box::new(ProbeEnvBackpropTest::default()),
+        Box::new(agent),
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new()
-            .with_n_eval_episodes(10)
-            .with_print_action(true)
-            .with_print_obs(true)
-            .with_print_done(true)
-            .with_print_reward(true)
-            .with_print_prediction(true),
-        &device,
-        &device,
+        EvalConfig::new().with_n_eval_episodes(10),
+        &train_device,
+        &buffer_device,
     );
 
     trainer.train();
