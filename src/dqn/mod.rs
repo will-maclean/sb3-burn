@@ -107,7 +107,9 @@ where
             self.action_space().sample()
         };
 
-        let log = LogItem::default().push("eps".to_string(), LogData::Float(eps));
+        let log = LogItem::default()
+            .push("eps".to_string(), LogData::Float(eps))
+            .push("action".to_string(), LogData::Int(a as i32));
 
         (a, log)
     }
@@ -120,45 +122,41 @@ where
         train_device: &<B as Backend>::Device,
     ) -> (Option<f32>, LogItem) {
         // sample from the replay buffer
-        let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
+        let sample = replay_buffer.batch_sample(offline_params.batch_size);
 
         // can make this mut when we want to log stuff in the loss step
         let log = LogItem::default();
 
-        let loss = match batch_sample {
-            Some(sample) => {
-                let states = sample.states.to_tensor(train_device);
-                let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
-                let next_states = sample.next_states.to_tensor(train_device);
-                let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
-                let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
+        let states = sample.states.to_tensor(train_device);
+        let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
+        let next_states = sample.next_states.to_tensor(train_device);
+        let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
+        let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
+        let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
 
-                let q_vals_ungathered = self.q1.forward(states);
-                let q_vals = q_vals_ungathered.gather(1, actions);
-                let next_q_vals_ungathered = self.q2.forward(next_states);
-                let next_q_vals = next_q_vals_ungathered.max_dim(1);
+        let q_vals_ungathered = self.q1.forward(states);
+        let q_vals = q_vals_ungathered.gather(1, actions);
+        let next_q_vals_ungathered = self.q2.forward(next_states);
+        let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
-                //FIXME: check that we should be using terminated and essentially ignoring truncated
-                let targets =
-                    rewards + terminated.bool_not().float() * next_q_vals * offline_params.gamma;
+        let done = terminated.float().add(truncated.float()).bool();
+        let targets =
+            rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
 
-                let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
+        let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
-                let grads = loss.backward();
-                let grads = GradientsParams::from_grads(grads, &self.q1);
+        let grads = loss.backward();
+        let grads = GradientsParams::from_grads(grads, &self.q1);
 
-                self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
+        self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
 
-                if global_step > (self.last_update + self.config.update_every) {
-                    // hard update
-                    self.q2.update(&self.q1, None);
-                    self.last_update = global_step
-                }
+        if global_step > (self.last_update + self.config.update_every) {
+            // hard update
+            self.q2.update(&self.q1, None);
+            self.last_update = global_step
+        }
 
-                Some(loss.into_scalar().elem())
-            }
-            None => None,
-        };
+        let loss = Some(loss.into_scalar().elem());
 
         (loss, log)
     }
@@ -218,7 +216,9 @@ where
             self.action_space().sample()
         };
 
-        let log = LogItem::default().push("eps".to_string(), LogData::Float(eps));
+        let log = LogItem::default()
+            .push("eps".to_string(), LogData::Float(eps))
+            .push("action".to_string(), LogData::Int(a as i32));
 
         (a, log)
     }
@@ -230,53 +230,50 @@ where
         offline_params: &OfflineAlgParams,
         train_device: &<B as Backend>::Device,
     ) -> (Option<f32>, LogItem) {
-        let batch_sample = replay_buffer.batch_sample(offline_params.batch_size);
+        let sample = replay_buffer.batch_sample(offline_params.batch_size);
 
         // can make this mut when we want to log stuff in the loss step
         let log = LogItem::default();
 
-        let loss = match batch_sample {
-            Some(sample) => {
-                let states = vec_usize_to_one_hot(
-                    sample.states,
-                    self.observation_space().shape(),
-                    train_device,
-                );
-                let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
-                let next_states = vec_usize_to_one_hot(
-                    sample.next_states,
-                    self.observation_space().shape(),
-                    train_device,
-                );
-                let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
-                let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
+        let states = vec_usize_to_one_hot(
+            sample.states,
+            self.observation_space().shape(),
+            train_device,
+        );
+        let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
+        let next_states = vec_usize_to_one_hot(
+            sample.next_states,
+            self.observation_space().shape(),
+            train_device,
+        );
+        let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
+        let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
+        let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
 
-                let q_vals_ungathered = self.q1.forward(states);
-                let q_vals = q_vals_ungathered.gather(1, actions);
-                let next_q_vals_ungathered = self.q2.forward(next_states);
-                let next_q_vals = next_q_vals_ungathered.max_dim(1);
+        let q_vals_ungathered = self.q1.forward(states);
+        let q_vals = q_vals_ungathered.gather(1, actions);
+        let next_q_vals_ungathered = self.q2.forward(next_states);
+        let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
-                //FIXME: check that we should be using terminated and essentially ignoring truncated
-                let targets =
-                    rewards + terminated.bool_not().float() * next_q_vals * offline_params.gamma;
+        let done = terminated.float().add(truncated.float()).bool();
 
-                let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
+        let targets =
+            rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
 
-                let grads = loss.backward();
-                let grads = GradientsParams::from_grads(grads, &self.q1);
+        let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
-                self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
+        let grads = loss.backward();
+        let grads = GradientsParams::from_grads(grads, &self.q1);
 
-                if global_step > (self.last_update + self.config.update_every) {
-                    // hard update
-                    self.q2.update(&self.q1, None);
-                    self.last_update = global_step
-                }
+        self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
 
-                Some(loss.into_scalar().elem())
-            }
-            None => None,
-        };
+        if global_step > (self.last_update + self.config.update_every) {
+            // hard update
+            self.q2.update(&self.q1, None);
+            self.last_update = global_step
+        }
+
+        let loss = Some(loss.into_scalar().elem());
 
         (loss, log)
     }
@@ -308,7 +305,6 @@ where
         dyn_clone::clone_box(&*self.action_space)
     }
 }
-
 // #[cfg(test)]
 // mod test {
 //     use std::path::PathBuf;

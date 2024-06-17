@@ -30,7 +30,7 @@ pub struct OfflineAlgParams {
     pub lr: f64,
     #[config(default = false)]
     pub render: bool,
-    #[config(default = true)]
+    #[config(default = false)]
     evaluate_during_training: bool,
     #[config(default = 1)]
     pub evaluate_every_steps: usize,

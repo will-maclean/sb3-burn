@@ -108,14 +108,14 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         })
     }
 
-    pub fn batch_sample(&self, batch_size: usize) -> Option<BatchedReplayBufferSlice<O, A>> {
+    pub fn batch_sample(&self, batch_size: usize) -> BatchedReplayBufferSlice<O, A> {
         if (self.full & (batch_size > self.size)) | (!self.full & (batch_size > self.ptr)) {
-            return None;
+            panic!("Not enough samples in here! self.len: {:?}, batch_size: {:?}", self.len(), batch_size);
         }
 
         let mut rng = thread_rng();
 
-        Some(BatchedReplayBufferSlice {
+        BatchedReplayBufferSlice {
             states: self
                 .states
                 .choose_multiple(&mut rng, batch_size)
@@ -146,7 +146,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
                 .choose_multiple(&mut rng, batch_size)
                 .cloned()
                 .collect(),
-        })
+        }
     }
 }
 
@@ -174,13 +174,12 @@ mod tests {
         );
     }
 
+    #[should_panic]
     #[test]
     fn test_batch_sample_before_ready() {
         let buffer = ReplayBuffer::<usize, Vec<f32>>::new(1000);
 
-        let sample = buffer.batch_sample(64);
-
-        assert!(sample.is_none());
+        buffer.batch_sample(64);
     }
 
     #[test]

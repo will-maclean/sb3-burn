@@ -20,12 +20,6 @@ pub struct MountainCarEnv {
     max_steps: i32,
 }
 
-impl MountainCarEnv {
-    fn get_obs(&self) -> Vec<f32> {
-        self.state.clone()
-    }
-}
-
 impl Default for MountainCarEnv {
     fn default() -> Self {
         Self {
@@ -75,7 +69,7 @@ impl Env<Vec<f32>, usize> for MountainCarEnv {
         self.state = vec![p, v];
 
         EnvObservation {
-            obs: self.get_obs(),
+            obs: self.state.clone(),
             reward,
             terminated,
             truncated,
@@ -90,7 +84,7 @@ impl Env<Vec<f32>, usize> for MountainCarEnv {
 
         self.curr_steps = 0;
 
-        self.get_obs()
+        self.state.clone()
     }
 
     fn action_space(&self) -> Box<dyn Space<usize>> {
