@@ -2,10 +2,21 @@ use rand::{rngs::StdRng, SeedableRng};
 use dyn_clone::DynClone;
 
 
+/// Defines a space in which a action, observation, or other may exist
 pub trait Space<T: Clone>: DynClone {
+
+    /// tests whether the sample is contained within the space
     fn contains(&self, sample: &T) -> bool;
+
+    /// randomly samples from the space
     fn sample(&mut self) -> T;
+
+    /// seeds the rng for the space 
     fn seed(&mut self);
+
+    /// returns some semantic representation of the space of
+    /// the space, to be used for initialising models
+    fn shape(&self) -> T;
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +45,10 @@ impl Space<usize> for Discrete {
 
     fn seed(&mut self) {
         todo!()
+    }
+
+    fn shape(&self) -> usize {
+        self.n
     }
 }
 
@@ -65,5 +80,9 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
 
     fn seed(&mut self) {
         todo!()
+    }
+
+    fn shape(&self) -> Vec<f32> {
+        self.low.clone()
     }
 }
