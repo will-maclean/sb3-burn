@@ -45,11 +45,17 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
     }
 
     pub fn full(&self) -> bool {
-        self.len() == self.size
+        self.curr_len() == self.size
     }
 
-    pub fn len(&self) -> usize {
+    /// The number of samples currently stored in the buffer
+    pub fn curr_len(&self) -> usize{
         self.states.len()
+    }
+
+    /// The maximum number of samples this buffer can hold
+    pub fn size(&self) -> usize {
+        self.size
     }
 
     pub fn get(&self, idx: usize) -> Result<ReplayBufferSlice<O, A>, &'static str> {
@@ -80,7 +86,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
             self.truncated.push(item.truncated);
         }
 
-        self.ptr = (self.ptr + 1) % self.len();
+        self.ptr = (self.ptr + 1) % self.size();
     }
 
     pub fn add(
@@ -103,8 +109,8 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
     }
 
     pub fn batch_sample(&self, batch_size: usize) -> BatchedReplayBufferSlice<O, A> {
-        if (self.full() & (batch_size > self.size)) | (!self.full() & (batch_size > self.ptr)) {
-            panic!("Not enough samples in here! self.len: {:?}, batch_size: {:?}", self.len(), batch_size);
+        if (self.full() & (batch_size > self.size())) | (!self.full() & (batch_size > self.curr_len())) {
+            panic!("Not enough samples in here! self.len: {:?}, batch_size: {:?}", self.curr_len(), batch_size);
         }
 
         let mut rng = thread_rng();
