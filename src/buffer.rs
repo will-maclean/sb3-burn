@@ -1,5 +1,5 @@
-use rand::thread_rng;
 use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 pub struct BatchedReplayBufferSlice<O, A> {
     pub states: Vec<O>,
@@ -66,12 +66,21 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
     }
 
     pub fn add_slice(&mut self, item: ReplayBufferSlice<O, A>) {
-        self.states[self.ptr] = item.state;
-        self.actions[self.ptr] = item.action;
-        self.next_states[self.ptr] = item.next_state;
-        self.rewards[self.ptr] = item.reward;
-        self.terminated[self.ptr] = item.terminated;
-        self.truncated[self.ptr] = item.truncated;
+        if self.full(){
+            self.states[self.ptr] = item.state;
+            self.actions[self.ptr] = item.action;
+            self.next_states[self.ptr] = item.next_state;
+            self.rewards[self.ptr] = item.reward;
+            self.terminated[self.ptr] = item.terminated;
+            self.truncated[self.ptr] = item.truncated;
+        } else {
+            self.states.push(item.state);
+            self.actions.push(item.action);
+            self.next_states.push(item.next_state);
+            self.rewards.push(item.reward);
+            self.terminated.push(item.terminated);
+            self.truncated.push(item.truncated);
+        }
 
         if self.ptr == self.len() - 1 {
             self.full = true;
@@ -89,16 +98,14 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         terminated: bool,
         truncated: bool,
     ) {
-        self.add_slice(
-            ReplayBufferSlice{
-                state,
-                action,
-                next_state,
-                reward,
-                terminated,
-                truncated,
-            }
-        )
+        self.add_slice(ReplayBufferSlice {
+            state,
+            action,
+            next_state,
+            reward,
+            terminated,
+            truncated,
+        })
     }
 
     pub fn batch_sample(&self, batch_size: usize) -> Option<BatchedReplayBufferSlice<O, A>> {
@@ -109,12 +116,36 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         let mut rng = thread_rng();
 
         Some(BatchedReplayBufferSlice {
-            states: self.states.choose_multiple(&mut rng, batch_size).cloned().collect(),
-            actions: self.actions.choose_multiple(&mut rng, batch_size).cloned().collect(),
-            next_states: self.next_states.choose_multiple(&mut rng, batch_size).cloned().collect(),
-            rewards: self.rewards.choose_multiple(&mut rng, batch_size).cloned().collect(),
-            terminated: self.terminated.choose_multiple(&mut rng, batch_size).cloned().collect(),
-            truncated: self.truncated.choose_multiple(&mut rng, batch_size).cloned().collect(),
+            states: self
+                .states
+                .choose_multiple(&mut rng, batch_size)
+                .cloned()
+                .collect(),
+            actions: self
+                .actions
+                .choose_multiple(&mut rng, batch_size)
+                .cloned()
+                .collect(),
+            next_states: self
+                .next_states
+                .choose_multiple(&mut rng, batch_size)
+                .cloned()
+                .collect(),
+            rewards: self
+                .rewards
+                .choose_multiple(&mut rng, batch_size)
+                .cloned()
+                .collect(),
+            terminated: self
+                .terminated
+                .choose_multiple(&mut rng, batch_size)
+                .cloned()
+                .collect(),
+            truncated: self
+                .truncated
+                .choose_multiple(&mut rng, batch_size)
+                .cloned()
+                .collect(),
         })
     }
 }

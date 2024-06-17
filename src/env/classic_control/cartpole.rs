@@ -1,5 +1,7 @@
 use crate::{
-    env::base::{Env, EnvObservation, ResetOptions, RewardRange}, spaces::{self, BoxSpace, Discrete}, utils::generate_random_vector
+    env::base::{Env, EnvObservation, ResetOptions, RewardRange},
+    spaces::{self, BoxSpace, Discrete},
+    utils::generate_random_vector,
 };
 
 pub struct CartpoleEnv {
@@ -175,11 +177,7 @@ impl Env<Vec<f32>, usize> for CartpoleEnv {
         }
     }
 
-    fn reset(
-        &mut self,
-        _seed: Option<[u8; 32]>,
-        _options: Option<ResetOptions>,
-    ) -> Vec<f32> {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.05; 4], vec![0.05; 4]);
@@ -195,12 +193,10 @@ impl Env<Vec<f32>, usize> for CartpoleEnv {
     }
 
     fn observation_space(&self) -> Box<(dyn spaces::Space<Vec<f32>> + 'static)> {
-        Box::new(
-            BoxSpace::from ((
-                self.highs.clone().iter().map(|el| -el).collect(),
-                self.highs.clone(),
-            ))
-        )
+        Box::new(BoxSpace::from((
+            self.highs.clone().iter().map(|el| -el).collect(),
+            self.highs.clone(),
+        )))
     }
 
     fn render(&self) {}

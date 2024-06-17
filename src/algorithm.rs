@@ -44,7 +44,13 @@ pub struct OfflineAlgParams {
     pub grad_steps: usize,
 }
 
-pub struct OfflineTrainer<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS: Clone> {
+pub struct OfflineTrainer<
+    'a,
+    O: SimpleOptimizer<B::InnerBackend>,
+    B: AutodiffBackend,
+    OS: Clone,
+    AS: Clone,
+> {
     pub offline_params: OfflineAlgParams,
     pub env: Box<dyn Env<OS, AS>>,
     pub eval_env: Box<dyn Env<OS, AS>>,
@@ -57,7 +63,14 @@ pub struct OfflineTrainer<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBa
     pub buffer_device: &'a B::Device,
 }
 
-impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + Debug, AS: Clone + Debug> OfflineTrainer<'a, O, B, OS, AS> {
+impl<
+        'a,
+        O: SimpleOptimizer<B::InnerBackend>,
+        B: AutodiffBackend,
+        OS: Clone + Debug,
+        AS: Clone + Debug,
+    > OfflineTrainer<'a, O, B, OS, AS>
+{
     pub fn new(
         offline_params: OfflineAlgParams,
         env: Box<dyn Env<OS, AS>>,
@@ -98,7 +111,8 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + De
         let mut ep_len = 0;
 
         if self.offline_params.eval_at_start_of_training {
-            let log = self.agent
+            let log = self
+                .agent
                 .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
             //TODO: log the log
@@ -166,7 +180,8 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + De
             if self.offline_params.evaluate_during_training
                 & (i % self.offline_params.evaluate_every_steps == 0)
             {
-                let log = self.agent
+                let log = self
+                    .agent
                     .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
                 //TODO: log the log
@@ -197,7 +212,8 @@ impl<'a, O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + De
         }
 
         if self.offline_params.eval_at_end_of_training {
-            let log = self.agent
+            let log = self
+                .agent
                 .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
             // TODO: log the logger

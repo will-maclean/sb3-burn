@@ -1,6 +1,6 @@
 use burn::{
     module::Param,
-    nn::Linear,
+    nn::{conv::Conv2d, Linear},
     tensor::{backend::Backend, Tensor},
 };
 
@@ -33,6 +33,10 @@ pub fn update_linear<B: Backend>(from: &Linear<B>, to: Linear<B>, tau: Option<f3
     }
 
     result
+}
+
+pub fn update_conv2d<B: Backend>(from: &Conv2d<B>, to: Conv2d<B>, tau: Option<f32>) -> Conv2d<B> {
+    todo!()
 }
 
 // #[cfg(test)]

@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    logger::LogData, spaces::Space,
-};
+use crate::{logger::LogData, spaces::Space};
 
 #[derive(Debug, Clone)]
 pub enum InfoData<O> {

@@ -175,8 +175,7 @@ impl Env<Vec<f32>, usize> for GridWorldEnv {
 
         self.needs_reset = false;
 
-        self
-            .field
+        self.field
             .to_shape((self.dim * self.dim,))
             .unwrap()
             .to_vec()

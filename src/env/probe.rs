@@ -44,11 +44,11 @@ impl Env<Vec<f32>, usize> for ProbeEnvValueTest {
     fn unwrapped(&self) -> &dyn Env<Vec<f32>, usize> {
         self
     }
-    
+
     fn action_space(&self) -> Box<dyn Space<usize>> {
         Box::new(Discrete::from(1))
     }
-    
+
     fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
         Box::new(BoxSpace::from((vec![0.0], vec![1.0])))
     }
@@ -155,7 +155,7 @@ impl Env<usize, usize> for ProbeEnvDiscountingTest {
 
     fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
         self.done_next = false;
-        
+
         0
     }
 

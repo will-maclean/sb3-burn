@@ -15,15 +15,30 @@ use burn::{
 use module::DQNNet;
 
 use crate::{
-    algorithm::{OfflineAlgParams, OfflineTrainer}, buffer::ReplayBuffer, env::base::Env, eval::{evaluate_policy, EvalConfig}, logger::{LogData, LogItem}, policy::{Agent, Policy}, spaces::Space, to_tensor::{ToTensorB, ToTensorF, ToTensorI}, utils::linear_decay
+    algorithm::{OfflineAlgParams, OfflineTrainer},
+    buffer::ReplayBuffer,
+    env::base::Env,
+    eval::{evaluate_policy, EvalConfig},
+    logger::{LogData, LogItem},
+    policy::{Agent, Policy},
+    spaces::Space,
+    to_tensor::{ToTensorB, ToTensorF, ToTensorI},
+    utils::linear_decay,
 };
 
 pub mod module;
 
-pub struct DQNAgent<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS: Clone> {
-    pub q1: DQNNet<B>,
-    pub q2: DQNNet<B>,
-    pub optim: OptimizerAdaptor<O, DQNNet<B>, B>,
+pub struct DQNAgent<O, B, OS, AS, Q, const D: usize> 
+where 
+    O: SimpleOptimizer<B::InnerBackend>,
+    B: AutodiffBackend,
+    OS: Clone,
+    AS: Clone,
+    Q: DQNNet<B, D> + burn::module::AutodiffModule<B>,
+{
+    pub q1: Q,
+    pub q2: Q,
+    pub optim: OptimizerAdaptor<O, Q, B>,
     pub config: DQNConfig,
     pub last_update: usize,
     observation_space: Box<dyn Space<OS>>,
@@ -42,11 +57,19 @@ pub struct DQNConfig {
     update_every: usize,
 }
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS: Clone> DQNAgent<O, B, OS, AS> {
+impl<O, B, OS, AS, Q, const D: usize>
+    DQNAgent<O, B, OS, AS, Q, D>
+where
+    O: SimpleOptimizer<B::InnerBackend>,
+    B: AutodiffBackend,
+    OS: Clone,
+    AS: Clone,
+    Q: DQNNet<B, D> + burn::module::AutodiffModule<B>,
+{
     pub fn new(
-        q1: DQNNet<B>,
-        q2: DQNNet<B>,
-        optim: OptimizerAdaptor<O, DQNNet<B>, B>,
+        q1: Q,
+        q2: Q,
+        optim: OptimizerAdaptor<O, Q, B>,
         config: DQNConfig,
         observation_space: Box<dyn Space<OS>>,
         action_space: Box<dyn Space<AS>>,
@@ -63,8 +86,13 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone, AS: Clo
     }
 }
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>, usize> for DQNAgent<O, B, Vec<f32>, usize>{
-    fn act(&self,
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, Q> Agent<B, Vec<f32>, usize>
+    for DQNAgent<O, B, Vec<f32>, usize, Q, 2>
+where 
+    Q: DQNNet<B, 2> + burn::module::AutodiffModule<B>,
+{
+    fn act(
+        &self,
         _global_step: usize,
         global_frac: f32,
         obs: &Vec<f32>,
@@ -85,8 +113,7 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>,
             self.action_space().sample()
         };
 
-        let log = LogItem::default()
-            .push("eps".to_string(), LogData::Float(eps));
+        let log = LogItem::default().push("eps".to_string(), LogData::Float(eps));
 
         (a, log)
     }
@@ -118,10 +145,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>,
                 let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
                 //FIXME: check that we should be using terminated and essentially ignoring truncated
-                let targets = rewards
-                    + terminated.bool_not().float()
-                        * next_q_vals
-                        * offline_params.gamma;
+                let targets =
+                    rewards + terminated.bool_not().float() * next_q_vals * offline_params.gamma;
 
                 let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
@@ -148,8 +173,8 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>,
         &mut self,
         env: &mut dyn Env<Vec<f32>, usize>,
         cfg: &EvalConfig,
-        eval_device: &B::Device
-    ) -> LogItem{
+        eval_device: &B::Device,
+    ) -> LogItem {
         let eval_result = evaluate_policy(self, env, cfg, eval_device);
 
         LogItem::default()
@@ -162,11 +187,11 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>,
                 LogData::Float(eval_result.mean_len),
             )
     }
-    
+
     fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
         dyn_clone::clone_box(&*self.observation_space)
     }
-    
+
     fn action_space(&self) -> Box<dyn Space<usize>> {
         dyn_clone::clone_box(&*self.action_space)
     }
@@ -212,9 +237,9 @@ impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend> Agent<B, Vec<f32>,
 //             2,
 //         );
 //         let agent = DQNAgent::new(
-//             q.clone(), 
-//             q, 
-//             optim, 
+//             q.clone(),
+//             q,
+//             optim,
 //             DQNConfig::new(),
 //             env.observation_space(),
 //             env.action_space()

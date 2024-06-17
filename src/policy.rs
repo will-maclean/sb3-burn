@@ -2,11 +2,13 @@ use burn::module::Module;
 use burn::tensor::backend::Backend;
 
 use crate::{
-    algorithm::OfflineAlgParams, buffer::ReplayBuffer, env::base::Env, eval::EvalConfig, logger::LogItem, spaces::Space
+    algorithm::OfflineAlgParams, buffer::ReplayBuffer, env::base::Env, eval::EvalConfig,
+    logger::LogItem, spaces::Space,
 };
 
 pub trait Agent<B: Backend, O: Clone, A: Clone> {
-    fn act(&self,
+    fn act(
+        &self,
         global_step: usize,
         global_frac: f32,
         obs: &O,
@@ -32,6 +34,6 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     fn action_space(&self) -> Box<dyn Space<A>>;
 }
 
-pub trait Policy<B: Backend>: Module<B> + Clone {
+pub trait Policy<B: Backend>: Module<B> + Clone + Sized{
     fn update(&mut self, from: &Self, tau: Option<f32>);
 }

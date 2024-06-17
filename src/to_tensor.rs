@@ -23,7 +23,7 @@ impl ToTensorF<2> for Vec<Vec<f32>> {
         let n0 = self.len();
         let n1 = self[0].len();
         let data: Vec<f32> = self.concat();
-    
+
         Tensor::from_data(Data::new(data, Shape::new([n0, n1])).convert(), device)
     }
 }
@@ -53,8 +53,11 @@ pub trait ToTensorB<const D: usize>: Clone {
 
 impl ToTensorB<1> for bool {
     fn to_tensor<B: Backend>(self, device: &<B as Backend>::Device) -> Tensor<B, 1, Bool> {
-
-        Tensor::<B, 1, Int>::from_data(Data::new(vec![self as i32], Shape::new([1])).convert(), device).bool()
+        Tensor::<B, 1, Int>::from_data(
+            Data::new(vec![self as i32], Shape::new([1])).convert(),
+            device,
+        )
+        .bool()
     }
 }
 

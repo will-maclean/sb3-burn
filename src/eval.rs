@@ -1,6 +1,10 @@
+use crate::{
+    env::base::Env,
+    policy::{Agent, Policy},
+    utils::mean,
+};
 use burn::{config::Config, tensor::backend::Backend};
 use core::fmt::Debug;
-use crate::{env::base::Env, policy::{Agent, Policy}, utils::mean};
 
 pub struct EvalResult {
     pub mean_len: f32,

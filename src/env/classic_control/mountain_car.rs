@@ -1,7 +1,5 @@
 use crate::{
-    env::base::{Env, EnvObservation, ResetOptions, RewardRange},
-    spaces::{ActionSpace, Obs, ObsSpace},
-    utils::generate_random_vector,
+    env::base::{Env, EnvObservation, ResetOptions, RewardRange}, spaces::{BoxSpace, Discrete, Space}, utils::generate_random_vector
 };
 
 pub struct MountainCarEnv {
@@ -21,11 +19,8 @@ pub struct MountainCarEnv {
 }
 
 impl MountainCarEnv {
-    fn get_obs(&self) -> Obs {
-        Obs::Continuous {
-            space: self.observation_space().clone(),
-            data: self.state.clone(),
-        }
+    fn get_obs(&self) -> Vec<f32> {
+        self.state.clone()
     }
 }
 
@@ -49,17 +44,12 @@ impl Default for MountainCarEnv {
     }
 }
 
-impl Env for MountainCarEnv {
-    fn step(&mut self, action: &crate::spaces::SpaceSample) -> EnvObservation {
+impl Env<Vec<f32>, usize> for MountainCarEnv {
+    fn step(&mut self, action: &usize) -> EnvObservation<Vec<f32>> {
         if self.needs_reset {
             panic!("Reset required");
         }
-        let action = match action {
-            crate::spaces::SpaceSample::Discrete { space: _, idx } => *idx as f32,
-            crate::spaces::SpaceSample::Continuous { space: _, data: _ } => {
-                panic!("Continuous actions not accepted in cartpole")
-            }
-        };
+        let action = *action as f32;
 
         let mut p = self.state[0];
         let mut v = self.state[1];
@@ -95,7 +85,7 @@ impl Env for MountainCarEnv {
         &mut self,
         _seed: Option<[u8; 32]>,
         _options: Option<ResetOptions>,
-    ) -> crate::spaces::Obs {
+    ) -> Vec<f32> {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.6, 0.0], vec![-0.4, 0.0]);
@@ -105,15 +95,17 @@ impl Env for MountainCarEnv {
         self.get_obs()
     }
 
-    fn action_space(&self) -> crate::spaces::ActionSpace {
-        ActionSpace::Discrete { size: 3 }
+    fn action_space(&self) -> Box<dyn Space<usize>> {
+        Box::new(Discrete::from(3))
     }
 
-    fn observation_space(&self) -> crate::spaces::ObsSpace {
-        ObsSpace::Continuous {
-            lows: self.lows.clone(),
-            highs: self.highs.clone(),
-        }
+    fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
+        Box::new(
+            BoxSpace::from((
+                self.lows.clone(),
+                self.highs.clone(),
+            ))
+        )
     }
 
     fn render(&self) {}
@@ -131,7 +123,7 @@ impl Env for MountainCarEnv {
 
     fn close(&mut self) {}
 
-    fn unwrapped(&self) -> &dyn Env {
+    fn unwrapped(&self) -> &dyn Env<Vec<f32>, usize> {
         self
     }
 }
