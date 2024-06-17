@@ -5,7 +5,7 @@ pub mod dqn;
 pub mod env;
 pub mod eval;
 pub mod logger;
-pub mod policy;
+pub mod agent;
 pub mod spaces;
 pub mod to_tensor;
 mod utils;

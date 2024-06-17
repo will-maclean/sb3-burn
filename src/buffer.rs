@@ -153,10 +153,8 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
 #[cfg(test)]
 mod tests {
     use crate::spaces::{BoxSpace, Discrete, Space};
-    use burn::backend::NdArray;
 
     use super::ReplayBuffer;
-    type MyBackend = NdArray;
 
     #[test]
     fn test_create_replay_buffer() {

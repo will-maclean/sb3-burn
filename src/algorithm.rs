@@ -11,7 +11,7 @@ use crate::callback::{Callback, EmptyCallback};
 use crate::env::base::Env;
 use crate::eval::EvalConfig;
 use crate::logger::{LogData, LogItem, Logger};
-use crate::policy::Agent;
+use crate::agent::Agent;
 use crate::utils::mean;
 
 #[derive(Config)]

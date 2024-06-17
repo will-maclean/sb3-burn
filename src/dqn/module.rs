@@ -7,7 +7,7 @@ use burn::{
 };
 
 use crate::{
-    policy::Policy,
+    agent::Policy,
     utils::module_update::{update_conv2d, update_linear},
 };
 

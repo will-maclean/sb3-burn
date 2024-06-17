@@ -9,7 +9,7 @@ use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
     dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
-    env::{base::Env, gridworld::GridWorldEnv, probe::ProbeEnvValueTest},
+    env::{base::Env, probe::ProbeEnvValueTest},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
 };

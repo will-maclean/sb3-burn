@@ -1,6 +1,6 @@
 use crate::{
     env::base::Env,
-    policy::{Agent, Policy},
+    agent::Agent,
     utils::mean,
 };
 use burn::{config::Config, tensor::backend::Backend};

@@ -36,7 +36,25 @@ pub fn update_linear<B: Backend>(from: &Linear<B>, to: Linear<B>, tau: Option<f3
 }
 
 pub fn update_conv2d<B: Backend>(from: &Conv2d<B>, to: Conv2d<B>, tau: Option<f32>) -> Conv2d<B> {
-    todo!()
+    assert_eq!(from.weight.shape(), to.weight.shape());
+
+    let mut result = from.clone(); // already does a hard copy
+
+    match tau {
+        Some(tau) => {
+            result.weight = soft_update_tensor(&from.weight, to.weight, tau);
+
+            match from.bias.clone() {
+                Some(from_bias) => {
+                    result.bias = Some(soft_update_tensor(&from_bias, to.bias.unwrap(), tau));
+                }
+                None => todo!(),
+            }
+        }
+        None => {}
+    }
+
+    result
 }
 
 // #[cfg(test)]

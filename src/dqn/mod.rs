@@ -15,7 +15,7 @@ use crate::{
     env::base::Env,
     eval::{evaluate_policy, EvalConfig},
     logger::{LogData, LogItem},
-    policy::Agent,
+    agent::Agent,
     spaces::Space,
     to_tensor::{ToTensorB, ToTensorF, ToTensorI},
     utils::{linear_decay, vec_usize_to_one_hot},
