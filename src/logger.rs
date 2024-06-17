@@ -106,14 +106,11 @@ impl Logger for CsvLogger {
 
         wtr.flush()?;
 
-        if let Some(x) = &self.step_key {
-            let _ = create_plots(
-                self.data.clone(),
-                self.keys.clone(),
-                self.dump_path.parent().unwrap().to_path_buf(),
-                x,
-            );
-        }
+        let _ = create_plots(
+            self.data.clone(),
+            self.keys.clone(),
+            self.dump_path.parent().unwrap().to_path_buf(),
+        );
 
         Ok(())
     }
@@ -143,7 +140,6 @@ pub fn create_plots(
     data: Vec<LogItem>,
     create: Vec<String>,
     dir: PathBuf,
-    xvar: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut xmax = 10.0;
 
@@ -156,19 +152,8 @@ pub fn create_plots(
         let mut ymin = f32::MAX;
         let mut ymax = f32::MIN;
         let mut plot_data = Vec::new();
-        for point in &data {
-            let plot_x: f32;
+        for (idx, point) in (&data).iter().enumerate() {
             let plot_y: f32;
-
-            if !point.items.contains_key(xvar) {
-                continue;
-            }
-
-            match point.items.get(xvar).unwrap() {
-                LogData::String(_) => todo!(),
-                LogData::Float(x) => plot_x = *x,
-                LogData::Int(x) => plot_x = (*x) as f32,
-            }
 
             if let Some(y) = point.items.get(yvar.as_str()) {
                 match y {
@@ -199,8 +184,8 @@ pub fn create_plots(
                     }
                 }
 
-                xmax = plot_x;
-                plot_data.push((plot_x, plot_y));
+                xmax = idx as f32;
+                plot_data.push((idx as f32, plot_y));
             }
         }
 
