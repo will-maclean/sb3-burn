@@ -20,7 +20,7 @@ pub trait Space<T: Clone>: DynClone {
 /// Defines a Discrete Space.
 /// 
 /// A Discrete space is a space on `usize` where samples
-/// are drawn uniformly from [0, n). 
+/// are drawn uniformly from `[0, n)`. 
 #[derive(Debug, Clone)]
 pub struct Discrete {
     /// The upper bound on the space
@@ -58,13 +58,13 @@ impl Space<usize> for Discrete {
 }
 
 
-/// Defines a BoxSpace<T>.
+/// Defines a `BoxSpace<T>`.
 /// 
-/// A BoxSpace is an n-dimensional container on
-/// some generic T, where T is classically some 
+/// A `BoxSpace` is an n-dimensional container on
+/// some generic `T`, where `T` is classically some 
 /// form of number. Current implementations are
-/// for Vec<f32>, but it is also possible to use
-/// e.g. Tensor<B, D>.
+/// for `Vec<f32>`, but it is also possible to use
+/// e.g. `Tensor<B, D>`.
 #[derive(Debug, Clone)]
 pub struct BoxSpace<T> {
 

@@ -6,16 +6,16 @@ use crate::{
     logger::LogItem, spaces::Space,
 };
 
-/// Agent is the base trait for all Reinforcement Learning
+/// `Agent` is the base trait for all Reinforcement Learning
 /// Agents.
 /// 
-/// Agent is the base trait for all Reinforcement Learning 
+/// `Agent` is the base trait for all Reinforcement Learning 
 /// Agents, and is roughly synonymous with a Policy in 
 /// Stable-Baselines3. The Observation and Action types
 /// are generic so as to be as flexible as possible with 
-/// different agent and environment types. The Agent class
-/// itself is not a burn Module, although it should be possible
-/// for users to implement Agent and Module from the same
+/// different agent and environment types. The `Agent` class
+/// itself is not a burn `Module`, although it should be possible
+/// for users to implement `Agent` and `Module` from the same
 /// struct.
 pub trait Agent<B: Backend, O: Clone, A: Clone> {
 
@@ -43,7 +43,7 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     /// Params:
     /// global_step: current global step of training
     /// replay_buffer: the replay buffer instance storing the training data
-    /// offline_params: the general training parameters. Agents will generall have their own config/parameters
+    /// offline_params: the general training parameters. Agents will generally have their own config/parameters
     /// as well, but some generic ones are stored in offline_params.
     /// train_device: The Backend device on which the train_step operation should run. This may require moving modules
     /// to the correct device.
@@ -71,7 +71,7 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
 
     /// The observation space for the Agent. Should be passed in from the environment
     /// 
-    /// Space<T> is cloned using dyn_clone.
+    /// `Space<T>` is cloned using dyn_clone.
     /// 
     /// # Example
     /// 
