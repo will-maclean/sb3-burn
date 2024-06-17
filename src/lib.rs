@@ -8,5 +8,4 @@ pub mod logger;
 pub mod policy;
 pub mod spaces;
 pub mod to_tensor;
-pub mod test;
 mod utils;
