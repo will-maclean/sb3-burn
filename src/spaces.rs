@@ -98,3 +98,39 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
         self.low.clone()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::spaces::Space;
+
+    use super::{BoxSpace, Discrete};
+
+    #[test]
+    fn test_discrete_space(){
+        let mut space = Discrete::from(2);
+
+        assert_eq!(space.shape(), 2);
+        assert!(space.contains(&0));
+        assert!(space.contains(&1));
+        assert!(!space.contains(&2));
+
+        let sample = space.sample();
+        assert!((sample == 0) | (sample == 1))
+    }
+
+    #[test]
+    fn test_box_f32_space(){
+        let low = vec![0.0, -0.1, 0.1];
+        let high = vec![1.0, 1.1, 0.9];
+
+        let mut space = BoxSpace::from((low, high));
+
+        assert_eq!(space.shape().len(), 3);
+
+        assert!(space.contains(&vec![0.0, 1.1, 0.3]));
+        assert!(!space.contains(&vec![30.0, 1.1, 0.3]));
+
+        let sample = space.sample();
+        assert!(sample.len() == 3);
+    }
+}
