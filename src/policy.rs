@@ -34,6 +34,6 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     fn action_space(&self) -> Box<dyn Space<A>>;
 }
 
-pub trait Policy<B: Backend>: Module<B> + Clone + Sized{
+pub trait Policy<B: Backend>: Module<B> + Clone + Sized {
     fn update(&mut self, from: &Self, tau: Option<f32>);
 }

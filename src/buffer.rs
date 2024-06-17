@@ -66,7 +66,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
     }
 
     pub fn add_slice(&mut self, item: ReplayBufferSlice<O, A>) {
-        if self.full(){
+        if self.full() {
             self.states[self.ptr] = item.state;
             self.actions[self.ptr] = item.action;
             self.next_states[self.ptr] = item.next_state;

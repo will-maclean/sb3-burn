@@ -23,8 +23,8 @@ use crate::{
 
 pub mod module;
 
-pub struct DQNAgent<O, B, OS, AS, Q, const D: usize> 
-where 
+pub struct DQNAgent<O, B, OS, AS, Q, const D: usize>
+where
     O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,
     OS: Clone,
@@ -52,8 +52,7 @@ pub struct DQNConfig {
     update_every: usize,
 }
 
-impl<O, B, OS, AS, Q, const D: usize>
-    DQNAgent<O, B, OS, AS, Q, D>
+impl<O, B, OS, AS, Q, const D: usize> DQNAgent<O, B, OS, AS, Q, D>
 where
     O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,
@@ -83,7 +82,7 @@ where
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, Q> Agent<B, Vec<f32>, usize>
     for DQNAgent<O, B, Vec<f32>, usize, Q, 2>
-where 
+where
     Q: DQNNet<B, 2> + burn::module::AutodiffModule<B>,
 {
     fn act(
@@ -194,7 +193,7 @@ where
 
 impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, Q> Agent<B, usize, usize>
     for DQNAgent<O, B, usize, usize, Q, 2>
-where 
+where
     Q: DQNNet<B, 2> + burn::module::AutodiffModule<B>,
 {
     fn act(
@@ -238,9 +237,17 @@ where
 
         let loss = match batch_sample {
             Some(sample) => {
-                let states = vec_usize_to_one_hot(sample.states, self.observation_space().shape(), train_device);
+                let states = vec_usize_to_one_hot(
+                    sample.states,
+                    self.observation_space().shape(),
+                    train_device,
+                );
                 let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
-                let next_states = vec_usize_to_one_hot(sample.next_states, self.observation_space().shape(), train_device);
+                let next_states = vec_usize_to_one_hot(
+                    sample.next_states,
+                    self.observation_space().shape(),
+                    train_device,
+                );
                 let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
                 let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
 

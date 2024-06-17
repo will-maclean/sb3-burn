@@ -1,5 +1,7 @@
 use crate::{
-    env::base::{Env, EnvObservation, ResetOptions, RewardRange}, spaces::{BoxSpace, Discrete, Space}, utils::generate_random_vector
+    env::base::{Env, EnvObservation, ResetOptions, RewardRange},
+    spaces::{BoxSpace, Discrete, Space},
+    utils::generate_random_vector,
 };
 
 pub struct MountainCarEnv {
@@ -81,11 +83,7 @@ impl Env<Vec<f32>, usize> for MountainCarEnv {
         }
     }
 
-    fn reset(
-        &mut self,
-        _seed: Option<[u8; 32]>,
-        _options: Option<ResetOptions>,
-    ) -> Vec<f32> {
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.6, 0.0], vec![-0.4, 0.0]);
@@ -100,12 +98,7 @@ impl Env<Vec<f32>, usize> for MountainCarEnv {
     }
 
     fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
-        Box::new(
-            BoxSpace::from((
-                self.lows.clone(),
-                self.highs.clone(),
-            ))
-        )
+        Box::new(BoxSpace::from((self.lows.clone(), self.highs.clone())))
     }
 
     fn render(&self) {}

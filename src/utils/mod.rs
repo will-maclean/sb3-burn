@@ -50,13 +50,16 @@ pub fn generate_random_vector(lows: Vec<f32>, highs: Vec<f32>) -> Vec<f32> {
     random_vector
 }
 
-pub fn vec_usize_to_one_hot<B: Backend>(data: Vec<usize>, classes: usize, device: &B::Device) -> Tensor<B, 2, Float> {
+pub fn vec_usize_to_one_hot<B: Backend>(
+    data: Vec<usize>,
+    classes: usize,
+    device: &B::Device,
+) -> Tensor<B, 2, Float> {
     Tensor::stack(
-        data
-            .iter()
+        data.iter()
             .map(|d| Tensor::<B, 1>::one_hot(*d, classes, device))
-            .collect(), 
-        0
+            .collect(),
+        0,
     )
 }
 

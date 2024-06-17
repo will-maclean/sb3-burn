@@ -53,14 +53,14 @@ fn main() {
         .with_eps_end(0.07)
         .with_eps_end_frac(0.8);
     let agent = DQNAgent::new(
-        q.clone(), 
-        q, 
-        optim, 
+        q.clone(),
+        q,
+        optim,
         dqn_config,
         env.observation_space(),
-        env.action_space()
+        env.action_space(),
     );
-    
+
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
@@ -74,18 +74,19 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<Adam<LibTorch>, Autodiff<LibTorch>, Vec<f32>, usize> = OfflineTrainer::new(
-        offline_params,
-        Box::new(env),
-        Box::new(MountainCarEnv::default()),
-        Box::new(agent),
-        buffer,
-        Box::new(logger),
-        None,
-        EvalConfig::new().with_n_eval_episodes(10),
-        &train_device,
-        &buffer_device,
-    );
+    let mut trainer: OfflineTrainer<Adam<LibTorch>, Autodiff<LibTorch>, Vec<f32>, usize> =
+        OfflineTrainer::new(
+            offline_params,
+            Box::new(env),
+            Box::new(MountainCarEnv::default()),
+            Box::new(agent),
+            buffer,
+            Box::new(logger),
+            None,
+            EvalConfig::new().with_n_eval_episodes(10),
+            &train_device,
+            &buffer_device,
+        );
 
     trainer.train();
 }

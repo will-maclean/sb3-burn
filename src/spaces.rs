@@ -69,11 +69,12 @@ impl From<(Vec<f32>, Vec<f32>)> for BoxSpace<Vec<f32>> {
 
 impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
     fn contains(&self, sample: &Vec<f32>) -> bool {
-        if sample.len() != self.low.len(){
+        if sample.len() != self.low.len() {
             return false;
         }
 
-        sample.iter()
+        sample
+            .iter()
             .zip(self.low.iter())
             .zip(self.high.iter())
             .all(|((&s, &l), &h)| l <= s && s <= h)
