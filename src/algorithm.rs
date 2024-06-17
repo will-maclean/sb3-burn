@@ -115,7 +115,7 @@ impl<
                 .agent
                 .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
-            //TODO: log the log
+            self.logger.log(log);
         }
 
         let style = ProgressStyle::default_bar()
@@ -173,7 +173,7 @@ impl<
                         running_loss.push(loss);
                     }
 
-                    //TODO: log the log
+                    self.logger.log(log)
                 }
             }
 
@@ -184,7 +184,7 @@ impl<
                     .agent
                     .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
-                //TODO: log the log
+                self.logger.log(log);
             }
 
             if done {
@@ -216,7 +216,7 @@ impl<
                 .agent
                 .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
 
-            // TODO: log the logger
+            self.logger.log(log);
         }
 
         self.callback.on_training_end(self);
