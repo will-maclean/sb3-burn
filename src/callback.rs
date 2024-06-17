@@ -2,15 +2,16 @@ use crate::{algorithm::OfflineTrainer, env::base::EnvObservation};
 use burn::{optim::SimpleOptimizer, tensor::backend::AutodiffBackend};
 use core::fmt::Debug;
 
-// Callbacks in stable-baselines3 do not take in specific parameters - rather, they
-// take in the local and global variable namespaces. I'm not sure how this would be
-// replicated in rust and, even if it could be, I'm not sure if that's the nicest
-// way to do it. Instead, we'll pass in a specific set of params. We can update the
-// API as required until things settle down a bit
-
-// The Callback trait, which handles flexible functionality to be called at various
-// times during training. The Callback is a useful too for implementing unique
-// functionality without needing to modify the core training loop.
+/// Base trait for any callback.
+/// 
+/// Callbacks in stable-baselines3 do not take in specific parameters - rather, they
+/// take in the local and global variable namespaces. I'm not sure how this would be
+/// replicated in rust and, even if it could be, I'm not sure if that's the nicest
+/// way to do it. Instead, we'll pass in a specific set of params. We can update the
+/// API as required until things settle down a bit
+/// The Callback trait, which handles flexible functionality to be called at various
+/// times during training. The Callback is a useful too for implementing unique
+/// functionality without needing to modify the core training loop.
 pub trait Callback<
     O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,

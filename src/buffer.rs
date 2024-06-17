@@ -1,6 +1,7 @@
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 
+/// Stores a batch of `ReplayBuffer<O, A>` samples
 pub struct BatchedReplayBufferSlice<O, A> {
     pub states: Vec<O>,
     pub actions: Vec<A>,
@@ -10,6 +11,7 @@ pub struct BatchedReplayBufferSlice<O, A> {
     pub truncated: Vec<bool>,
 }
 
+/// Stores a single `ReplayBuffer<O, A>` sample
 pub struct ReplayBufferSlice<O, A> {
     state: O,
     action: A,
@@ -19,6 +21,12 @@ pub struct ReplayBufferSlice<O, A> {
     truncated: bool,
 }
 
+/// ReplayBuffer stores samples of training data
+/// 
+/// ReplayBuffer stores samples of training data, specifically
+/// state, action, next state, reward, terminated, and truncated.
+/// The types of state and action are generic for compatability
+/// with any observation/action type.
 pub struct ReplayBuffer<O: Clone, A: Clone> {
     states: Vec<O>,
     actions: Vec<A>,
@@ -26,7 +34,11 @@ pub struct ReplayBuffer<O: Clone, A: Clone> {
     rewards: Vec<f32>,
     terminated: Vec<bool>,
     truncated: Vec<bool>,
+
+    /// stores the maximum size of the buffer
     size: usize,
+
+    /// stores the current replace position in the circular array
     ptr: usize,
 }
 
@@ -44,6 +56,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         }
     }
 
+    /// Whether the replay buffer is currently full
     pub fn full(&self) -> bool {
         self.curr_len() == self.size
     }
@@ -58,6 +71,12 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         self.size
     }
 
+    /// Indexes the replay buffer. No verification on idx
+    /// so will panic if an illegal idx is supplied
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if an illegal idx is supplied
     pub fn get(&self, idx: usize) -> Result<ReplayBufferSlice<O, A>, &'static str> {
         Ok(ReplayBufferSlice {
             state: self.states[idx].clone(),
@@ -69,6 +88,8 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         })
     }
 
+    /// Adds a ReplayBufferSlice<O, A>, which is a single 
+    /// sample of data, the to buffer
     pub fn add_slice(&mut self, item: ReplayBufferSlice<O, A>) {
         if self.full() {
             self.states[self.ptr] = item.state;
@@ -89,6 +110,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         self.ptr = (self.ptr + 1) % self.size();
     }
 
+    /// Adds a single piece of data to the replay buffer
     pub fn add(
         &mut self,
         state: O,
@@ -108,6 +130,13 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         })
     }
 
+    /// Randomly samples `batch_size` samples from the buffer and returns
+    /// them as a BatchedReplayBuffer<O, A>.
+    /// 
+    /// Note, the data is cloned out of the data (not removed).
+    /// 
+    /// # Panics
+    /// Will panic if there is not enough data in the buffer for the batch sample.
     pub fn batch_sample(&self, batch_size: usize) -> BatchedReplayBufferSlice<O, A> {
         if (self.full() & (batch_size > self.size())) | (!self.full() & (batch_size > self.curr_len())) {
             panic!("Not enough samples in here! self.len: {:?}, batch_size: {:?}", self.curr_len(), batch_size);
