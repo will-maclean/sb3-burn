@@ -30,7 +30,7 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(128)
         .with_memory_size(10000)
-        .with_n_steps(200000)
+        .with_n_steps(250000)
         .with_warmup_steps(1000)
         .with_lr(4e-3)
         .with_gamma(0.98)
