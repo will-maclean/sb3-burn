@@ -1,0 +1,6 @@
+[book]
+authors = ["will-maclean"]
+language = "en"
+multilingual = false
+src = "src"
+title = "SB3-Burn Book"
