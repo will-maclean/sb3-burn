@@ -60,7 +60,6 @@ pub struct OfflineTrainer<
     pub callback: Box<dyn Callback<O, B, OS, AS>>,
     pub eval_cfg: EvalConfig,
     pub train_device: &'a B::Device,
-    pub buffer_device: &'a B::Device,
 }
 
 impl<
@@ -81,7 +80,6 @@ impl<
         callback: Option<Box<dyn Callback<O, B, OS, AS>>>,
         eval_cfg: EvalConfig,
         train_device: &'a B::Device,
-        buffer_device: &'a B::Device,
     ) -> Self {
         let c = match callback {
             Some(callback) => callback,
@@ -98,7 +96,6 @@ impl<
             callback: c,
             eval_cfg,
             train_device,
-            buffer_device,
         }
     }
 
