@@ -76,10 +76,14 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     /// # Example
     /// 
     /// ```rust
+    /// use sb3_burn::agent::Agent;
+    /// use sb3_burn::spaces::Space;
+    /// use burn::prelude::Backend;
+    /// 
     /// // This is an example agent
     /// struct MyAgent{
     ///     // Our agent will only work with Discrete<usize> observation spaces
-    ///     obs_space: Discrete<usize>
+    ///     observation_space: Discrete<usize>
     /// 
     ///     // Our agent will only work with BoxSpace<Vec<f32>> action spaces
     ///     action_space: BoxSpace<Vec<f32>>
@@ -92,7 +96,7 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     ///         dyn_clone::clone_box(&*self.observation_space)
     ///     }
     /// 
-    ///     fn action_space(&self) -> Boc<dyn Space<Vec<f32>>> {
+    ///     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
     ///         dyn_clone::clone_box(&*self.action_space)
     ///     }
     /// }
@@ -106,6 +110,10 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     /// # Example
     /// 
     /// ```rust
+    /// use sb3_burn::agent::Agent;
+    /// use sb3_burn::spaces::Space;
+    /// use burn::prelude::Backend;
+    /// 
     /// // This is an example agent
     /// struct MyAgent{
     ///     // Our agent will only work with Discrete<usize> observation spaces
@@ -122,7 +130,7 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     ///         dyn_clone::clone_box(&*self.observation_space)
     ///     }
     /// 
-    ///     fn action_space(&self) -> Boc<dyn Space<Vec<f32>>> {
+    ///     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
     ///         dyn_clone::clone_box(&*self.action_space)
     ///     }
     /// }

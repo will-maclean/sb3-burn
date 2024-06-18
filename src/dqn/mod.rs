@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use burn::{
     config::Config,
     nn::loss::{MseLoss, Reduction},
@@ -18,7 +20,7 @@ use crate::{
     agent::Agent,
     spaces::Space,
     to_tensor::{ToTensorB, ToTensorF, ToTensorI},
-    utils::{linear_decay, vec_usize_to_one_hot},
+    utils::linear_decay,
 };
 
 pub mod module;
@@ -27,9 +29,9 @@ pub struct DQNAgent<O, B, OS, AS, Q, const D: usize>
 where
     O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,
-    OS: Clone,
+    OS: Clone + Debug,
     AS: Clone,
-    Q: DQNNet<B, D> + burn::module::AutodiffModule<B>,
+    Q: DQNNet<B, OS> + burn::module::AutodiffModule<B>,
 {
     pub q1: Q,
     pub q2: Q,
@@ -56,9 +58,9 @@ impl<O, B, OS, AS, Q, const D: usize> DQNAgent<O, B, OS, AS, Q, D>
 where
     O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,
-    OS: Clone,
+    OS: Clone + Debug,
     AS: Clone,
-    Q: DQNNet<B, D> + burn::module::AutodiffModule<B>,
+    Q: DQNNet<B, OS> + burn::module::AutodiffModule<B>,
 {
     pub fn new(
         q1: Q,
@@ -80,16 +82,16 @@ where
     }
 }
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, Q> Agent<B, Vec<f32>, usize>
-    for DQNAgent<O, B, Vec<f32>, usize, Q, 2>
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + Debug, Q> Agent<B, OS, usize>
+    for DQNAgent<O, B, OS, usize, Q, 2>
 where
-    Q: DQNNet<B, 2> + burn::module::AutodiffModule<B>,
+    Q: DQNNet<B, OS> + burn::module::AutodiffModule<B>,
 {
     fn act(
         &self,
         _global_step: usize,
         global_frac: f32,
-        obs: &Vec<f32>,
+        obs: &OS,
         greedy: bool,
         inference_device: &<B as Backend>::Device,
     ) -> (usize, LogItem) {
@@ -101,8 +103,7 @@ where
         );
 
         let a: usize = if (rand::random::<f32>() > eps) | greedy {
-            let state = obs.clone().to_tensor(inference_device).unsqueeze_dim(0);
-            let q: Tensor<B, 1> = self.q1.forward(state).squeeze(0);
+            let q: Tensor<B, 1> = self.q1.forward(vec![obs.clone()], self.observation_space(), inference_device).squeeze(0);
             q.argmax(0).into_scalar().elem::<i32>() as usize
         } else {
             self.action_space().sample()
@@ -118,7 +119,7 @@ where
     fn train_step(
         &mut self,
         global_step: usize,
-        replay_buffer: &ReplayBuffer<Vec<f32>, usize>,
+        replay_buffer: &ReplayBuffer<OS, usize>,
         offline_params: &OfflineAlgParams,
         train_device: &<B as Backend>::Device,
     ) -> (Option<f32>, LogItem) {
@@ -128,16 +129,16 @@ where
         // can make this mut when we want to log stuff in the loss step
         let log = LogItem::default();
 
-        let states = sample.states.to_tensor(train_device);
+        let states = sample.states;
         let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
-        let next_states = sample.next_states.to_tensor(train_device);
+        let next_states = sample.next_states;
         let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
         let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
         let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
 
-        let q_vals_ungathered = self.q1.forward(states);
+        let q_vals_ungathered = self.q1.forward(states, self.observation_space(), train_device);
         let q_vals = q_vals_ungathered.gather(1, actions);
-        let next_q_vals_ungathered = self.q2.forward(next_states);
+        let next_q_vals_ungathered = self.q2.forward(next_states, self.observation_space(), train_device);
         let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
         let done = terminated.float().add(truncated.float()).bool();
@@ -164,7 +165,7 @@ where
 
     fn eval(
         &mut self,
-        env: &mut dyn Env<Vec<f32>, usize>,
+        env: &mut dyn Env<OS, usize>,
         cfg: &EvalConfig,
         eval_device: &B::Device,
     ) -> LogItem {
@@ -181,7 +182,7 @@ where
             )
     }
 
-    fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
+    fn observation_space(&self) -> Box<dyn Space<OS>> {
         dyn_clone::clone_box(&*self.observation_space)
     }
 
@@ -190,123 +191,6 @@ where
     }
 }
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, Q> Agent<B, usize, usize>
-    for DQNAgent<O, B, usize, usize, Q, 2>
-where
-    Q: DQNNet<B, 2> + burn::module::AutodiffModule<B>,
-{
-    fn act(
-        &self,
-        _global_step: usize,
-        global_frac: f32,
-        obs: &usize,
-        greedy: bool,
-        inference_device: &<B as Backend>::Device,
-    ) -> (usize, LogItem) {
-        let eps = linear_decay(
-            global_frac,
-            self.config.eps_start,
-            self.config.eps_end,
-            self.config.eps_end_frac,
-        );
-
-        let a: usize = if (rand::random::<f32>() > eps) | greedy {
-            let state = Tensor::one_hot(*obs, self.observation_space().shape(), inference_device);
-            let q: Tensor<B, 1> = self.q1.forward(state).squeeze(0);
-            q.argmax(0).into_scalar().elem::<i32>() as usize
-        } else {
-            self.action_space().sample()
-        };
-
-        let log = LogItem::default()
-            .push("eps".to_string(), LogData::Float(eps))
-            .push("action".to_string(), LogData::Int(a as i32));
-
-        (a, log)
-    }
-
-    fn train_step(
-        &mut self,
-        global_step: usize,
-        replay_buffer: &ReplayBuffer<usize, usize>,
-        offline_params: &OfflineAlgParams,
-        train_device: &<B as Backend>::Device,
-    ) -> (Option<f32>, LogItem) {
-        let sample = replay_buffer.batch_sample(offline_params.batch_size);
-
-        // can make this mut when we want to log stuff in the loss step
-        let log = LogItem::default();
-
-        let states = vec_usize_to_one_hot(
-            sample.states,
-            self.observation_space().shape(),
-            train_device,
-        );
-        let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
-        let next_states = vec_usize_to_one_hot(
-            sample.next_states,
-            self.observation_space().shape(),
-            train_device,
-        );
-        let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
-        let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
-        let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
-
-        let q_vals_ungathered = self.q1.forward(states);
-        let q_vals = q_vals_ungathered.gather(1, actions);
-        let next_q_vals_ungathered = self.q2.forward(next_states);
-        let next_q_vals = next_q_vals_ungathered.max_dim(1);
-
-        let done = terminated.float().add(truncated.float()).bool();
-
-        let targets =
-            rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
-
-        let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
-
-        let grads = loss.backward();
-        let grads = GradientsParams::from_grads(grads, &self.q1);
-
-        self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
-
-        if global_step > (self.last_update + self.config.update_every) {
-            // hard update
-            self.q2.update(&self.q1, None);
-            self.last_update = global_step
-        }
-
-        let loss = Some(loss.into_scalar().elem());
-
-        (loss, log)
-    }
-
-    fn eval(
-        &mut self,
-        env: &mut dyn Env<usize, usize>,
-        cfg: &EvalConfig,
-        eval_device: &<B as Backend>::Device,
-    ) -> LogItem {
-        let eval_result = evaluate_policy(self, env, cfg, eval_device);
-
-        LogItem::default()
-            .push(
-                "eval_ep_mean_reward".to_string(),
-                LogData::Float(eval_result.mean_reward),
-            )
-            .push(
-                "eval_ep_mean_len".to_string(),
-                LogData::Float(eval_result.mean_len),
-            )
-    }
-
-    fn observation_space(&self) -> Box<dyn Space<usize>> {
-        dyn_clone::clone_box(&*self.observation_space)
-    }
-
-    fn action_space(&self) -> Box<dyn Space<usize>> {
-        dyn_clone::clone_box(&*self.action_space)
-    }
-}
 // #[cfg(test)]
 // mod test {
 //     use std::path::PathBuf;

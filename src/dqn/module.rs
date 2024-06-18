@@ -7,12 +7,11 @@ use burn::{
 };
 
 use crate::{
-    agent::Policy,
-    utils::module_update::{update_conv2d, update_linear},
+    agent::Policy, spaces::Space, to_tensor::ToTensorF, utils::{module_update::{update_conv2d, update_linear}, vec_usize_to_one_hot}
 };
 
-pub trait DQNNet<B: Backend, const D: usize>: Policy<B> {
-    fn forward(&self, obs: Tensor<B, D>) -> Tensor<B, 2>;
+pub trait DQNNet<B: Backend, OS: Clone>: Policy<B> {
+    fn forward(&self, obs: Vec<OS>, obs_space: Box<dyn Space<OS>>, device: &B::Device) -> Tensor<B, 2>;
 }
 
 #[derive(Module, Debug)]
@@ -34,8 +33,18 @@ impl<B: Backend> LinearAdvDQNNet<B> {
     }
 }
 
-impl<B: Backend> DQNNet<B, 2> for LinearAdvDQNNet<B> {
-    fn forward(&self, state: Tensor<B, 2>) -> Tensor<B, 2> {
+impl<B: Backend> DQNNet<B, usize> for LinearAdvDQNNet<B> {
+    fn forward(&self, state: Vec<usize>, obs_space: Box<dyn Space<usize>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = vec_usize_to_one_hot(state, obs_space.shape(), device);
+        let x = relu(self.l1.forward(state));
+        let x = relu(self.l2.forward(x));
+        self.adv.forward(x.clone()) - self.l3.forward(x)
+    }
+}
+
+impl<B: Backend> DQNNet<B, Vec<f32>> for LinearAdvDQNNet<B> {
+    fn forward(&self, state: Vec<Vec<f32>>, _obs_space: Box<dyn Space<Vec<f32>>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = state.to_tensor(device);
         let x = relu(self.l1.forward(state));
         let x = relu(self.l2.forward(x));
         self.adv.forward(x.clone()) - self.l3.forward(x)
@@ -68,8 +77,9 @@ impl<B: Backend> LinearDQNNet<B> {
     }
 }
 
-impl<B: Backend> DQNNet<B, 2> for LinearDQNNet<B> {
-    fn forward(&self, state: Tensor<B, 2>) -> Tensor<B, 2> {
+impl<B: Backend> DQNNet<B, Tensor<B, 1>> for LinearDQNNet<B> {
+    fn forward(&self, state: Vec<Tensor<B, 1>>, _obs_space: Box<dyn Space<Tensor<B, 1>>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = Tensor::stack(state, 0).to_device(device);
         let x = relu(self.l1.forward(state));
         let x = relu(self.l2.forward(x));
         self.l3.forward(x)
@@ -108,8 +118,9 @@ impl<B: Backend> ConvDQNNet<B> {
     }
 }
 
-impl<B: Backend> DQNNet<B, 4> for ConvDQNNet<B> {
-    fn forward(&self, state: Tensor<B, 4>) -> Tensor<B, 2> {
+impl<B: Backend> DQNNet<B, Tensor<B, 3>> for ConvDQNNet<B> {
+    fn forward(&self, state: Vec<Tensor<B, 3>>, _obs_space: Box<dyn Space<Tensor<B, 3>>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = Tensor::stack(state, 0).to_device(device);
         let x = relu(self.c1.forward(state));
         let x = relu(self.c2.forward(x));
         let x = x.flatten::<2>(1, 3);
