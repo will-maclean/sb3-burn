@@ -23,7 +23,6 @@ fn main() {
     type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
-    let buffer_device = LibTorchDevice::Cpu;
 
     let config_optimizer =
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
@@ -60,7 +59,6 @@ fn main() {
     let logger = CsvLogger::new(
         PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
         false,
-        Some("global_step".to_string()),
     );
 
     match logger.check_can_log(false) {
@@ -79,7 +77,6 @@ fn main() {
             None,
             EvalConfig::new().with_n_eval_episodes(10),
             &train_device,
-            &buffer_device,
         );
 
     trainer.train();
