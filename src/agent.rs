@@ -72,69 +72,11 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     /// The observation space for the Agent. Should be passed in from the environment
     /// 
     /// `Space<T>` is cloned using dyn_clone.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// use sb3_burn::agent::Agent;
-    /// use sb3_burn::spaces::Space;
-    /// use burn::prelude::Backend;
-    /// 
-    /// // This is an example agent
-    /// struct MyAgent{
-    ///     // Our agent will only work with Discrete<usize> observation spaces
-    ///     observation_space: Discrete<usize>
-    /// 
-    ///     // Our agent will only work with BoxSpace<Vec<f32>> action spaces
-    ///     action_space: BoxSpace<Vec<f32>>
-    /// }
-    /// 
-    /// impl<B: Backend> Agent<B, usize, Vec<f32>> for MyAgent{
-    ///     // ... Other function implementations here
-    /// 
-    ///     fn observation_space(&self) -> Box<dyn Space<usize>> {
-    ///         dyn_clone::clone_box(&*self.observation_space)
-    ///     }
-    /// 
-    ///     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
-    ///         dyn_clone::clone_box(&*self.action_space)
-    ///     }
-    /// }
-    /// ```
     fn observation_space(&self) -> Box<dyn Space<O>>;
 
     /// The action space for the Agent. Should be passed in from the environment
     /// 
     /// Space<T> is cloned using dyn_clone.
-    /// 
-    /// # Example
-    /// 
-    /// ```rust
-    /// use sb3_burn::agent::Agent;
-    /// use sb3_burn::spaces::Space;
-    /// use burn::prelude::Backend;
-    /// 
-    /// // This is an example agent
-    /// struct MyAgent{
-    ///     // Our agent will only work with Discrete<usize> observation spaces
-    ///     obs_space: Discrete<usize>
-    /// 
-    ///     // Our agent will only work with BoxSpace<Vec<f32>> action spaces
-    ///     action_space: BoxSpace<Vec<f32>>
-    /// }
-    /// 
-    /// impl<B: Backend> Agent<B, usize, Vec<f32>> for MyAgent{
-    ///     // ... Other function implementations here
-    /// 
-    ///     fn observation_space(&self) -> Box<dyn Space<usize>> {
-    ///         dyn_clone::clone_box(&*self.observation_space)
-    ///     }
-    /// 
-    ///     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
-    ///         dyn_clone::clone_box(&*self.action_space)
-    ///     }
-    /// }
-    /// ```
     fn action_space(&self) -> Box<dyn Space<A>>;
 }
 
