@@ -142,7 +142,7 @@ impl Env<Vec<f32>, usize> for GridWorldEnv {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.field = Array::<f32, _>::zeros((self.dim, self.dim));
         self.curr_len = 0;
 

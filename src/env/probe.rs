@@ -22,7 +22,7 @@ impl Env<Vec<f32>, usize> for ProbeEnvValueTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.observation_space().sample()
     }
 
@@ -88,7 +88,7 @@ impl Env<usize, usize> for ProbeEnvBackpropTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> usize {
         self.last_obs = self.gen_obs();
 
         self.last_obs
@@ -153,7 +153,7 @@ impl Env<usize, usize> for ProbeEnvDiscountingTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> usize {
         self.done_next = false;
 
         0
@@ -210,7 +210,7 @@ impl Env<usize, usize> for ProbeEnvActionTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> usize {
         0
     }
 
@@ -279,7 +279,7 @@ impl Env<usize, usize> for ProbeEnvStateActionTest {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> usize {
         self.obs = self.gen_obs();
         self.obs
     }

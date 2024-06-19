@@ -10,7 +10,7 @@ pub trait Space<T: Clone>: DynClone {
     fn sample(&mut self) -> T;
 
     /// seeds the rng for the space
-    fn seed(&mut self, seed: [u8; 32]);
+    fn seed(&mut self, seed: u64);
 
     /// returns some semantic representation of the space of
     /// the space, to be used for initialising models
@@ -48,8 +48,8 @@ impl Space<usize> for Discrete {
         self.rng.gen_range(0..self.n)
     }
 
-    fn seed(&mut self, seed: [u8; 32]) {
-        self.rng = StdRng::from_seed(seed);
+    fn seed(&mut self, seed: u64) {
+        self.rng = StdRng::seed_from_u64(seed);
     }
 
     fn shape(&self) -> usize {
@@ -111,8 +111,8 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
             .collect()
     }
 
-    fn seed(&mut self, seed: [u8; 32]) {
-        self.rng = StdRng::from_seed(seed);
+    fn seed(&mut self, seed: u64) {
+        self.rng = StdRng::seed_from_u64(seed);
     }
 
     fn shape(&self) -> Vec<f32> {

@@ -30,7 +30,7 @@ impl<O: Clone + Debug, A: Clone + Debug> Env<O, A> for TimeLimitWrapper<O, A> {
         step_result
     }
 
-    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<super::base::ResetOptions>) -> O {
+    fn reset(&mut self, seed: Option<u64>, options: Option<super::base::ResetOptions>) -> O {
         self.curr_steps = 0;
 
         self.env.reset(seed, options)
@@ -107,7 +107,7 @@ impl<O: Clone + Debug, A: Clone + Debug> Env<O, A> for AutoResetWrapper<O, A> {
         step_result
     }
 
-    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<super::base::ResetOptions>) -> O {
+    fn reset(&mut self, seed: Option<u64>, options: Option<super::base::ResetOptions>) -> O {
         self.env.reset(seed, options)
     }
 

@@ -78,6 +78,9 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     /// 
     /// Space<T> is cloned using dyn_clone.
     fn action_space(&self) -> Box<dyn Space<A>>;
+
+    /// Re-seed any seedable RNGs.
+    fn seed(&mut self, seed: u64);
 }
 
 
