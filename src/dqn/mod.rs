@@ -72,7 +72,7 @@ where
     ) -> Self {
         Self {
             q1,
-            q2,
+            q2: q2.no_grad(),
             optim,
             config,
             last_update: 0,
@@ -155,7 +155,8 @@ where
         if global_step > (self.last_update + self.config.update_every) {
             // hard update
             self.q2.update(&self.q1, None);
-            self.last_update = global_step
+            self.q2 = self.q2.clone().no_grad();
+            self.last_update = global_step;
         }
 
         let loss = Some(loss.into_scalar().elem());
