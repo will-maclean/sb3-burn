@@ -6,6 +6,7 @@ pub mod env;
 pub mod eval;
 pub mod logger;
 pub mod agent;
+pub mod sac;
 pub mod spaces;
 pub mod to_tensor;
 mod utils;

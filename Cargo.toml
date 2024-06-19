@@ -11,3 +11,4 @@ indicatif = "0.17.8"
 ndarray = "0.15.6"
 plotters = "0.3.6"
 rand = "0.8.5"
+serde = { version = "1.0.203", features = ["std", "derive"] }
