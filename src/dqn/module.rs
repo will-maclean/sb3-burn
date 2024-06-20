@@ -33,8 +33,8 @@ impl<B: Backend> LinearAdvDQNNet<B> {
     }
 
     fn _forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2> {
-        let x = relu(self.l1.forward(x));
-        let x = relu(self.l2.forward(x));
+        let x = sigmoid(self.l1.forward(x));
+        let x = sigmoid(self.l2.forward(x));
         self.adv.forward(x.clone()) - self.l3.forward(x)
     }
 }
@@ -79,8 +79,8 @@ impl<B: Backend> LinearDQNNet<B> {
     }
 
     pub fn _forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2>{
-        let x = sigmoid(self.l1.forward(x));
-        let x = sigmoid(self.l2.forward(x));
+        let x = relu(self.l1.forward(x));
+        let x = relu(self.l2.forward(x));
         self.l3.forward(x)
     }
 }
@@ -155,5 +155,30 @@ impl<B: Backend> Policy<B> for ConvDQNNet<B> {
         self.l2 = update_linear(&from.l2, self.l2.clone(), tau);
         self.c1 = update_conv2d(&from.c1, self.c1.clone(), tau);
         self.c2 = update_conv2d(&from.c2, self.c2.clone(), tau);
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use burn::{backend::NdArray, tensor::Tensor};
+
+    #[test]
+    fn test_broadcast_sanity(){
+        let a = [0.0, 1.0, 2.0];
+        let b = [1.0];
+
+        let a_t = Tensor::<NdArray, 1>::from_floats(a, &Default::default());
+        let b_t = Tensor::<NdArray, 1>::from_floats(b, &Default::default());
+
+        let c_t = a_t.clone() + b_t.clone();
+        let c: Vec<f32> = c_t.into_data().value;
+
+        assert_eq!(c, vec![1.0, 2.0, 3.0]);
+
+        let c_t = a_t - b_t;
+        let c: Vec<f32> = c_t.into_data().value;
+
+        assert_eq!(c, vec![-1.0, 0.0, 1.0]);
     }
 }

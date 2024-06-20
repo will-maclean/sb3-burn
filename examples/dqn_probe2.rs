@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::{LinearAdvDQNNet, LinearDQNNet}, DQNAgent, DQNConfig},
+    dqn::{module::LinearDQNNet, DQNAgent, DQNConfig},
     env::{base::Env, probe::ProbeEnvBackpropTest},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -19,8 +19,6 @@ extern crate sb3_burn;
 fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
-
-    type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
 

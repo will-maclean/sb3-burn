@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::{LinearAdvDQNNet, LinearDQNNet}, DQNAgent, DQNConfig},
+    dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
     env::{base::Env, classic_control::mountain_car::MountainCarEnv},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -63,7 +63,7 @@ fn main() {
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
+        PathBuf::from("logs/dqn_mountaincar/log_dqn.csv"),
         false,
     );
 

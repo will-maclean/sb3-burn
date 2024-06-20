@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::{LinearAdvDQNNet, LinearDQNNet}, DQNAgent, DQNConfig},
+    dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
     env::{base::Env, classic_control::cartpole::CartpoleEnv},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -20,8 +20,6 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<LibTorch>;
-
     let train_device = LibTorchDevice::Cuda(0);
 
     let config_optimizer =
@@ -32,11 +30,12 @@ fn main() {
         .with_memory_size(50000)
         .with_n_steps(50000)
         .with_warmup_steps(1000)
-        .with_lr(2.3e-3)
+        .with_lr(1e-3)
         .with_gamma(0.99)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_during_training(false)
+        .with_evaluate_during_training(true)
+        .with_evaluate_every_steps(25000)
         .with_grad_steps(128)
         .with_train_every(256);
 
@@ -81,7 +80,7 @@ fn main() {
             buffer,
             Box::new(logger),
             None,
-            EvalConfig::new().with_n_eval_episodes(10),
+            EvalConfig::new().with_n_eval_episodes(100),
             &train_device,
         );
 

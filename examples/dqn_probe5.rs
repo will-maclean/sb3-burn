@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::{LinearAdvDQNNet, LinearDQNNet}, DQNAgent, DQNConfig},
+    dqn::{module::LinearDQNNet, DQNAgent, DQNConfig},
     env::{base::Env, probe::ProbeEnvStateActionTest},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -42,7 +42,7 @@ fn main() {
         &train_device,
         env.observation_space().shape(),
         env.action_space().shape(),
-        1,
+        1,      // NOTE -> if using a hidden size of 1, can't use relu as activation, need to use sigmoid
     );
     let dqn_config = DQNConfig::new()
         .with_update_every(10);
