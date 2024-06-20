@@ -28,11 +28,11 @@ fn main() {
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(10)
+        .with_batch_size(4)
         .with_memory_size(1000)
         .with_n_steps(1000)
         .with_warmup_steps(50)
-        .with_lr(5e-3)
+        .with_lr(5e-2)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(false);
@@ -44,7 +44,9 @@ fn main() {
         env.action_space().shape(),
         1,
     );
-    let dqn_config = DQNConfig::new();
+    let dqn_config = DQNConfig::new()
+        .with_update_every(10);
+    
     let agent = DQNAgent::new(
         q.clone(),
         q,
@@ -57,7 +59,7 @@ fn main() {
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
+        PathBuf::from("logs/dqn_probe5/log_dqn_cartpole.csv"),
         false,
     );
 

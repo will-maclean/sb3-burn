@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
+    dqn::{module::{LinearAdvDQNNet, LinearDQNNet}, DQNAgent, DQNConfig},
     env::{base::Env, classic_control::cartpole::CartpoleEnv},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -41,7 +41,7 @@ fn main() {
         .with_train_every(256);
 
     let env = CartpoleEnv::new(500);
-    let q = LinearAdvDQNNet::<TrainingBacked>::init(
+    let q = LinearAdvDQNNet::init(
         &train_device,
         env.observation_space().shape().len(),
         env.action_space().shape(),
@@ -63,7 +63,7 @@ fn main() {
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
+        PathBuf::from("logs/dqn_cartpole/log_dqn_cartpole.csv"),
         false,
     );
 

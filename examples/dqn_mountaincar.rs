@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
+    dqn::{module::{LinearAdvDQNNet, LinearDQNNet}, DQNAgent, DQNConfig},
     env::{base::Env, classic_control::mountain_car::MountainCarEnv},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -30,7 +30,7 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(128)
         .with_memory_size(10000)
-        .with_n_steps(250000)
+        .with_n_steps(120000)
         .with_warmup_steps(1000)
         .with_lr(4e-3)
         .with_gamma(0.98)

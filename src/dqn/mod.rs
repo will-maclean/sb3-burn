@@ -126,8 +126,7 @@ where
         // sample from the replay buffer
         let sample = replay_buffer.batch_sample(offline_params.batch_size);
 
-        // can make this mut when we want to log stuff in the loss step
-        let log = LogItem::default();
+        let mut log = LogItem::default();
 
         let states = sample.states;
         let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
@@ -136,16 +135,32 @@ where
         let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
         let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
 
-        let q_vals_ungathered = self.q1.forward(states, self.observation_space(), train_device);
-        let q_vals = q_vals_ungathered.gather(1, actions);
-        let next_q_vals_ungathered = self.q2.forward(next_states, self.observation_space(), train_device);
-        let next_q_vals = next_q_vals_ungathered.max_dim(1);
+        let q_vals_ungathered = self.q1.forward(states.clone(), self.observation_space(), train_device);
+        let q_vals = q_vals_ungathered.clone().gather(1, actions.clone());
+        let next_q_vals_ungathered = self.q1.forward(next_states.clone(), self.observation_space(), train_device);
+        let next_q_vals = next_q_vals_ungathered.clone().max_dim(1);
 
-        let done = terminated.float().add(truncated.float()).bool();
+        let done = terminated.clone().float().add(truncated.clone().float()).bool();
         let targets =
-            rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
+            rewards.clone() + done.clone().bool_not().float() * next_q_vals.clone() * offline_params.gamma;
 
-        let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
+        let loss = MseLoss::new().forward(q_vals.clone(), targets.clone(), Reduction::Mean);
+
+        if global_step == 500 {
+            println!("states: {:?}\n", states);
+            println!("actions: {:?}\n", actions.to_data());
+            println!("next_states: {:?}\n", next_states);
+            println!("rewards: {:?}\n", rewards.to_data());
+            println!("terminated: {:?}\n", terminated.to_data());
+            println!("truncated: {:?}\n", truncated.to_data());
+
+            println!("q_vals_ungathered: {:?}\n", q_vals_ungathered.to_data());
+            println!("q_vals: {:?}\n", q_vals.to_data());
+            println!("next_q_vals_ungathered: {:?}\n", next_q_vals_ungathered.to_data());
+            println!("next_q_vals: {:?}\n", next_q_vals.to_data());
+            println!("targets: {:?}\n", targets.to_data());
+            println!("loss: {:?}\n", loss.to_data());
+        }
 
         let grads = loss.backward();
         let grads = GradientsParams::from_grads(grads, &self.q1);
@@ -154,12 +169,16 @@ where
 
         if global_step > (self.last_update + self.config.update_every) {
             // hard update
-            self.q2.update(&self.q1, None);
-            self.q2 = self.q2.clone().no_grad();
-            self.last_update = global_step;
+            // self.q2.update(&self.q1, None);
+            // self.q2 = self.q2.clone().no_grad();
+            // self.last_update = global_step;
         }
 
-        let loss = Some(loss.into_scalar().elem());
+        let loss: Option<f32> = Some(loss.into_scalar().elem());
+
+        if let Some(l) = loss {
+            log = log.push("loss".to_string(), LogData::Float(l));
+        }
 
         (loss, log)
     }

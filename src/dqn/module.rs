@@ -31,23 +31,25 @@ impl<B: Backend> LinearAdvDQNNet<B> {
             adv: nn::LinearConfig::new(hidden_size, 1).init(device),
         }
     }
+
+    fn _forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2> {
+        let x = relu(self.l1.forward(x));
+        let x = relu(self.l2.forward(x));
+        self.adv.forward(x.clone()) - self.l3.forward(x)
+    }
 }
 
 impl<B: Backend> DQNNet<B, usize> for LinearAdvDQNNet<B> {
     fn forward(&self, state: Vec<usize>, obs_space: Box<dyn Space<usize>>, device: &B::Device) -> Tensor<B, 2> {
         let state = vec_usize_to_one_hot(state, obs_space.shape(), device);
-        let x = relu(self.l1.forward(state));
-        let x = relu(self.l2.forward(x));
-        self.adv.forward(x.clone()) - self.l3.forward(x)
+        self._forward(state)
     }
 }
 
 impl<B: Backend> DQNNet<B, Vec<f32>> for LinearAdvDQNNet<B> {
     fn forward(&self, state: Vec<Vec<f32>>, _obs_space: Box<dyn Space<Vec<f32>>>, device: &B::Device) -> Tensor<B, 2> {
         let state = state.to_tensor(device);
-        let x = relu(self.l1.forward(state));
-        let x = relu(self.l2.forward(x));
-        self.adv.forward(x.clone()) - self.l3.forward(x)
+        self._forward(state)
     }
 }
 
@@ -75,14 +77,32 @@ impl<B: Backend> LinearDQNNet<B> {
             l3: nn::LinearConfig::new(hidden_size, act_size).init(device),
         }
     }
+
+    pub fn _forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2>{
+        let x = relu(self.l1.forward(x));
+        let x = relu(self.l2.forward(x));
+        self.l3.forward(x)
+    }
 }
 
 impl<B: Backend> DQNNet<B, Tensor<B, 1>> for LinearDQNNet<B> {
     fn forward(&self, state: Vec<Tensor<B, 1>>, _obs_space: Box<dyn Space<Tensor<B, 1>>>, device: &B::Device) -> Tensor<B, 2> {
         let state = Tensor::stack(state, 0).to_device(device);
-        let x = relu(self.l1.forward(state));
-        let x = relu(self.l2.forward(x));
-        self.l3.forward(x)
+        self._forward(state)
+    }
+}
+
+impl<B: Backend> DQNNet<B, Vec<f32>> for LinearDQNNet<B> {
+    fn forward(&self, state: Vec<Vec<f32>>, _obs_space: Box<dyn Space<Vec<f32>>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = state.to_tensor(device);
+        self._forward(state)
+    }
+}
+
+impl<B: Backend> DQNNet<B, usize> for LinearDQNNet<B> {
+    fn forward(&self, state: Vec<usize>, obs_space: Box<dyn Space<usize>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = vec_usize_to_one_hot(state, obs_space.shape(), device);
+        self._forward(state)
     }
 }
 

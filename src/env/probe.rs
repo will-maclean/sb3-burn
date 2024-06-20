@@ -62,6 +62,7 @@ impl Env<Vec<f32>, usize> for ProbeEnvValueTest {
 pub struct ProbeEnvBackpropTest {
     last_obs: usize,
     rng: ThreadRng,
+    needs_reset: bool,
 }
 
 impl ProbeEnvBackpropTest {
@@ -76,11 +77,15 @@ impl ProbeEnvBackpropTest {
 
 impl Env<usize, usize> for ProbeEnvBackpropTest {
     fn step(&mut self, _action: &usize) -> EnvObservation<usize> {
+        if self.needs_reset {
+            panic!("Env needs a reset");
+        }
+
         let reward = self.last_obs as f32;
-        self.last_obs = self.gen_obs();
+        self.needs_reset = true;
 
         EnvObservation {
-            obs: self.observation_space().sample(),
+            obs: 1,
             reward,
             terminated: true,
             truncated: false,
@@ -90,7 +95,7 @@ impl Env<usize, usize> for ProbeEnvBackpropTest {
 
     fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
         self.last_obs = self.gen_obs();
-
+        self.needs_reset = false;
         self.last_obs
     }
 

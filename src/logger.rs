@@ -200,7 +200,7 @@ pub fn create_plots(
             .set_label_area_size(LabelAreaPosition::Left, 40)
             .set_label_area_size(LabelAreaPosition::Bottom, 40)
             .caption(title, ("sans-serif", 40))
-            .build_cartesian_2d(2000.0..xmax, ymin.min(0.0)..ymax)
+            .build_cartesian_2d(0.0..xmax, ymin.min(0.0)..ymax)
             .unwrap();
 
         ctx.configure_mesh().draw().unwrap();
