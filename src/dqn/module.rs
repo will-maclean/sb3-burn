@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use burn::{
     module::Module,
     nn,
-    tensor::{activation::relu, backend::Backend, Tensor},
+    tensor::{activation::{relu, sigmoid}, backend::Backend, Tensor},
 };
 
 use crate::{
@@ -31,23 +31,25 @@ impl<B: Backend> LinearAdvDQNNet<B> {
             adv: nn::LinearConfig::new(hidden_size, 1).init(device),
         }
     }
+
+    fn _forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2> {
+        let x = sigmoid(self.l1.forward(x));
+        let x = sigmoid(self.l2.forward(x));
+        self.adv.forward(x.clone()) - self.l3.forward(x)
+    }
 }
 
 impl<B: Backend> DQNNet<B, usize> for LinearAdvDQNNet<B> {
     fn forward(&self, state: Vec<usize>, obs_space: Box<dyn Space<usize>>, device: &B::Device) -> Tensor<B, 2> {
         let state = vec_usize_to_one_hot(state, obs_space.shape(), device);
-        let x = relu(self.l1.forward(state));
-        let x = relu(self.l2.forward(x));
-        self.adv.forward(x.clone()) - self.l3.forward(x)
+        self._forward(state)
     }
 }
 
 impl<B: Backend> DQNNet<B, Vec<f32>> for LinearAdvDQNNet<B> {
     fn forward(&self, state: Vec<Vec<f32>>, _obs_space: Box<dyn Space<Vec<f32>>>, device: &B::Device) -> Tensor<B, 2> {
         let state = state.to_tensor(device);
-        let x = relu(self.l1.forward(state));
-        let x = relu(self.l2.forward(x));
-        self.adv.forward(x.clone()) - self.l3.forward(x)
+        self._forward(state)
     }
 }
 
@@ -75,14 +77,32 @@ impl<B: Backend> LinearDQNNet<B> {
             l3: nn::LinearConfig::new(hidden_size, act_size).init(device),
         }
     }
+
+    pub fn _forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2>{
+        let x = relu(self.l1.forward(x));
+        let x = relu(self.l2.forward(x));
+        self.l3.forward(x)
+    }
 }
 
 impl<B: Backend> DQNNet<B, Tensor<B, 1>> for LinearDQNNet<B> {
     fn forward(&self, state: Vec<Tensor<B, 1>>, _obs_space: Box<dyn Space<Tensor<B, 1>>>, device: &B::Device) -> Tensor<B, 2> {
         let state = Tensor::stack(state, 0).to_device(device);
-        let x = relu(self.l1.forward(state));
-        let x = relu(self.l2.forward(x));
-        self.l3.forward(x)
+        self._forward(state)
+    }
+}
+
+impl<B: Backend> DQNNet<B, Vec<f32>> for LinearDQNNet<B> {
+    fn forward(&self, state: Vec<Vec<f32>>, _obs_space: Box<dyn Space<Vec<f32>>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = state.to_tensor(device);
+        self._forward(state)
+    }
+}
+
+impl<B: Backend> DQNNet<B, usize> for LinearDQNNet<B> {
+    fn forward(&self, state: Vec<usize>, obs_space: Box<dyn Space<usize>>, device: &B::Device) -> Tensor<B, 2> {
+        let state = vec_usize_to_one_hot(state, obs_space.shape(), device);
+        self._forward(state)
     }
 }
 
@@ -135,5 +155,30 @@ impl<B: Backend> Policy<B> for ConvDQNNet<B> {
         self.l2 = update_linear(&from.l2, self.l2.clone(), tau);
         self.c1 = update_conv2d(&from.c1, self.c1.clone(), tau);
         self.c2 = update_conv2d(&from.c2, self.c2.clone(), tau);
+    }
+}
+
+
+#[cfg(test)]
+mod test {
+    use burn::{backend::NdArray, tensor::Tensor};
+
+    #[test]
+    fn test_broadcast_sanity(){
+        let a = [0.0, 1.0, 2.0];
+        let b = [1.0];
+
+        let a_t = Tensor::<NdArray, 1>::from_floats(a, &Default::default());
+        let b_t = Tensor::<NdArray, 1>::from_floats(b, &Default::default());
+
+        let c_t = a_t.clone() + b_t.clone();
+        let c: Vec<f32> = c_t.into_data().value;
+
+        assert_eq!(c, vec![1.0, 2.0, 3.0]);
+
+        let c_t = a_t - b_t;
+        let c: Vec<f32> = c_t.into_data().value;
+
+        assert_eq!(c, vec![-1.0, 0.0, 1.0]);
     }
 }

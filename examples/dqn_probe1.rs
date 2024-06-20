@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
+    dqn::{module::LinearDQNNet, DQNAgent, DQNConfig},
     env::{base::Env, probe::ProbeEnvValueTest},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -19,8 +19,6 @@ extern crate sb3_burn;
 fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
-
-    type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
 
@@ -38,13 +36,14 @@ fn main() {
         .with_evaluate_during_training(false);
 
     let env = ProbeEnvValueTest::default();
-    let q = LinearAdvDQNNet::<TrainingBacked>::init(
+    let q = LinearDQNNet::init(
         &train_device,
         env.observation_space().shape().len(),
         env.action_space().shape(),
         1,
     );
-    let dqn_config = DQNConfig::new();
+    let dqn_config = DQNConfig::new()
+        .with_update_every(10);
     let agent = DQNAgent::new(
         q.clone(),
         q,
@@ -57,7 +56,7 @@ fn main() {
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
+        PathBuf::from("logs/dqn_probe1/log_dqn_cartpole.csv"),
         false,
     );
 

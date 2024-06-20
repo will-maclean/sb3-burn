@@ -72,7 +72,7 @@ where
     ) -> Self {
         Self {
             q1,
-            q2,
+            q2: q2.no_grad(),
             optim,
             config,
             last_update: 0,
@@ -126,8 +126,7 @@ where
         // sample from the replay buffer
         let sample = replay_buffer.batch_sample(offline_params.batch_size);
 
-        // can make this mut when we want to log stuff in the loss step
-        let log = LogItem::default();
+        let mut log = LogItem::default();
 
         let states = sample.states;
         let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
@@ -155,10 +154,15 @@ where
         if global_step > (self.last_update + self.config.update_every) {
             // hard update
             self.q2.update(&self.q1, None);
-            self.last_update = global_step
+            self.q2 = self.q2.clone().no_grad();
+            self.last_update = global_step;
         }
 
-        let loss = Some(loss.into_scalar().elem());
+        let loss: Option<f32> = Some(loss.into_scalar().elem());
+
+        if let Some(l) = loss {
+            log = log.push("loss".to_string(), LogData::Float(l));
+        }
 
         (loss, log)
     }

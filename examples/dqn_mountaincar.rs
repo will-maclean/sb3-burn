@@ -30,7 +30,7 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(128)
         .with_memory_size(10000)
-        .with_n_steps(250000)
+        .with_n_steps(120000)
         .with_warmup_steps(1000)
         .with_lr(4e-3)
         .with_gamma(0.98)
@@ -63,7 +63,7 @@ fn main() {
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
+        PathBuf::from("logs/dqn_mountaincar/log_dqn.csv"),
         false,
     );
 

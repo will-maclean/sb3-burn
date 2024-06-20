@@ -144,37 +144,20 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
 
         let mut rng = thread_rng();
 
+        // Generate a list of indices
+        let mut indices: Vec<usize> = (0..self.states.len()).collect();
+        indices.shuffle(&mut rng);
+
+        // Take the first n indices
+        let indices: Vec<usize> = indices.into_iter().take(batch_size).collect();
+
         BatchedReplayBufferSlice {
-            states: self
-                .states
-                .choose_multiple(&mut rng, batch_size)
-                .cloned()
-                .collect(),
-            actions: self
-                .actions
-                .choose_multiple(&mut rng, batch_size)
-                .cloned()
-                .collect(),
-            next_states: self
-                .next_states
-                .choose_multiple(&mut rng, batch_size)
-                .cloned()
-                .collect(),
-            rewards: self
-                .rewards
-                .choose_multiple(&mut rng, batch_size)
-                .cloned()
-                .collect(),
-            terminated: self
-                .terminated
-                .choose_multiple(&mut rng, batch_size)
-                .cloned()
-                .collect(),
-            truncated: self
-                .truncated
-                .choose_multiple(&mut rng, batch_size)
-                .cloned()
-                .collect(),
+            states: indices.iter().map(|&i| self.states[i].clone()).collect(),
+            actions: indices.iter().map(|&i| self.actions[i].clone()).collect(),
+            next_states: indices.iter().map(|&i| self.next_states[i].clone()).collect(),
+            rewards: indices.iter().map(|&i| self.rewards[i].clone()).collect(),
+            terminated: indices.iter().map(|&i| self.terminated[i].clone()).collect(),
+            truncated: indices.iter().map(|&i| self.truncated[i].clone()).collect(),
         }
     }
 }

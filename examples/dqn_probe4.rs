@@ -44,7 +44,9 @@ fn main() {
         env.action_space().shape(),
         1,
     );
-    let dqn_config = DQNConfig::new();
+    let dqn_config = DQNConfig::new()
+        .with_update_every(10);
+
     let agent = DQNAgent::new(
         q.clone(),
         q,
@@ -57,7 +59,7 @@ fn main() {
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/dqn_logging/log_dqn_cartpole.csv"),
+        PathBuf::from("logs/dqn_probe4/log_dqn_cartpole.csv"),
         false,
     );
 
