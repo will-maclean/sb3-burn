@@ -8,7 +8,7 @@ use burn::{
 use sb3_burn::{
     algorithm::{OfflineAlgParams, OfflineTrainer},
     buffer::ReplayBuffer,
-    dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
+    dqn::{module::{LinearAdvDQNNet, LinearDQNNet}, DQNAgent, DQNConfig},
     env::{base::Env, probe::ProbeEnvStateActionTest},
     eval::EvalConfig,
     logger::{CsvLogger, Logger},
@@ -28,17 +28,17 @@ fn main() {
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
     let optim = config_optimizer.init();
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(4)
+        .with_batch_size(16)
         .with_memory_size(1000)
         .with_n_steps(1000)
         .with_warmup_steps(50)
-        .with_lr(5e-2)
+        .with_lr(0.1)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(false);
 
     let env = ProbeEnvStateActionTest::default();
-    let q = LinearAdvDQNNet::<TrainingBacked>::init(
+    let q = LinearDQNNet::<TrainingBacked>::init(
         &train_device,
         env.observation_space().shape(),
         env.action_space().shape(),

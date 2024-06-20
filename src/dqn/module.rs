@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use burn::{
     module::Module,
     nn,
-    tensor::{activation::relu, backend::Backend, Tensor},
+    tensor::{activation::{relu, sigmoid}, backend::Backend, Tensor},
 };
 
 use crate::{
@@ -79,8 +79,8 @@ impl<B: Backend> LinearDQNNet<B> {
     }
 
     pub fn _forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2>{
-        let x = relu(self.l1.forward(x));
-        let x = relu(self.l2.forward(x));
+        let x = sigmoid(self.l1.forward(x));
+        let x = sigmoid(self.l2.forward(x));
         self.l3.forward(x)
     }
 }

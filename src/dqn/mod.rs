@@ -137,7 +137,7 @@ where
 
         let q_vals_ungathered = self.q1.forward(states.clone(), self.observation_space(), train_device);
         let q_vals = q_vals_ungathered.clone().gather(1, actions.clone());
-        let next_q_vals_ungathered = self.q1.forward(next_states.clone(), self.observation_space(), train_device);
+        let next_q_vals_ungathered = self.q2.forward(next_states.clone(), self.observation_space(), train_device);
         let next_q_vals = next_q_vals_ungathered.clone().max_dim(1);
 
         let done = terminated.clone().float().add(truncated.clone().float()).bool();
@@ -146,7 +146,7 @@ where
 
         let loss = MseLoss::new().forward(q_vals.clone(), targets.clone(), Reduction::Mean);
 
-        if global_step == 500 {
+        if (global_step == 500) | (global_step == 50) {
             println!("states: {:?}\n", states);
             println!("actions: {:?}\n", actions.to_data());
             println!("next_states: {:?}\n", next_states);
@@ -169,9 +169,9 @@ where
 
         if global_step > (self.last_update + self.config.update_every) {
             // hard update
-            // self.q2.update(&self.q1, None);
-            // self.q2 = self.q2.clone().no_grad();
-            // self.last_update = global_step;
+            self.q2.update(&self.q1, None);
+            self.q2 = self.q2.clone().no_grad();
+            self.last_update = global_step;
         }
 
         let loss: Option<f32> = Some(loss.into_scalar().elem());
