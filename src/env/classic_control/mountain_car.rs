@@ -1,7 +1,9 @@
 use crate::{
+    common::{
+        spaces::{BoxSpace, Discrete, Space},
+        utils::generate_random_vector,
+    },
     env::base::{Env, EnvObservation, ResetOptions, RewardRange},
-    spaces::{BoxSpace, Discrete, Space},
-    utils::generate_random_vector,
 };
 
 pub struct MountainCarEnv {

@@ -33,13 +33,6 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
         train_device: &B::Device,
     ) -> (Option<f32>, LogItem);
 
-    fn eval(
-        &mut self,
-        env: &mut dyn Env<O, A>,
-        cfg: &EvalConfig,
-        eval_device: &B::Device,
-    ) -> LogItem;
-
     fn observation_space(&self) -> Box<dyn Space<O>>;
 
     fn action_space(&self) -> Box<dyn Space<A>>;
@@ -85,15 +78,6 @@ impl<O, A> Agent<O, A> for RandomAgent<O, A>{
         train_device: &B::Device,
     ) -> (Option<f32>, LogItem){
         (None, Default::default())
-    }
-
-    fn eval(
-        &mut self,
-        env: &mut dyn Env<O, A>,
-        cfg: &EvalConfig,
-        eval_device: &B::Device,
-    ) -> LogItem{
-        evaluate_policy(self, env, cfg, eval_device)
     }
 
     fn observation_space(&self) -> Box<dyn Space<O>>{

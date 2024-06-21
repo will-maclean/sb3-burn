@@ -11,13 +11,11 @@ use burn::{
 };
 use module::DQNNet;
 
-use crate::{
+use crate::common::{
+    agent::Agent,
     algorithm::OfflineAlgParams,
     buffer::ReplayBuffer,
-    env::base::Env,
-    eval::{evaluate_policy, EvalConfig},
     logger::{LogData, LogItem},
-    agent::Agent,
     spaces::Space,
     to_tensor::{ToTensorB, ToTensorF, ToTensorI},
     utils::linear_decay,
@@ -82,8 +80,8 @@ where
     }
 }
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + Debug, Q> Agent<B, OS, usize>
-    for DQNAgent<O, B, OS, usize, Q, 2>
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + Debug, Q>
+    Agent<B, OS, usize> for DQNAgent<O, B, OS, usize, Q, 2>
 where
     Q: DQNNet<B, OS> + burn::module::AutodiffModule<B>,
 {
@@ -103,7 +101,14 @@ where
         );
 
         let a: usize = if (rand::random::<f32>() > eps) | greedy {
-            let q: Tensor<B, 1> = self.q1.forward(vec![obs.clone()], self.observation_space(), inference_device).squeeze(0);
+            let q: Tensor<B, 1> = self
+                .q1
+                .forward(
+                    vec![obs.clone()],
+                    self.observation_space(),
+                    inference_device,
+                )
+                .squeeze(0);
             q.argmax(0).into_scalar().elem::<i32>() as usize
         } else {
             self.action_space().sample()
@@ -135,14 +140,17 @@ where
         let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
         let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
 
-        let q_vals_ungathered = self.q1.forward(states, self.observation_space(), train_device);
+        let q_vals_ungathered = self
+            .q1
+            .forward(states, self.observation_space(), train_device);
         let q_vals = q_vals_ungathered.gather(1, actions);
-        let next_q_vals_ungathered = self.q2.forward(next_states, self.observation_space(), train_device);
+        let next_q_vals_ungathered =
+            self.q2
+                .forward(next_states, self.observation_space(), train_device);
         let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
         let done = terminated.float().add(truncated.float()).bool();
-        let targets =
-            rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
+        let targets = rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
 
         let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
@@ -165,25 +173,6 @@ where
         }
 
         (loss, log)
-    }
-
-    fn eval(
-        &mut self,
-        env: &mut dyn Env<OS, usize>,
-        cfg: &EvalConfig,
-        eval_device: &B::Device,
-    ) -> LogItem {
-        let eval_result = evaluate_policy(self, env, cfg, eval_device);
-
-        LogItem::default()
-            .push(
-                "eval_ep_mean_reward".to_string(),
-                LogData::Float(eval_result.mean_reward),
-            )
-            .push(
-                "eval_ep_mean_len".to_string(),
-                LogData::Float(eval_result.mean_len),
-            )
     }
 
     fn observation_space(&self) -> Box<dyn Space<OS>> {

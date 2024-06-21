@@ -48,7 +48,7 @@ pub fn vec_usize_to_one_hot<B: Backend>(
 
 #[cfg(test)]
 mod test {
-    use crate::utils::mean;
+    use crate::common::utils::mean;
 
     #[test]
     fn test_mean() {

@@ -1,6 +1,6 @@
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::spaces::{BoxSpace, Discrete, Space};
+use crate::common::spaces::{BoxSpace, Discrete, Space};
 
 use super::base::{Env, EnvObservation, ResetOptions, RewardRange};
 

@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::spaces::Space;
+use crate::common::spaces::Space;
 
 use super::base::{Env, EnvObservation, InfoData, RewardRange};
 

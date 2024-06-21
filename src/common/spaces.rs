@@ -18,9 +18,9 @@ pub trait Space<T: Clone>: DynClone {
 }
 
 /// Defines a Discrete Space.
-/// 
+///
 /// A Discrete space is a space on `usize` where samples
-/// are drawn uniformly from `[0, n)`. 
+/// are drawn uniformly from `[0, n)`.
 #[derive(Debug, Clone)]
 pub struct Discrete {
     /// The upper bound on the space
@@ -57,17 +57,15 @@ impl Space<usize> for Discrete {
     }
 }
 
-
 /// Defines a `BoxSpace<T>`.
-/// 
+///
 /// A `BoxSpace` is an n-dimensional container on
-/// some generic `T`, where `T` is classically some 
+/// some generic `T`, where `T` is classically some
 /// form of number. Current implementations are
 /// for `Vec<f32>`, but it is also possible to use
 /// e.g. `Tensor<B, D>`.
 #[derive(Debug, Clone)]
 pub struct BoxSpace<T> {
-
     /// The lower bound on the space
     low: T,
 
@@ -122,12 +120,10 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
 
 #[cfg(test)]
 mod test {
-    use crate::spaces::Space;
-
-    use super::{BoxSpace, Discrete};
+    use crate::common::spaces::{BoxSpace, Discrete, Space};
 
     #[test]
-    fn test_discrete_space(){
+    fn test_discrete_space() {
         let mut space = Discrete::from(2);
 
         assert_eq!(space.shape(), 2);
@@ -140,7 +136,7 @@ mod test {
     }
 
     #[test]
-    fn test_box_f32_space(){
+    fn test_box_f32_space() {
         let low = vec![0.0, -0.1, 0.1];
         let high = vec![1.0, 1.1, 0.9];
 

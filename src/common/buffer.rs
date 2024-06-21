@@ -22,7 +22,7 @@ pub struct ReplayBufferSlice<O, A> {
 }
 
 /// ReplayBuffer stores samples of training data
-/// 
+///
 /// ReplayBuffer stores samples of training data, specifically
 /// state, action, next state, reward, terminated, and truncated.
 /// The types of state and action are generic for compatability
@@ -62,7 +62,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
     }
 
     /// The number of samples currently stored in the buffer
-    pub fn curr_len(&self) -> usize{
+    pub fn curr_len(&self) -> usize {
         self.states.len()
     }
 
@@ -73,9 +73,9 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
 
     /// Indexes the replay buffer. No verification on idx
     /// so will panic if an illegal idx is supplied
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if an illegal idx is supplied
     pub fn get(&self, idx: usize) -> Result<ReplayBufferSlice<O, A>, &'static str> {
         Ok(ReplayBufferSlice {
@@ -88,7 +88,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         })
     }
 
-    /// Adds a ReplayBufferSlice<O, A>, which is a single 
+    /// Adds a ReplayBufferSlice<O, A>, which is a single
     /// sample of data, the to buffer
     pub fn add_slice(&mut self, item: ReplayBufferSlice<O, A>) {
         if self.full() {
@@ -132,14 +132,20 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
 
     /// Randomly samples `batch_size` samples from the buffer and returns
     /// them as a BatchedReplayBuffer<O, A>.
-    /// 
+    ///
     /// Note, the data is cloned out of the data (not removed).
-    /// 
+    ///
     /// # Panics
     /// Will panic if there is not enough data in the buffer for the batch sample.
     pub fn batch_sample(&self, batch_size: usize) -> BatchedReplayBufferSlice<O, A> {
-        if (self.full() & (batch_size > self.size())) | (!self.full() & (batch_size > self.curr_len())) {
-            panic!("Not enough samples in here! self.len: {:?}, batch_size: {:?}", self.curr_len(), batch_size);
+        if (self.full() & (batch_size > self.size()))
+            | (!self.full() & (batch_size > self.curr_len()))
+        {
+            panic!(
+                "Not enough samples in here! self.len: {:?}, batch_size: {:?}",
+                self.curr_len(),
+                batch_size
+            );
         }
 
         let mut rng = thread_rng();
@@ -154,9 +160,15 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
         BatchedReplayBufferSlice {
             states: indices.iter().map(|&i| self.states[i].clone()).collect(),
             actions: indices.iter().map(|&i| self.actions[i].clone()).collect(),
-            next_states: indices.iter().map(|&i| self.next_states[i].clone()).collect(),
+            next_states: indices
+                .iter()
+                .map(|&i| self.next_states[i].clone())
+                .collect(),
             rewards: indices.iter().map(|&i| self.rewards[i].clone()).collect(),
-            terminated: indices.iter().map(|&i| self.terminated[i].clone()).collect(),
+            terminated: indices
+                .iter()
+                .map(|&i| self.terminated[i].clone())
+                .collect(),
             truncated: indices.iter().map(|&i| self.truncated[i].clone()).collect(),
         }
     }
@@ -164,7 +176,8 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
 
 #[cfg(test)]
 mod tests {
-    use crate::spaces::{BoxSpace, Discrete, Space};
+
+    use crate::common::spaces::{BoxSpace, Discrete, Space};
 
     use super::ReplayBuffer;
 
@@ -216,10 +229,10 @@ mod tests {
     }
 
     #[test]
-    fn test_full(){
+    fn test_full() {
         let mut buffer: ReplayBuffer<usize, usize> = ReplayBuffer::new(5);
 
-        for _ in 0..5{
+        for _ in 0..5 {
             assert!(!buffer.full());
             buffer.add(0, 0, 0, 0.0, false, false)
         }
@@ -228,7 +241,7 @@ mod tests {
     }
 
     #[test]
-    fn allocated_vec_sanity_check(){
+    fn allocated_vec_sanity_check() {
         let v1: Vec<usize> = Vec::with_capacity(10);
 
         assert_eq!(v1.len(), 0);

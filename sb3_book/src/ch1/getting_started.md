@@ -13,12 +13,14 @@ use burn::{
     optim::{Adam, AdamConfig},
 };
 use sb3_burn::{
-    algorithm::{OfflineAlgParams, OfflineTrainer},
-    buffer::ReplayBuffer,
+    common::{
+        algorithm::{OfflineAlgParams, OfflineTrainer},
+        buffer::ReplayBuffer,
+        eval::EvalConfig,
+        logger::{CsvLogger, Logger},
+    },
     dqn::{module::LinearAdvDQNNet, DQNAgent, DQNConfig},
-    env::{base::Env, classic_control::mountain_car::MountainCarEnv},
-    eval::EvalConfig,
-    logger::{CsvLogger, Logger},
+    env::{base::Env, classic_control::cartpole::CartpoleEnv},
 };
 //!
 extern crate sb3_burn;
@@ -104,12 +106,12 @@ fn main() {
     }
 //!
     // We can then create the trainer itself...
-    let mut trainer: OfflineTrainer<Adam<LibTorch>, Autodiff<LibTorch>, Vec<f32>, usize> =
+    let mut trainer: OfflineTrainer<_, Adam<LibTorch>, _, _, _> =
         OfflineTrainer::new(
             offline_params,
             Box::new(env),
             Box::new(MountainCarEnv::default()),
-            Box::new(agent),
+            agent,
             buffer,
             Box::new(logger),
             None,
