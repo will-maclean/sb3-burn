@@ -27,9 +27,9 @@ Environments:
 | --------- | -------------- |
 | Gridworld       | Rust, done    |
 | Cartpole       | Rust, done    |
-| MoubntainCar       | Rust, done    |
-| Gym classic control       | Python, In Progress        |
-| Snake       | Python, In Progress        |
+| Pendulum       | Rust, done    |
+| MountainCar       | Rust, done    |
+| Python gym handler | In progress |
 
 ## Usage
 The `examples` directory shows how algorithms and environemnts can be used.
