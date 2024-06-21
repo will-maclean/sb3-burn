@@ -3,6 +3,8 @@ use rand::Rng;
 
 pub mod module_update;
 
+const PI: f32 = 3.1415;
+
 pub fn linear_decay(curr_frac: f32, start: f32, end: f32, end_frac: f32) -> f32 {
     if curr_frac > end_frac {
         end
@@ -44,6 +46,10 @@ pub fn vec_usize_to_one_hot<B: Backend>(
             .collect(),
         0,
     )
+}
+
+pub fn angle_normalise(f: f32) -> f32 {
+    (f + PI) % (2.0 * PI) - PI
 }
 
 #[cfg(test)]
