@@ -61,7 +61,6 @@ impl<B: Backend, const D: usize> SimpleDistribution<B, D> for NormalDistribution
     }
 }
 
-pub trait ActionDistribution{}
 
 #[cfg(test)]
 mod test{
