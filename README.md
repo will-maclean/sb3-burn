@@ -2,7 +2,7 @@
 
 [![Continuous Integration](https://github.com/will-maclean/sb3-burn/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/will-maclean/sb3-burn/actions/workflows/rust.yml)
 
-`sb3-burn` is a reinforcement learning (RL) library writtin in rust using the [burn](https://github.com/tracel-ai/burn) deep learning library. It is based on the Python/PyTorch library [Stable-baselines3](https://github.com/DLR-RM/stable-baselines3/tree/master) (hence the name) and aims
+`sb3-burn` is a reinforcement learning (RL) library written in rust using the [burn](https://github.com/tracel-ai/burn) deep learning library. It is based on the Python/PyTorch library [Stable-baselines3](https://github.com/DLR-RM/stable-baselines3/tree/master) (hence the name) and aims
 to bring a fast, flexible RL library to the rust machine learning ecosystem. Features:
 
 **Implemented RL Algorithms**
@@ -11,12 +11,12 @@ to bring a fast, flexible RL library to the rust machine learning ecosystem. Fea
 
 **Gym-like environments with Rust implementations**
 
-The [gym]() package has been hugely influential in the Python RL space, providing a common interface for 
+The [gym](https://gymnasium.farama.org/) package has been hugely influential in the Python RL space, providing a common interface for 
 RL environments. `sb3-burn` provides a gym-like environment interface, and a set of commonly-used environments have been implemented for extra speed.
 
 **Flexibility**
 
-Different RL environments generally require tweaking of RL
+Different RL environments commonly require tweaking of RL
 algorithms, either because of unusual state or action types, or 
 customisation of hyper parameters. `sb3-burn` has a strong focus
 on utilising rust generics to allow for users to train agents on 
