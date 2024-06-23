@@ -1,3 +1,4 @@
+use burn::tensor::{backend::Backend, Distribution, Tensor};
 use dyn_clone::DynClone;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -114,6 +115,44 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
     }
 
     fn shape(&self) -> Vec<f32> {
+        self.low.clone()
+    }
+}
+
+impl<B: Backend, const D: usize> From<(Tensor<B, D>, Tensor<B, D>)> for BoxSpace<Tensor<B, D>> {
+    fn from(value: (Tensor<B, D>, Tensor<B, D>)) -> Self {
+        Self {
+            low: value.0,
+            high: value.1,
+            rng: StdRng::from_entropy(),
+        }
+    }
+}
+
+impl<B: Backend, const D: usize> Space<Tensor<B, D>> for BoxSpace<Tensor<B, D>> {
+    fn contains(&self, sample: &Tensor<B, D>) -> bool {
+        if sample.shape() != self.low.shape() {
+            return false;
+        }
+
+        sample.clone().greater_equal(self.low.clone()).all().into_scalar() & 
+            sample.clone().lower_equal(self.low.clone()).all().into_scalar()
+    }
+
+    fn sample(&mut self) -> Tensor<B, D> {
+        let shape = self.low.shape();
+        let sample: Tensor<B, D> = Tensor::random(shape, Distribution::Uniform(0.0, 1.0), &self.low.device());
+        let range = self.high.clone().sub(self.low.clone());
+        let sample = sample.mul(range).add(self.low.clone());
+
+        sample
+    }
+
+    fn seed(&mut self, seed: [u8; 32]) {
+        self.rng = StdRng::from_seed(seed);
+    }
+
+    fn shape(&self) -> Tensor<B, D> {
         self.low.clone()
     }
 }

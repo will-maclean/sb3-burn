@@ -144,7 +144,7 @@ impl<O: Clone + Debug, A: Clone + Debug> Env<O, A> for AutoResetWrapper<O, A> {
 mod test {
     use crate::env::{base::Env, classic_control::cartpole::CartpoleEnv};
 
-    use super::TimeLimitWrapper;
+    use super::{AutoResetWrapper, TimeLimitWrapper};
 
     #[test]
     fn test_time_limit_wrapper() {
@@ -163,5 +163,22 @@ mod test {
         }
 
         assert_eq!(truncate_steps, ep_len);
+    }
+
+    #[test]
+    fn test_auto_reset(){
+        let env = CartpoleEnv::default();
+        let mut env = AutoResetWrapper::new(Box::new(env));
+
+        let mut done = false;
+        env.reset(None, None);
+
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.terminated | res.truncated;
+        }
+
+        // wouldn't be able to do this without the wrapper
+        env.step(&env.action_space().sample());
     }
 }

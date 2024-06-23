@@ -48,7 +48,14 @@ pub fn vec_usize_to_one_hot<B: Backend>(
 
 #[cfg(test)]
 mod test {
-    use crate::common::utils::mean;
+    use assert_approx_eq::assert_approx_eq;
+
+    use burn::{
+        backend::{ndarray::NdArrayDevice, NdArray},
+        tensor::Tensor,
+    };
+
+    use crate::common::utils::{generate_random_vector, linear_decay, mean, vec_usize_to_one_hot};
 
     #[test]
     fn test_mean() {
@@ -59,5 +66,38 @@ mod test {
         let v = [];
 
         assert!(mean(&v).is_nan());
+    }
+
+    #[test]
+    fn test_linear_decay() {
+        assert_approx_eq!(linear_decay(0.0, 1.0, 0.01, 0.8), 1.0, 1e-3f32);
+        assert_approx_eq!(linear_decay(0.8, 1.0, 0.01, 0.8), 0.01, 1e-3f32);
+        assert_approx_eq!(linear_decay(1.0, 1.0, 0.01, 0.8), 0.01, 1e-3f32);
+    }
+
+    #[test]
+    fn test_gen_rand_vec() {
+        let sample = generate_random_vector(vec![0.0, 0.0, 0.0], vec![1.0, 1.0, 1.0]);
+
+        for s in sample {
+            assert!((s >= 0.0) & (s <= 1.0));
+        }
+    }
+
+    #[should_panic]
+    #[test]
+    fn test_gen_rand_vec_bad() {
+        generate_random_vector(vec![1.0], vec![0.0]);
+    }
+
+    #[test]
+    fn test_usize_to_one_hot() {
+        let ins = vec![0, 1, 2];
+        let classes = 4;
+
+        let t: Tensor<NdArray, 2> = vec_usize_to_one_hot(ins, classes, &NdArrayDevice::default());
+
+        assert_eq!(t.shape().dims[0], 3);
+        assert_eq!(t.shape().dims[1], 4);
     }
 }
