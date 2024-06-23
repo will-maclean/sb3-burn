@@ -169,10 +169,12 @@ impl<B: Backend> ConvDQNNet<B> {
         act_size: usize,
         hidden_size: usize,
     ) -> Self {
+        //TODO: take in channels, calculate linear input size
+        
         Self {
-            c1: nn::conv::Conv2dConfig::new([obs_shape.shape().dims[0], 4], [3, 3]).init(device),
-            c2: nn::conv::Conv2dConfig::new([4, 8], [3, 3]).init(device),
-            l1: nn::LinearConfig::new(64, hidden_size).init(device),
+            c1: nn::conv::Conv2dConfig::new([obs_shape.shape().dims[0], 2], [3, 3]).init(device),
+            c2: nn::conv::Conv2dConfig::new([2, 3], [3, 3]).init(device),
+            l1: nn::LinearConfig::new(432, hidden_size).init(device),
             l2: nn::LinearConfig::new(hidden_size, act_size).init(device),
         }
     }
@@ -205,7 +207,11 @@ impl<B: Backend> Policy<B> for ConvDQNNet<B> {
 
 #[cfg(test)]
 mod test {
-    use burn::{backend::NdArray, tensor::Tensor};
+    use burn::{backend::NdArray, tensor::{Shape, Tensor}};
+
+    use crate::common::spaces::{BoxSpace, Discrete, Space};
+
+    use super::{ConvDQNNet, DQNNet, LinearAdvDQNNet, LinearDQNNet};
 
     #[test]
     fn test_broadcast_sanity() {
@@ -224,5 +230,53 @@ mod test {
         let c: Vec<f32> = c_t.into_data().value;
 
         assert_eq!(c, vec![-1.0, 0.0, 1.0]);
+    }
+
+    #[test]
+    fn test_linear_net_usize_usize(){
+        let mut obs_space = Discrete::from(3);
+
+        let dqn: LinearDQNNet<NdArray> = LinearDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
+        
+        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+    }
+
+    #[test]
+    fn test_linear_net_vecf32_usize(){
+        let mut obs_space = BoxSpace::from((vec![0.0, 1.0], vec![0.5, 8.1]));
+
+        let dqn: LinearDQNNet<NdArray> = LinearDQNNet::init(&Default::default(), obs_space.shape().len(), 1, 2);
+
+        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+    }
+
+    #[test]
+    fn test_linear_adv_net_usize_usize(){
+        let mut obs_space = Discrete::from(3);
+
+        let dqn: LinearAdvDQNNet<NdArray> = LinearAdvDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
+
+        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+    }
+
+    #[test]
+    fn test_linear_adv_net_vecf32_usize(){
+        let mut obs_space = BoxSpace::from((vec![0.0, 1.0], vec![0.5, 8.1]));
+
+        let dqn: LinearAdvDQNNet<NdArray> = LinearAdvDQNNet::init(&Default::default(), obs_space.shape().len(), 1, 2);
+
+        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+    }
+
+    #[test]
+    fn test_conv_usize(){
+        let shape = Shape::new([3, 16, 16]);
+        let low: Tensor<NdArray, 3> = Tensor::zeros(shape.clone(), &Default::default());
+        let high: Tensor<NdArray, 3> = Tensor::zeros(shape, &Default::default());
+        let mut obs_space = BoxSpace::from((low, high));
+
+        let dqn: ConvDQNNet<NdArray> = ConvDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
+
+        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
     }
 }
