@@ -84,7 +84,6 @@ mod test {
     }
 
     impl<B: Backend> Policy<B> for LinearPolicy<B> {
-
         fn update(&mut self, from: &Self, tau: Option<f32>) {
             self.layer = update_linear(&from.layer, self.layer.clone(), tau);
         }

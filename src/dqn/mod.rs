@@ -184,82 +184,66 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use std::path::PathBuf;
+#[cfg(test)]
+mod test {
+    use std::path::PathBuf;
 
-//     use burn::{
-//         backend::{Autodiff, NdArray},
-//         optim::{Adam, AdamConfig},
-//         tensor::backend::AutodiffBackend,
-//     };
+    use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}};
 
-//     use crate::{
-//         algorithm::{OfflineAlgParams, OfflineAlgorithm},
-//         buffer::ReplayBuffer,
-//         dqn::{DQNAgent, DQNConfig, DQNNet},
-//         env::{base::Env, gridworld::GridWorldEnv},
-//         eval::EvalConfig,
-//         logger::CsvLogger,
-//     };
+    use crate::{common::{algorithm::{OfflineAlgParams, OfflineTrainer}, buffer::ReplayBuffer, eval::EvalConfig, logger::CsvLogger}, dqn::{module::LinearDQNNet, DQNAgent, DQNConfig}, env::{base::Env, gridworld::GridWorldEnv}};
 
-//     use super::OfflineTrainer;
+    #[test]
+    fn test_dqn_lightweight() {
+        type TrainingBacked = Autodiff<NdArray>;
+        let device = Default::default();
+        let config_optimizer = AdamConfig::new();
+        let optim = config_optimizer.init();
+        let offline_params = OfflineAlgParams::new()
+            .with_n_steps(10)
+            .with_batch_size(2)
+            .with_memory_size(5)
+            .with_warmup_steps(2);
+        let env = GridWorldEnv::default();
+        let q = LinearDQNNet::<TrainingBacked>::init(
+            &device,
+            env.observation_space().shape().len(),
+            env.action_space().shape(),
+            2,
+        );
+        let agent = DQNAgent::new(
+            q.clone(),
+            q,
+            optim,
+            DQNConfig::new(),
+            env.observation_space(),
+            env.action_space()
+        );
+        let buffer = ReplayBuffer::new(offline_params.memory_size);
 
-//     #[test]
-//     fn test_dqn_lightweight() {
-//         type TrainingBacked = Autodiff<NdArray>;
-//         let device = Default::default();
-//         let config_optimizer = AdamConfig::new();
-//         let optim = config_optimizer.init();
-//         let offline_params = OfflineAlgParams::new()
-//             .with_n_steps(10)
-//             .with_batch_size(2)
-//             .with_memory_size(5)
-//             .with_warmup_steps(2);
-//         let env = GridWorldEnv::default();
-//         let q = DQNNet::<TrainingBacked>::init(
-//             &device,
-//             env.observation_space().clone(),
-//             env.action_space().clone(),
-//             2,
-//         );
-//         let agent = DQNAgent::new(
-//             q.clone(),
-//             q,
-//             optim,
-//             DQNConfig::new(),
-//             env.observation_space(),
-//             env.action_space()
-//         );
-//         let dqn_alg = OfflineAlgorithm::DQN(agent);
-//         let buffer = ReplayBuffer::new(offline_params.memory_size);
+        // create the logs dir
+        let mut log_dir = std::env::current_dir().unwrap();
+        log_dir.push("tmp_logs");
+        let _ = std::fs::create_dir(&log_dir);
 
-//         // create the logs dir
-//         let mut log_dir = std::env::current_dir().unwrap();
-//         log_dir.push("tmp_logs");
-//         let _ = std::fs::create_dir(&log_dir);
+        let logger = CsvLogger::new(
+            PathBuf::from("tmp_logs/log.csv"),
+            false,
+        );
 
-//         let logger = CsvLogger::new(
-//             PathBuf::from("tmp_logs/log.csv"),
-//             true,
-//             Some("global_step".to_string()),
-//         );
+        let mut trainer: OfflineTrainer<_, Adam<NdArray>, _, _, _> = OfflineTrainer::new(
+            offline_params,
+            Box::new(env),
+            Box::<GridWorldEnv>::default(),
+            agent,
+            buffer,
+            Box::new(logger),
+            None,
+            EvalConfig::new(),
+            &device
+        );
 
-//         let mut trainer = OfflineTrainer::new(
-//             offline_params,
-//             Box::new(env),
-//             Box::<GridWorldEnv>::default(),
-//             dqn_alg,
-//             buffer,
-//             Box::new(logger),
-//             None,
-//             EvalConfig::new(),
-//             &device,
-//             &device,
-//         );
+        trainer.train();
 
-//         trainer.train();
-
-//         let _ = std::fs::remove_dir_all(log_dir);
-//     }
-// }
+        let _ = std::fs::remove_dir_all(log_dir);
+    }
+}
