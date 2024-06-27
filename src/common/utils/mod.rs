@@ -2,6 +2,7 @@ use burn::tensor::{backend::Backend, Float, Tensor};
 use rand::Rng;
 
 pub mod module_update;
+pub mod modules;
 
 pub fn linear_decay(curr_frac: f32, start: f32, end: f32, end_frac: f32) -> f32 {
     if curr_frac > end_frac {
