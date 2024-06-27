@@ -1,7 +1,9 @@
 use crate::{
+    common::{
+        spaces::{BoxSpace, Discrete, Space},
+        utils::generate_random_vector,
+    },
     env::base::{Env, EnvObservation, ResetOptions, RewardRange},
-    spaces::{self, BoxSpace, Discrete},
-    utils::generate_random_vector,
 };
 
 pub struct CartpoleEnv {
@@ -188,11 +190,11 @@ impl Env<Vec<f32>, usize> for CartpoleEnv {
         self.get_obs()
     }
 
-    fn action_space(&self) -> Box<(dyn spaces::Space<usize> + 'static)> {
+    fn action_space(&self) -> Box<(dyn Space<usize> + 'static)> {
         Box::new(Discrete::from(2))
     }
 
-    fn observation_space(&self) -> Box<(dyn spaces::Space<Vec<f32>> + 'static)> {
+    fn observation_space(&self) -> Box<(dyn Space<Vec<f32>> + 'static)> {
         Box::new(BoxSpace::from((
             self.highs.clone().iter().map(|el| -el).collect(),
             self.highs.clone(),

@@ -1,10 +1,9 @@
-use crate::{
-    env::base::Env,
-    agent::Agent,
-    utils::mean,
-};
 use burn::{config::Config, tensor::backend::Backend};
 use core::fmt::Debug;
+
+use crate::{common::utils::mean, env::base::Env};
+
+use super::agent::Agent;
 
 pub struct EvalResult {
     pub mean_len: f32,

@@ -1,6 +1,5 @@
 use burn::{module::Module, nn, tensor::{backend::Backend, Tensor}};
 
-use crate::to_tensor::ToTensorF;
 
 pub struct QVals<B: Backend> {
     pub q1: Tensor<B, 2>,

@@ -1,6 +1,6 @@
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::spaces::{BoxSpace, Discrete, Space};
+use crate::common::spaces::{BoxSpace, Discrete, Space};
 
 use super::base::{Env, EnvObservation, ResetOptions, RewardRange};
 
@@ -62,6 +62,7 @@ impl Env<Vec<f32>, usize> for ProbeEnvValueTest {
 pub struct ProbeEnvBackpropTest {
     last_obs: usize,
     rng: ThreadRng,
+    needs_reset: bool,
 }
 
 impl ProbeEnvBackpropTest {
@@ -76,11 +77,15 @@ impl ProbeEnvBackpropTest {
 
 impl Env<usize, usize> for ProbeEnvBackpropTest {
     fn step(&mut self, _action: &usize) -> EnvObservation<usize> {
+        if self.needs_reset {
+            panic!("Env needs a reset");
+        }
+
         let reward = self.last_obs as f32;
-        self.last_obs = self.gen_obs();
+        self.needs_reset = true;
 
         EnvObservation {
-            obs: self.observation_space().sample(),
+            obs: 1,
             reward,
             terminated: true,
             truncated: false,
@@ -90,7 +95,7 @@ impl Env<usize, usize> for ProbeEnvBackpropTest {
 
     fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> usize {
         self.last_obs = self.gen_obs();
-
+        self.needs_reset = false;
         self.last_obs
     }
 
@@ -309,5 +314,67 @@ impl Env<usize, usize> for ProbeEnvStateActionTest {
 
     fn unwrapped(&self) -> &dyn Env<usize, usize> {
         self
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::env::base::Env;
+
+    use super::{ProbeEnvActionTest, ProbeEnvBackpropTest, ProbeEnvDiscountingTest, ProbeEnvStateActionTest, ProbeEnvValueTest};
+
+    #[test]
+    fn test_probe_env_value_test(){
+        let mut env = ProbeEnvValueTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_backprop_test(){
+        let mut env = ProbeEnvBackpropTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_action_test(){
+        let mut env = ProbeEnvActionTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_state_action_test(){
+        let mut env = ProbeEnvStateActionTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_discounting_test(){
+        let mut env = ProbeEnvDiscountingTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
     }
 }

@@ -1,3 +1,4 @@
+use burn::tensor::{backend::Backend, Distribution, Tensor};
 use dyn_clone::DynClone;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -18,9 +19,9 @@ pub trait Space<T: Clone>: DynClone {
 }
 
 /// Defines a Discrete Space.
-/// 
+///
 /// A Discrete space is a space on `usize` where samples
-/// are drawn uniformly from `[0, n)`. 
+/// are drawn uniformly from `[0, n)`.
 #[derive(Debug, Clone)]
 pub struct Discrete {
     /// The upper bound on the space
@@ -57,17 +58,15 @@ impl Space<usize> for Discrete {
     }
 }
 
-
 /// Defines a `BoxSpace<T>`.
-/// 
+///
 /// A `BoxSpace` is an n-dimensional container on
-/// some generic `T`, where `T` is classically some 
+/// some generic `T`, where `T` is classically some
 /// form of number. Current implementations are
 /// for `Vec<f32>`, but it is also possible to use
 /// e.g. `Tensor<B, D>`.
 #[derive(Debug, Clone)]
 pub struct BoxSpace<T> {
-
     /// The lower bound on the space
     low: T,
 
@@ -120,14 +119,50 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
     }
 }
 
+impl<B: Backend, const D: usize> From<(Tensor<B, D>, Tensor<B, D>)> for BoxSpace<Tensor<B, D>> {
+    fn from(value: (Tensor<B, D>, Tensor<B, D>)) -> Self {
+        Self {
+            low: value.0,
+            high: value.1,
+            rng: StdRng::from_entropy(),
+        }
+    }
+}
+
+impl<B: Backend, const D: usize> Space<Tensor<B, D>> for BoxSpace<Tensor<B, D>> {
+    fn contains(&self, sample: &Tensor<B, D>) -> bool {
+        if sample.shape() != self.low.shape() {
+            return false;
+        }
+
+        sample.clone().greater_equal(self.low.clone()).all().into_scalar() & 
+            sample.clone().lower_equal(self.low.clone()).all().into_scalar()
+    }
+
+    fn sample(&mut self) -> Tensor<B, D> {
+        let shape = self.low.shape();
+        let sample: Tensor<B, D> = Tensor::random(shape, Distribution::Uniform(0.0, 1.0), &self.low.device());
+        let range = self.high.clone().sub(self.low.clone());
+        let sample = sample.mul(range).add(self.low.clone());
+
+        sample
+    }
+
+    fn seed(&mut self, seed: [u8; 32]) {
+        self.rng = StdRng::from_seed(seed);
+    }
+
+    fn shape(&self) -> Tensor<B, D> {
+        self.low.clone()
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::spaces::Space;
-
-    use super::{BoxSpace, Discrete};
+    use crate::common::spaces::{BoxSpace, Discrete, Space};
 
     #[test]
-    fn test_discrete_space(){
+    fn test_discrete_space() {
         let mut space = Discrete::from(2);
 
         assert_eq!(space.shape(), 2);
@@ -140,7 +175,7 @@ mod test {
     }
 
     #[test]
-    fn test_box_f32_space(){
+    fn test_box_f32_space() {
         let low = vec![0.0, -0.1, 0.1];
         let high = vec![1.0, 1.1, 0.9];
 

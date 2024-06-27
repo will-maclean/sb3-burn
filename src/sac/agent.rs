@@ -1,6 +1,6 @@
 use burn::{module::AutodiffModule, nn::loss::{MseLoss, Reduction}, optim::{adaptor::OptimizerAdaptor, SimpleOptimizer}, tensor::backend::AutodiffBackend};
 
-use crate::{agent::Agent, algorithm::OfflineAlgParams, buffer::ReplayBuffer, env::base::Env, eval::EvalConfig, logger::LogItem, spaces::{BoxSpace, Space}, to_tensor::{ToTensorB, ToTensorF}};
+use crate::common::{agent::Agent, algorithm::OfflineAlgParams, buffer::ReplayBuffer, logger::LogItem, spaces::{BoxSpace, Space}, to_tensor::ToTensorB};
 
 use super::{module::{QVals, SACNet}, utils::{ActionLogProb, EntCoef, SACConfig}};
 
@@ -63,7 +63,7 @@ where
         obs: &OS,
         greedy: bool,
         inference_device: &B::Device,
-    ) -> (AS, crate::logger::LogItem) {
+    ) -> (AS, LogItem) {
         todo!()
     }
 
@@ -118,15 +118,6 @@ where
         // TODO: Train the policy network
 
         // TODO: create log dict
-    }
-
-    fn eval(
-        &mut self,
-        env: &mut dyn Env<OS, AS>,
-        cfg: &EvalConfig,
-        eval_device: &B::Device,
-    ) -> crate::logger::LogItem {
-        todo!()
     }
 
     fn observation_space(&self) -> Box<dyn Space<OS>> {

@@ -1,7 +1,7 @@
 use ndarray::{indices_of, Array, Dim};
 use rand::{thread_rng, Rng};
 
-use crate::spaces::{BoxSpace, Discrete, Space};
+use crate::common::spaces::{BoxSpace, Discrete, Space};
 
 use super::base::{Env, EnvObservation, ResetOptions};
 
