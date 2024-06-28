@@ -128,7 +128,10 @@ where
         }
         critic_loss = critic_loss.mul_scalar(0.5);
         
-        // TODO: optimise the critics
+        // TODO: optimise the critics only
+        let critic_loss = critic_loss.backward();
+        let critic_grads = GradientsParams::from_grads(critic_loss, &self.net);
+        self.net = self.q_optim.step(offline_params.lr, self.net, critic_grads);
 
         // TODO: Train the policy network
 
