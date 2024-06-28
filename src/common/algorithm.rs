@@ -6,13 +6,16 @@ use burn::optim::SimpleOptimizer;
 use burn::tensor::backend::AutodiffBackend;
 use indicatif::{ProgressIterator, ProgressStyle};
 
-use crate::buffer::ReplayBuffer;
-use crate::callback::{Callback, EmptyCallback};
 use crate::env::base::Env;
-use crate::eval::EvalConfig;
-use crate::logger::{LogData, LogItem, Logger};
-use crate::agent::Agent;
-use crate::utils::mean;
+
+use super::{
+    agent::Agent,
+    buffer::ReplayBuffer,
+    callback::{Callback, EmptyCallback},
+    eval::{evaluate_policy, EvalConfig},
+    logger::{LogData, LogItem, Logger},
+    utils::mean,
+};
 
 #[derive(Config)]
 pub struct OfflineAlgParams {
@@ -46,6 +49,7 @@ pub struct OfflineAlgParams {
 
 pub struct OfflineTrainer<
     'a,
+    A: Agent<B, OS, AS>,
     O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,
     OS: Clone,
@@ -54,30 +58,31 @@ pub struct OfflineTrainer<
     pub offline_params: OfflineAlgParams,
     pub env: Box<dyn Env<OS, AS>>,
     pub eval_env: Box<dyn Env<OS, AS>>,
-    pub agent: Box<dyn Agent<B, OS, AS>>,
+    pub agent: A,
     pub buffer: ReplayBuffer<OS, AS>,
     pub logger: Box<dyn Logger>,
-    pub callback: Box<dyn Callback<O, B, OS, AS>>,
+    pub callback: Box<dyn Callback<A, O, B, OS, AS>>,
     pub eval_cfg: EvalConfig,
     pub train_device: &'a B::Device,
 }
 
 impl<
         'a,
+        A: Agent<B, OS, AS>,
         O: SimpleOptimizer<B::InnerBackend>,
         B: AutodiffBackend,
         OS: Clone + Debug,
         AS: Clone + Debug,
-    > OfflineTrainer<'a, O, B, OS, AS>
+    > OfflineTrainer<'a, A, O, B, OS, AS>
 {
     pub fn new(
         offline_params: OfflineAlgParams,
         env: Box<dyn Env<OS, AS>>,
         eval_env: Box<dyn Env<OS, AS>>,
-        agent: Box<dyn Agent<B, OS, AS>>,
+        agent: A,
         buffer: ReplayBuffer<OS, AS>,
         logger: Box<dyn Logger>,
-        callback: Option<Box<dyn Callback<O, B, OS, AS>>>,
+        callback: Option<Box<dyn Callback<A, O, B, OS, AS>>>,
         eval_cfg: EvalConfig,
         train_device: &'a B::Device,
     ) -> Self {
@@ -108,9 +113,13 @@ impl<
         let mut ep_len = 0;
 
         if self.offline_params.eval_at_start_of_training {
-            let log = self
-                .agent
-                .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
+            let log: LogItem = evaluate_policy(
+                &self.agent,
+                &mut *self.eval_env,
+                &self.eval_cfg,
+                self.train_device,
+            )
+            .into();
 
             self.logger.log(log);
         }
@@ -178,9 +187,13 @@ impl<
             if self.offline_params.evaluate_during_training
                 & (i % self.offline_params.evaluate_every_steps == 0)
             {
-                let log = self
-                    .agent
-                    .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
+                let log: LogItem = evaluate_policy(
+                    &self.agent,
+                    &mut *self.eval_env,
+                    &self.eval_cfg,
+                    self.train_device,
+                )
+                .into();
 
                 self.logger.log(log);
             }
@@ -210,9 +223,13 @@ impl<
         }
 
         if self.offline_params.eval_at_end_of_training {
-            let log = self
-                .agent
-                .eval(&mut *self.eval_env, &self.eval_cfg, self.train_device);
+            let log: LogItem = evaluate_policy(
+                &self.agent,
+                &mut *self.eval_env,
+                &self.eval_cfg,
+                self.train_device,
+            )
+            .into();
 
             self.logger.log(log);
         }

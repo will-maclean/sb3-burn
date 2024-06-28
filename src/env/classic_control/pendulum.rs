@@ -1,4 +1,4 @@
-use crate::{env::{base::{Env, EnvObservation, ResetOptions, RewardRange}, wrappers::TimeLimitWrapper}, spaces::{BoxSpace, Space}, utils::angle_normalise};
+use crate::{common::{spaces::{BoxSpace, Space}, utils::angle_normalise}, env::{base::{Env, EnvObservation, ResetOptions, RewardRange}, wrappers::TimeLimitWrapper}};
 
 pub struct PendulumEnv{
     // constant

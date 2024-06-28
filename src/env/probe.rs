@@ -1,6 +1,6 @@
 use rand::{rngs::ThreadRng, Rng};
 
-use crate::spaces::{BoxSpace, Discrete, Space};
+use crate::common::spaces::{BoxSpace, Discrete, Space};
 
 use super::base::{Env, EnvObservation, ResetOptions, RewardRange};
 
@@ -314,5 +314,67 @@ impl Env<usize, usize> for ProbeEnvStateActionTest {
 
     fn unwrapped(&self) -> &dyn Env<usize, usize> {
         self
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::env::base::Env;
+
+    use super::{ProbeEnvActionTest, ProbeEnvBackpropTest, ProbeEnvDiscountingTest, ProbeEnvStateActionTest, ProbeEnvValueTest};
+
+    #[test]
+    fn test_probe_env_value_test(){
+        let mut env = ProbeEnvValueTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_backprop_test(){
+        let mut env = ProbeEnvBackpropTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_action_test(){
+        let mut env = ProbeEnvActionTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_state_action_test(){
+        let mut env = ProbeEnvStateActionTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
+    }
+
+    #[test]
+    fn test_probe_env_discounting_test(){
+        let mut env = ProbeEnvDiscountingTest::default();
+
+        let mut done = false;
+        while !done {
+            let res = env.step(&env.action_space().sample());
+            done = res.truncated | res.terminated;
+        }
     }
 }

@@ -11,13 +11,11 @@ use burn::{
 };
 use module::DQNNet;
 
-use crate::{
+use crate::common::{
+    agent::Agent,
     algorithm::OfflineAlgParams,
     buffer::ReplayBuffer,
-    env::base::Env,
-    eval::{evaluate_policy, EvalConfig},
     logger::{LogData, LogItem},
-    agent::Agent,
     spaces::Space,
     to_tensor::{ToTensorB, ToTensorF, ToTensorI},
     utils::linear_decay,
@@ -82,8 +80,8 @@ where
     }
 }
 
-impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + Debug, Q> Agent<B, OS, usize>
-    for DQNAgent<O, B, OS, usize, Q, 2>
+impl<O: SimpleOptimizer<B::InnerBackend>, B: AutodiffBackend, OS: Clone + Debug, Q>
+    Agent<B, OS, usize> for DQNAgent<O, B, OS, usize, Q, 2>
 where
     Q: DQNNet<B, OS> + burn::module::AutodiffModule<B>,
 {
@@ -103,7 +101,14 @@ where
         );
 
         let a: usize = if (rand::random::<f32>() > eps) | greedy {
-            let q: Tensor<B, 1> = self.q1.forward(vec![obs.clone()], self.observation_space(), inference_device).squeeze(0);
+            let q: Tensor<B, 1> = self
+                .q1
+                .forward(
+                    vec![obs.clone()],
+                    self.observation_space(),
+                    inference_device,
+                )
+                .squeeze(0);
             q.argmax(0).into_scalar().elem::<i32>() as usize
         } else {
             self.action_space().sample()
@@ -135,14 +140,17 @@ where
         let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
         let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
 
-        let q_vals_ungathered = self.q1.forward(states, self.observation_space(), train_device);
+        let q_vals_ungathered = self
+            .q1
+            .forward(states, self.observation_space(), train_device);
         let q_vals = q_vals_ungathered.gather(1, actions);
-        let next_q_vals_ungathered = self.q2.forward(next_states, self.observation_space(), train_device);
+        let next_q_vals_ungathered =
+            self.q2
+                .forward(next_states, self.observation_space(), train_device);
         let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
         let done = terminated.float().add(truncated.float()).bool();
-        let targets =
-            rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
+        let targets = rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
 
         let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);
 
@@ -167,25 +175,6 @@ where
         (loss, log)
     }
 
-    fn eval(
-        &mut self,
-        env: &mut dyn Env<OS, usize>,
-        cfg: &EvalConfig,
-        eval_device: &B::Device,
-    ) -> LogItem {
-        let eval_result = evaluate_policy(self, env, cfg, eval_device);
-
-        LogItem::default()
-            .push(
-                "eval_ep_mean_reward".to_string(),
-                LogData::Float(eval_result.mean_reward),
-            )
-            .push(
-                "eval_ep_mean_len".to_string(),
-                LogData::Float(eval_result.mean_len),
-            )
-    }
-
     fn observation_space(&self) -> Box<dyn Space<OS>> {
         dyn_clone::clone_box(&*self.observation_space)
     }
@@ -195,82 +184,66 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod test {
-//     use std::path::PathBuf;
+#[cfg(test)]
+mod test {
+    use std::path::PathBuf;
 
-//     use burn::{
-//         backend::{Autodiff, NdArray},
-//         optim::{Adam, AdamConfig},
-//         tensor::backend::AutodiffBackend,
-//     };
+    use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}};
 
-//     use crate::{
-//         algorithm::{OfflineAlgParams, OfflineAlgorithm},
-//         buffer::ReplayBuffer,
-//         dqn::{DQNAgent, DQNConfig, DQNNet},
-//         env::{base::Env, gridworld::GridWorldEnv},
-//         eval::EvalConfig,
-//         logger::CsvLogger,
-//     };
+    use crate::{common::{algorithm::{OfflineAlgParams, OfflineTrainer}, buffer::ReplayBuffer, eval::EvalConfig, logger::CsvLogger}, dqn::{module::LinearDQNNet, DQNAgent, DQNConfig}, env::{base::Env, gridworld::GridWorldEnv}};
 
-//     use super::OfflineTrainer;
+    #[test]
+    fn test_dqn_lightweight() {
+        type TrainingBacked = Autodiff<NdArray>;
+        let device = Default::default();
+        let config_optimizer = AdamConfig::new();
+        let optim = config_optimizer.init();
+        let offline_params = OfflineAlgParams::new()
+            .with_n_steps(10)
+            .with_batch_size(2)
+            .with_memory_size(5)
+            .with_warmup_steps(2);
+        let env = GridWorldEnv::default();
+        let q = LinearDQNNet::<TrainingBacked>::init(
+            &device,
+            env.observation_space().shape().len(),
+            env.action_space().shape(),
+            2,
+        );
+        let agent = DQNAgent::new(
+            q.clone(),
+            q,
+            optim,
+            DQNConfig::new(),
+            env.observation_space(),
+            env.action_space()
+        );
+        let buffer = ReplayBuffer::new(offline_params.memory_size);
 
-//     #[test]
-//     fn test_dqn_lightweight() {
-//         type TrainingBacked = Autodiff<NdArray>;
-//         let device = Default::default();
-//         let config_optimizer = AdamConfig::new();
-//         let optim = config_optimizer.init();
-//         let offline_params = OfflineAlgParams::new()
-//             .with_n_steps(10)
-//             .with_batch_size(2)
-//             .with_memory_size(5)
-//             .with_warmup_steps(2);
-//         let env = GridWorldEnv::default();
-//         let q = DQNNet::<TrainingBacked>::init(
-//             &device,
-//             env.observation_space().clone(),
-//             env.action_space().clone(),
-//             2,
-//         );
-//         let agent = DQNAgent::new(
-//             q.clone(),
-//             q,
-//             optim,
-//             DQNConfig::new(),
-//             env.observation_space(),
-//             env.action_space()
-//         );
-//         let dqn_alg = OfflineAlgorithm::DQN(agent);
-//         let buffer = ReplayBuffer::new(offline_params.memory_size);
+        // create the logs dir
+        let mut log_dir = std::env::current_dir().unwrap();
+        log_dir.push("tmp_logs");
+        let _ = std::fs::create_dir(&log_dir);
 
-//         // create the logs dir
-//         let mut log_dir = std::env::current_dir().unwrap();
-//         log_dir.push("tmp_logs");
-//         let _ = std::fs::create_dir(&log_dir);
+        let logger = CsvLogger::new(
+            PathBuf::from("tmp_logs/log.csv"),
+            false,
+        );
 
-//         let logger = CsvLogger::new(
-//             PathBuf::from("tmp_logs/log.csv"),
-//             true,
-//             Some("global_step".to_string()),
-//         );
+        let mut trainer: OfflineTrainer<_, Adam<NdArray>, _, _, _> = OfflineTrainer::new(
+            offline_params,
+            Box::new(env),
+            Box::<GridWorldEnv>::default(),
+            agent,
+            buffer,
+            Box::new(logger),
+            None,
+            EvalConfig::new(),
+            &device
+        );
 
-//         let mut trainer = OfflineTrainer::new(
-//             offline_params,
-//             Box::new(env),
-//             Box::<GridWorldEnv>::default(),
-//             dqn_alg,
-//             buffer,
-//             Box::new(logger),
-//             None,
-//             EvalConfig::new(),
-//             &device,
-//             &device,
-//         );
+        trainer.train();
 
-//         trainer.train();
-
-//         let _ = std::fs::remove_dir_all(log_dir);
-//     }
-// }
+        let _ = std::fs::remove_dir_all(log_dir);
+    }
+}
