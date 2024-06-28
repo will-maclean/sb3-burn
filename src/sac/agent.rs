@@ -1,6 +1,8 @@
-use burn::{module::AutodiffModule, nn::loss::{MseLoss, Reduction}, optim::{adaptor::OptimizerAdaptor, SimpleOptimizer}, tensor::backend::AutodiffBackend};
+use std::iter::zip;
 
-use crate::common::{agent::Agent, algorithm::OfflineAlgParams, buffer::ReplayBuffer, logger::LogItem, spaces::{BoxSpace, Space}, to_tensor::ToTensorB};
+use burn::{module::AutodiffModule, nn::loss::{MseLoss, Reduction}, optim::{adaptor::OptimizerAdaptor, GradientsParams, Optimizer, SimpleOptimizer}, tensor::{backend::AutodiffBackend, ElementConversion, Shape, Tensor}};
+
+use crate::common::{agent::Agent, algorithm::OfflineAlgParams, buffer::ReplayBuffer, distributions::action_distribution::DiagGaussianDistribution, logger::LogItem, spaces::{BoxSpace, Space}, to_tensor::{ToTensorB, ToTensorF}};
 
 use super::{module::{QVals, SACNet}, utils::{ActionLogProb, EntCoef, SACConfig}};
 
@@ -8,18 +10,19 @@ pub struct SACAgent<O, B, S, OS, AS>
 where
     B: AutodiffBackend,
     O: SimpleOptimizer<B::InnerBackend>,
-    S: SACNet<B, OS, AS> + AutodiffModule<B>,
+    S: SACNet<B, OS, AS, DiagGaussianDistribution<B>> + AutodiffModule<B>,
     OS: Clone,
     AS: Clone + 'static,
     BoxSpace<AS> : Space<AS>
 {
     pub net: S,
     pub target_net: S,
-    pub optim: OptimizerAdaptor<O, S, B>,
+    pub pi_optim: OptimizerAdaptor<O, S, B>,
+    pub q_optim: OptimizerAdaptor<O, S, B>,
     pub config: SACConfig,
     pub target_entropy: f32,
     pub critic_loss: MseLoss<B>,
-    pub ent_coef: EntCoef<B>,
+    pub log_ent_coef: EntCoef<B>,
     pub observation_space: Box<dyn Space<OS>>,
     pub action_space: BoxSpace<AS>,
 }
@@ -28,7 +31,7 @@ impl<O, B, S, OS, AS> SACAgent<O, B, S, OS, AS>
 where
     B: AutodiffBackend,
     O: SimpleOptimizer<B::InnerBackend>,
-    S: SACNet<B, OS, AS> + AutodiffModule<B>,
+    S: SACNet<B, OS, AS, DiagGaussianDistribution<B>> + AutodiffModule<B>,
     OS: Clone,
     AS: Clone + 'static,
     BoxSpace<AS> : Space<AS>
@@ -51,9 +54,9 @@ impl <O, B, S, OS, AS> Agent<B, OS, AS> for SACAgent<O, B, S, OS, AS>
 where
     B: AutodiffBackend,
     O: SimpleOptimizer<B::InnerBackend>,
-    S: SACNet<B, OS, AS> + AutodiffModule<B>,
+    S: SACNet<B, OS, AS, DiagGaussianDistribution<B>> + AutodiffModule<B>,
     OS: Clone,
-    AS: Clone + 'static,
+    AS: Clone,
     BoxSpace<AS> : Space<AS>
 {
     fn act(
@@ -87,31 +90,43 @@ where
             .bool()
             .unsqueeze_dim(1);
 
-        if self.config.use_sde{
-            self.reset_noise();
-        }
-
         let act_log_prob = self.action_log_prob(sample.states);
 
-        // TODO: optimise the entropy coefficient if it is trainable
-        // TODO: how do I do with th.no_grad() ?
+        // optimise the entropy coefficient if it is trainable
+        let ent_coef = match self.log_ent_coef{
+            EntCoef::Static(ec) => ec,
+            EntCoef::Trainable(t, o, lr) => {
+                let ent_coef = t.clone().into_scalar().elem::<f32>().exp();
+
+                let ent_coef_loss = -t.mul(act_log_prob.log_pi.squeeze(1).add_scalar(self.target_entropy)).detach().mean();
+
+                let g = ent_coef_loss.backward();
+                let g = GradientsParams::from_grads(g, &t);
+                t = o.step(lr, t, g);
+
+                ent_coef
+            },
+        };
+
         let next_act_log_prob = self.action_log_prob(sample.next_states);
         let next_q_vals = self.q_val_from_action(sample.next_states, next_act_log_prob.pi);
 
-        //TODO: SB3 has support for n q nets, rather than just 2. Add support for this
-
         // add the entropy term
-        let next_q1_vals = next_q_vals.q1 - next_act_log_prob.log_pi.mul_scalar(self.ent_coef.to_float());
-        let next_q2_vals = next_q_vals.q2 - next_act_log_prob.log_pi.mul_scalar(self.ent_coef.to_float());
-        let target_q1 = rewards + dones.bool_not().float().mul(next_q1_vals).mul_scalar(offline_params.gamma);
-        let target_q2 = rewards + dones.bool_not().float().mul(next_q2_vals).mul_scalar(offline_params.gamma);
+        let mut targets = Vec::new();
+        for q in next_q_vals.q{
+            let next_q = - next_act_log_prob.log_pi.mul_scalar(ent_coef) + 1;
+            let target = rewards + dones.bool_not().float().mul(next_q).mul_scalar(offline_params.gamma);
+            targets.push(target.detach());
+        }
 
+        // calculate the critic loss
         let q_vals = self.q_val_from_action(sample.states, sample.actions);
 
-        let critic_loss = (
-                self.critic_loss.forward(q_vals.q1, target_q1, Reduction::Mean) 
-                + self.critic_loss.forward(q_vals.q2, target_q2, Reduction::Mean)
-            ).mul_scalar(0.5);
+        let mut critic_loss: Tensor<_, 1> = Tensor::zeros(Shape::new([1]), train_device);
+        for (q, target) in zip(q_vals.q, targets){
+            critic_loss = critic_loss + self.critic_loss.forward(q, target, Reduction::Mean);
+        }
+        critic_loss = critic_loss.mul_scalar(0.5);
         
         // TODO: optimise the critics
 

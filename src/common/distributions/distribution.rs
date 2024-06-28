@@ -8,7 +8,7 @@ pub trait BaseDistribution<B: Backend, const D: usize> : Clone + Debug{
     fn variance(&self) -> Tensor<B, D>;
     fn stdev(&self) -> Tensor<B, D>;
     fn sample(&mut self) -> Tensor<B, D>;
-    fn rsample(&mut self) -> Tensor<B, D>;
+    fn rsample(&self) -> Tensor<B, D>;
     fn log_prob(&self, value: Tensor<B, D>) -> Tensor<B, D>;
     fn cdf(&self, value: Tensor<B, D>) -> Tensor<B, D>;
     fn icdf(&self, value: Tensor<B, D>) -> Tensor<B, D>;

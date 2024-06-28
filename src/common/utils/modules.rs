@@ -10,7 +10,7 @@ pub struct MLP<B: Backend>{
 }
 
 impl<B: Backend> MLP<B>{
-    pub fn new(sizes: Vec<usize>, device: &B::Device) -> Self{
+    pub fn new(sizes: &Vec<usize>, device: &B::Device) -> Self{
         let mut layers = Vec::new();
 
         for i in 0..sizes.len() - 1 {
@@ -58,7 +58,7 @@ mod test{
     fn test_create_mlp_one_layer(){
         type Backend = NdArray;
         
-        let mut model = MLP::<NdArray>::new(vec![5, 6], &Default::default());
+        let mut model = MLP::<NdArray>::new(&vec![5, 6], &Default::default());
         let dummy_forward: Tensor<Backend, 2> = Tensor::random(
             Shape::new([3, 5]), 
             Distribution::Normal(0.0, 1.0), 
@@ -74,7 +74,7 @@ mod test{
     fn test_create_mlp_multi_layer(){
         type Backend = NdArray;
         
-        let mut model = MLP::<NdArray>::new(vec![5, 6, 7], &Default::default());
+        let mut model = MLP::<NdArray>::new(&vec![5, 6, 7], &Default::default());
         let dummy_forward: Tensor<Backend, 2> = Tensor::random(
             Shape::new([3, 5]), 
             Distribution::Normal(0.0, 1.0), 

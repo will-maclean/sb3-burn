@@ -8,14 +8,14 @@ pub enum EntCoefSetup {
 
 pub enum EntCoef<B: AutodiffBackend> {
     Static(f32),
-    Trainable(Tensor<B, 1>, OptimizerAdaptor<Adam<B::InnerBackend>, Tensor<B, 1>, B>)
+    Trainable(Tensor<B, 1>, OptimizerAdaptor<Adam<B::InnerBackend>, Tensor<B, 1>, B>, f64)
 }
 
 impl<B: AutodiffBackend> EntCoef<B> {
     pub fn to_float(&self) -> f32 {
         match self {
             EntCoef::Static(v) => *v,
-            EntCoef::Trainable(t, _) => t.clone().exp().into_scalar().elem(),
+            EntCoef::Trainable(t, _, _) => t.clone().exp().into_scalar().elem(),
         }
     }
 } 
@@ -42,10 +42,6 @@ pub struct SACConfig {
     pub sde_sample_freq: usize,
     #[config(default = false)]
     pub use_sde_at_warmup: bool,
-}
-
-pub trait ActionDistribution{
-
 }
 
 pub struct ActionLogProb<B: Backend, A> {
