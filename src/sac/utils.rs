@@ -25,6 +25,12 @@ pub enum ActionNoise{
     None,
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub enum ActionDist{
+    GAUSSIAN,
+    SDE,
+}
+
 #[derive(Config)]
 pub struct SACConfig {
     #[config(default = 0.05)]

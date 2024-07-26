@@ -4,7 +4,7 @@ use burn::{module::AutodiffModule, nn::loss::{MseLoss, Reduction}, optim::{adapt
 
 use crate::common::{agent::Agent, algorithm::OfflineAlgParams, buffer::ReplayBuffer, distributions::action_distribution::DiagGaussianDistribution, logger::LogItem, spaces::{BoxSpace, Space}, to_tensor::{ToTensorB, ToTensorF}};
 
-use super::{module::{QVals, SACNet}, utils::{ActionLogProb, EntCoef, SACConfig}};
+use super::{module::{QVals, SACNet}, utils::{ActionDist, ActionLogProb, EntCoef, SACConfig}};
 
 pub struct SACAgent<O, B, S, OS, AS> 
 where
@@ -25,6 +25,7 @@ where
     pub log_ent_coef: EntCoef<B>,
     pub observation_space: Box<dyn Space<OS>>,
     pub action_space: BoxSpace<AS>,
+    pub action_dist_type: ActionDist,
 }
 
 impl<O, B, S, OS, AS> SACAgent<O, B, S, OS, AS> 
