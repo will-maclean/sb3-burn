@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use burn::{backend::{libtorch::LibTorchDevice, Autodiff, LibTorch}, grad_clipping::GradientClippingConfig, optim::{Adam, AdamConfig}};
+use burn::{backend::{wgpu::{Wgpu, WgpuDevice}, Autodiff}, grad_clipping::GradientClippingConfig, optim::{Adam, AdamConfig}};
 use sb3_burn::{common::{algorithm::{OfflineAlgParams, OfflineTrainer}, buffer::ReplayBuffer, eval::EvalConfig, logger::{CsvLogger, Logger}, spaces::BoxSpace}, env::{base::Env, classic_control::pendulum::{make_pendulum, PendulumEnv}}, simple_sac::agent::{PiModel, QModel, QModelSet, SACAgent}};
 
 const N_CRITICS: usize = 3;
@@ -9,9 +9,9 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<LibTorch>;
+    type TrainingBacked = Autodiff<Wgpu>;
 
-    let train_device = LibTorchDevice::Cuda(0);
+    let train_device = WgpuDevice::DiscreteGpu(0);
     
     let env = make_pendulum(None);
 
@@ -66,7 +66,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, Adam<LibTorch>, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_, Adam<Wgpu>, _, _, _> = OfflineTrainer::new(
         offline_params,
         env,
         make_pendulum(None),
