@@ -12,7 +12,7 @@ pub struct Normal<B: Backend, const D: usize>{
 
 impl<B: Backend, const D: usize> Normal<B, D>{
     pub fn new(loc: Tensor<B, D>, scale: Tensor<B, D>) -> Self{
-        assert!(scale.clone().greater_elem(0.0).all().into_scalar());
+        assert!(scale.clone().greater_elem(0.0).all().into_scalar(), "scale>0 check failed. scale: {scale}");
 
         Self{
             loc: loc.no_grad(),
@@ -99,13 +99,13 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D>{
 
 #[cfg(test)]
 mod test {
-    use burn::{backend::NdArray, tensor::Tensor};
+    use burn::{backend::Wgpu, tensor::{ElementConversion, Tensor}};
 
     use crate::common::distributions::{distribution::BaseDistribution, exp_family::ExpFamily, normal::Normal};
 
     #[test]
     fn test_normal_distribution(){
-        type Backend = NdArray;
+        type Backend = Wgpu;
         let loc = Tensor::<Backend, 2>::from_floats([[1.0, 0.0], [2.0, -2.0]], &Default::default());
         let scale = Tensor::<Backend, 2>::from_floats([[1.0, 0.1], [2.0, 2.0]], &Default::default());
 
@@ -130,7 +130,7 @@ mod test {
     #[should_panic]
     #[test]
     fn test_bad_normal_init1(){
-        type Backend = NdArray;
+        type Backend = Wgpu;
         let loc = Tensor::<Backend, 1>::from_floats([1.0], &Default::default());
         let scale = Tensor::<Backend, 1>::from_floats([0.0], &Default::default());
 
@@ -140,10 +140,32 @@ mod test {
     #[should_panic]
     #[test]
     fn test_bad_normal_init2(){
-        type Backend = NdArray;
+        type Backend = Wgpu;
         let loc = Tensor::<Backend, 1>::from_floats([1.0], &Default::default());
         let scale = Tensor::<Backend, 1>::from_floats([-1.0], &Default::default());
 
         Normal::new(loc, scale);
+    }
+
+    #[test]
+    fn normal_dist_calc_verification(){
+        type Backend = Wgpu;
+
+        // calculated with PyTorch
+        // dist = Normal(mean=0.0, std=1.0)
+        // sample = 0.4225
+        // log_prob = -1.0082
+        
+        let loc = Tensor::<Backend, 1>::from_floats([0.0], &Default::default());
+        let scale = Tensor::<Backend, 1>::from_floats([1.0], &Default::default());
+
+        let dist = Normal::new(loc, scale);
+
+        let sample = Tensor::<Backend, 1>::from_floats([0.4225], &Default::default());
+        let expected_log_prob = Tensor::<Backend, 1>::from_floats([-1.0082], &Default::default());
+
+        let calculated_log_prob = dist.log_prob(sample);
+
+        assert!((expected_log_prob - calculated_log_prob).sum().into_scalar().elem::<f32>() < 1e-12);
     }
 }
