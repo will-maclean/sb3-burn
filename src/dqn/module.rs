@@ -170,7 +170,7 @@ impl<B: Backend> ConvDQNNet<B> {
         hidden_size: usize,
     ) -> Self {
         //TODO: take in channels, calculate linear input size
-        
+
         Self {
             c1: nn::conv::Conv2dConfig::new([obs_shape.shape().dims[0], 2], [3, 3]).init(device),
             c2: nn::conv::Conv2dConfig::new([2, 3], [3, 3]).init(device),
@@ -207,7 +207,10 @@ impl<B: Backend> Policy<B> for ConvDQNNet<B> {
 
 #[cfg(test)]
 mod test {
-    use burn::{backend::NdArray, tensor::{Shape, Tensor}};
+    use burn::{
+        backend::NdArray,
+        tensor::{Shape, Tensor},
+    };
 
     use crate::common::spaces::{BoxSpace, Discrete, Space};
 
@@ -233,50 +236,75 @@ mod test {
     }
 
     #[test]
-    fn test_linear_net_usize_usize(){
+    fn test_linear_net_usize_usize() {
         let mut obs_space = Discrete::from(3);
 
-        let dqn: LinearDQNNet<NdArray> = LinearDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
-        
-        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+        let dqn: LinearDQNNet<NdArray> =
+            LinearDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
+
+        dqn.forward(
+            vec![obs_space.sample()],
+            Box::new(obs_space),
+            &Default::default(),
+        );
     }
 
     #[test]
-    fn test_linear_net_vecf32_usize(){
+    fn test_linear_net_vecf32_usize() {
         let mut obs_space = BoxSpace::from((vec![0.0, 1.0], vec![0.5, 8.1]));
 
-        let dqn: LinearDQNNet<NdArray> = LinearDQNNet::init(&Default::default(), obs_space.shape().len(), 1, 2);
+        let dqn: LinearDQNNet<NdArray> =
+            LinearDQNNet::init(&Default::default(), obs_space.shape().len(), 1, 2);
 
-        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+        dqn.forward(
+            vec![obs_space.sample()],
+            Box::new(obs_space),
+            &Default::default(),
+        );
     }
 
     #[test]
-    fn test_linear_adv_net_usize_usize(){
+    fn test_linear_adv_net_usize_usize() {
         let mut obs_space = Discrete::from(3);
 
-        let dqn: LinearAdvDQNNet<NdArray> = LinearAdvDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
+        let dqn: LinearAdvDQNNet<NdArray> =
+            LinearAdvDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
 
-        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+        dqn.forward(
+            vec![obs_space.sample()],
+            Box::new(obs_space),
+            &Default::default(),
+        );
     }
 
     #[test]
-    fn test_linear_adv_net_vecf32_usize(){
+    fn test_linear_adv_net_vecf32_usize() {
         let mut obs_space = BoxSpace::from((vec![0.0, 1.0], vec![0.5, 8.1]));
 
-        let dqn: LinearAdvDQNNet<NdArray> = LinearAdvDQNNet::init(&Default::default(), obs_space.shape().len(), 1, 2);
+        let dqn: LinearAdvDQNNet<NdArray> =
+            LinearAdvDQNNet::init(&Default::default(), obs_space.shape().len(), 1, 2);
 
-        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+        dqn.forward(
+            vec![obs_space.sample()],
+            Box::new(obs_space),
+            &Default::default(),
+        );
     }
 
     #[test]
-    fn test_conv_usize(){
+    fn test_conv_usize() {
         let shape = Shape::new([3, 16, 16]);
         let low: Tensor<NdArray, 3> = Tensor::zeros(shape.clone(), &Default::default());
         let high: Tensor<NdArray, 3> = Tensor::zeros(shape, &Default::default());
         let mut obs_space = BoxSpace::from((low, high));
 
-        let dqn: ConvDQNNet<NdArray> = ConvDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
+        let dqn: ConvDQNNet<NdArray> =
+            ConvDQNNet::init(&Default::default(), obs_space.shape(), 1, 2);
 
-        dqn.forward(vec![obs_space.sample()], Box::new(obs_space), &Default::default());
+        dqn.forward(
+            vec![obs_space.sample()],
+            Box::new(obs_space),
+            &Default::default(),
+        );
     }
 }

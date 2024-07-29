@@ -166,7 +166,7 @@ mod test {
     }
 
     #[test]
-    fn test_auto_reset(){
+    fn test_auto_reset() {
         let env = CartpoleEnv::default();
         let mut env = AutoResetWrapper::new(Box::new(env));
 

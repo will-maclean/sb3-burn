@@ -1,6 +1,15 @@
-use crate::{common::{spaces::{BoxSpace, Space}, utils::angle_normalise}, env::{base::{Env, EnvObservation, ResetOptions, RewardRange}, wrappers::TimeLimitWrapper}};
+use crate::{
+    common::{
+        spaces::{BoxSpace, Space},
+        utils::angle_normalise,
+    },
+    env::{
+        base::{Env, EnvObservation, ResetOptions, RewardRange},
+        wrappers::TimeLimitWrapper,
+    },
+};
 
-pub struct PendulumEnv{
+pub struct PendulumEnv {
     // constant
     max_speed: f32,
     max_torque: f32,
@@ -21,26 +30,22 @@ impl PendulumEnv {
         let theta = self.state[0];
         let theta_dot = self.state[1];
 
-        vec![
-            theta.cos(),
-            theta.sin(),
-            theta_dot
-        ]
+        vec![theta.cos(), theta.sin(), theta_dot]
     }
 }
 
-impl Default for PendulumEnv{
+impl Default for PendulumEnv {
     fn default() -> Self {
         let high = vec![1.0, 1.0, 8.0];
         let low = vec![-1.0, -1.0, -8.0];
-        Self { 
-            max_speed: 8.0, 
-            max_torque: 2.0, 
-            dt: 0.05, 
-            g: 10.0, 
-            m: 1.0, 
+        Self {
+            max_speed: 8.0,
+            max_torque: 2.0,
+            dt: 0.05,
+            g: 10.0,
+            m: 1.0,
             l: 1.0,
-            obs_space: BoxSpace::from((low, high)), 
+            obs_space: BoxSpace::from((low, high)),
             action_space: BoxSpace::from((vec![-2.0], vec![1.0])),
             state: vec![0.0, 0.0],
             last_u: 0.0,
@@ -60,20 +65,21 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
         self.last_u = u;
 
         let costs = angle_normalise(th).powi(2) + 0.1 * th_dot.powi(2) + 0.001 * u.powi(2);
-        
-        let new_th_dot = th_dot + (3.0 * self.g / (2.0 * self.l) * th.sin() + 3.0 / (self.m * self.l.powi(2)) * u) * self.dt;
+
+        let new_th_dot = th_dot
+            + (3.0 * self.g / (2.0 * self.l) * th.sin() + 3.0 / (self.m * self.l.powi(2)) * u)
+                * self.dt;
         let new_th_dot = new_th_dot.clamp(-self.max_speed, self.max_speed);
         let new_th = th + new_th_dot * self.dt;
 
         self.state = vec![new_th, new_th_dot];
-
 
         EnvObservation {
             obs: self._get_obs(),
             reward: -costs,
             terminated: false,
             truncated: false,
-            info: Default::default()
+            info: Default::default(),
         }
     }
 
@@ -91,7 +97,6 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
             self.obs_space.seed(seed);
         }
 
-
         self.last_u = 0.0;
         self.state = self.obs_space.sample();
 
@@ -108,7 +113,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
 
     fn reward_range(&self) -> RewardRange {
         // Is this correct?
-        RewardRange{
+        RewardRange {
             low: f32::MIN,
             high: 0.0,
         }
@@ -127,10 +132,10 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
     }
 }
 
-pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>>{
+pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
     let max_steps = match max_steps {
         Some(s) => s,
-        None => 200,    // 200 is default for Pendulum
+        None => 200, // 200 is default for Pendulum
     };
 
     let env = PendulumEnv::default();
@@ -140,17 +145,17 @@ pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use super::make_pendulum;
 
     #[test]
-    fn test_make_env(){
+    fn test_make_env() {
         let mut env = make_pendulum(None);
 
         let mut done = false;
         let mut steps = 0;
 
-        while !done{
+        while !done {
             let res = env.step(&env.action_space().sample());
             done = res.terminated | res.truncated;
             steps += 1;
@@ -160,14 +165,14 @@ mod test{
     }
 
     #[test]
-    fn test_make_env_custom_steps(){
+    fn test_make_env_custom_steps() {
         let custom_steps = 10;
         let mut env = make_pendulum(Some(custom_steps));
 
         let mut done = false;
         let mut steps = 0;
 
-        while !done{
+        while !done {
             let res = env.step(&env.action_space().sample());
             done = res.terminated | res.truncated;
             steps += 1;
