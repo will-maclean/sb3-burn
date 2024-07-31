@@ -70,12 +70,11 @@ impl<B: AutodiffBackend> EntCoef<B> {
     pub fn train_step(
         &mut self,
         log_probs: Tensor<B, 1>,
-        lr: f64,
-        device: &B::Device,
+        lr: f64
     ) -> (f32, Option<f32>) {
         match self {
             EntCoef::Constant(val) => (*val, None),
-            EntCoef::Trainable(module, optim, target_entropy) => {
+            EntCoef::Trainable(m, optim, target_entropy) => {
                 // (log) alpha = 0.0
                 // => alpha = 1.0
                 //
@@ -86,22 +85,23 @@ impl<B: AutodiffBackend> EntCoef<B> {
                 // Takeaways:
                 // - it's fine if loss is 0, there should be gradients as long as (log prob + target entropy) != 0
 
-                let temp_module = module.clone().to_device(device);
-                println!("log_prbs: {log_probs}");
+                // let m = module.clone().to_device(device);
+                let log_probs = log_probs.to_device(&m.devices()[0]);
 
-                let loss = -temp_module.mul(log_probs.add_scalar(*target_entropy).detach().mean());
+                // println!("log_prbs: {log_probs}");
 
-                let grads = loss.backward();
-                let grads = GradientsParams::from_grads(grads, &temp_module);
+                let loss = -m.mul(log_probs.add_scalar(*target_entropy).mean());
 
-                println!("n registered grad params: {:?}", grads.len()); // return 0
+                let g: <B as AutodiffBackend>::Gradients = loss.backward();
+                let grads = GradientsParams::from_grads(g, m);
 
-                println!("ent coef before step: {:?}", temp_module.val());
-                let temp_module = optim.step(lr, temp_module, grads);
-                println!("ent coef after step: {:?}", temp_module.val()); // no change
-                *module = temp_module;
+                // println!("n registered grad params: {:?}", grads.len()); // return 0
 
-                (module.val().exp(), Some(loss.into_scalar().elem()))
+                // println!("ent coef before step: {:?}", m.val());
+                *m = optim.step(lr, m.clone(), grads);
+                // println!("ent coef after step: {:?}", m.val()); // no change
+
+                (m.val().exp(), Some(loss.into_scalar().elem()))
             }
         }
     }
@@ -232,7 +232,6 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
             log_prob.clone().flatten(0, 1),
             offline_params.lr,
-            train_device,
         );
 
         let log_dict = log_dict.push("ent_coef".to_string(), LogData::Float(ent_coef));
@@ -319,5 +318,67 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
         self.action_space.clone()
+    }
+}
+
+#[cfg(test)]
+mod test{
+
+    use burn::{backend::{Autodiff, Wgpu}, optim::{AdamConfig, GradientsParams, Optimizer}, tensor::Tensor};
+
+    use crate::simple_sac::agent::EntCoef;
+
+    use super::EntCoefModule;
+
+    #[test]
+    fn test_ent_coef_module(){
+        type Backend = Autodiff<Wgpu>;
+
+        let target_entropy = -1;
+        let lr = 0.001;
+        let mut optim = AdamConfig::new().init();
+
+        let model: EntCoefModule<Backend> = EntCoefModule::new(0.0);
+
+        let log_probs: Tensor<Backend, 1> = Tensor::from_floats([1.0, 2.0, 3.0, -1.0], &Default::default());
+
+        let loss = -model.mul(log_probs.add_scalar(target_entropy).detach().mean());
+
+        let g = loss.backward();
+        let grads = GradientsParams::from_grads(g, &model);
+
+        assert_eq!(grads.len(), 1);
+
+        let ent_before = model.val();
+        let model = optim.step(lr, model, grads);
+        let ent_after = model.val();
+
+        assert!(ent_before != ent_after);
+    }
+
+    #[test]
+    fn test_ent_coef(){
+        type Backend = Autodiff<Wgpu>;
+
+        let target_entropy = -1.0;
+        let lr = 0.001;
+        let starting_ent = 0.0;
+        let log_probs: Tensor<Backend, 1> = Tensor::from_floats([1.0, 2.0, 3.0, -1.0], &Default::default());
+
+        let mut ent: EntCoef<Backend> = EntCoef::new(starting_ent, true, target_entropy);
+
+        let ent_before = match &ent{
+            EntCoef::Constant(_) => panic!("shouldn't be here"),
+            EntCoef::Trainable(m, _, _) => m.val(),
+        };
+
+        ent.train_step(log_probs, lr);
+
+        let ent_after = match &ent{
+            EntCoef::Constant(_) => panic!("shouldn't be here"),
+            EntCoef::Trainable(m, _, _) => m.val(),
+        };
+
+        assert!(ent_before != ent_after);
     }
 }
