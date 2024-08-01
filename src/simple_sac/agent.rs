@@ -1,5 +1,5 @@
 use burn::{
-    module::Module,
+    module::{Module, Param, Parameter},
     nn::{
         loss::{MseLoss, Reduction},
         Initializer, Linear, LinearConfig,
@@ -70,14 +70,12 @@ impl<B: AutodiffBackend> EntCoef<B> {
     pub fn train_step(
         &mut self,
         log_probs: Tensor<B, 1>,
-        lr: f64
+        lr: f64,
+        device: &B::Device,
     ) -> (f32, Option<f32>) {
         match self {
             EntCoef::Constant(val) => (*val, None),
             EntCoef::Trainable(m, optim, target_entropy) => {
-                // (log) alpha = 0.0
-                // => alpha = 1.0
-                //
                 // loss = alpha * (log prob + target entropy)
                 // grad(loss) = d(loss)/d(alpha) = log prob + target entropy
                 // new alpha = -learning rate * mean(grad(loss))
@@ -85,21 +83,14 @@ impl<B: AutodiffBackend> EntCoef<B> {
                 // Takeaways:
                 // - it's fine if loss is 0, there should be gradients as long as (log prob + target entropy) != 0
 
-                // let m = module.clone().to_device(device);
-                let log_probs = log_probs.to_device(&m.devices()[0]);
+                let temp_m = m.clone().fork(device);
 
-                // println!("log_prbs: {log_probs}");
-
-                let loss = -m.mul(log_probs.add_scalar(*target_entropy).mean());
+                let loss = -temp_m.mul(log_probs.add_scalar(*target_entropy).mean());
 
                 let g: <B as AutodiffBackend>::Gradients = loss.backward();
-                let grads = GradientsParams::from_grads(g, m);
+                let grads = GradientsParams::from_grads(g, &temp_m);
 
-                // println!("n registered grad params: {:?}", grads.len()); // return 0
-
-                // println!("ent coef before step: {:?}", m.val());
-                *m = optim.step(lr, m.clone(), grads);
-                // println!("ent coef after step: {:?}", m.val()); // no change
+                *m = optim.step(lr, temp_m, grads);
 
                 (m.val().exp(), Some(loss.into_scalar().elem()))
             }
@@ -119,12 +110,13 @@ pub struct SACAgent<B: AutodiffBackend> {
 
     // parameters
     ent_coef: EntCoef<B>,
+    critic_tau: Option<f32>,
+    update_every: usize,
 
     // housekeeping
     observation_space: Box<BoxSpace<Vec<f32>>>,
     action_space: Box<BoxSpace<Vec<f32>>>,
     last_update: usize,
-    update_every: usize,
 }
 
 impl<B: AutodiffBackend> SACAgent<B> {
@@ -142,6 +134,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         ent_coef: Option<f32>,
         trainable_ent_coef: bool,
         target_entropy: Option<f32>,
+        critic_tau: Option<f32>,
 
         // housekeeping
         observation_space: Box<BoxSpace<Vec<f32>>>,
@@ -170,10 +163,11 @@ impl<B: AutodiffBackend> SACAgent<B> {
             pi_optim,
             q_optim,
             ent_coef: EntCoef::new(ent_coef, trainable_ent_coef, target_entropy),
+            critic_tau,
             observation_space,
             action_space,
             last_update: 0,
-            update_every: 100,
+            update_every: 1,
         }
     }
 }
@@ -184,13 +178,13 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         _global_step: usize,
         _global_frac: f32,
         obs: &Vec<f32>,
-        _greedy: bool,
+        greedy: bool,
         inference_device: &<B>::Device,
     ) -> (Vec<f32>, LogItem) {
         // don't judge me
         let a: Vec<f32> = self
             .pi
-            .act(&obs.clone().to_tensor(inference_device))
+            .act(&obs.clone().to_tensor(inference_device), greedy)
             .detach()
             .into_data()
             .value
@@ -232,6 +226,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
             log_prob.clone().flatten(0, 1),
             offline_params.lr,
+            train_device,
         );
 
         let log_dict = log_dict.push("ent_coef".to_string(), LogData::Float(ent_coef));
@@ -259,6 +254,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
                 .float()
                 .mul(next_q_vals)
                 .mul_scalar(offline_params.gamma);
+        
+        let target_q_vals = target_q_vals.detach();
 
         // calculate the critic loss
         let q_vals = self.qs.q_from_actions(states.clone(), actions.clone());
@@ -268,7 +265,13 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             critic_loss =
                 critic_loss + MseLoss::new().forward(q, target_q_vals.clone(), Reduction::Mean);
         }
-        critic_loss = critic_loss.mul_scalar(1.0 / (self.qs.len() as f32));
+
+        // Confirmed with sb3 community that the
+        // 0.5 scaling has nothing to do with the number
+        // of critics - rather, it is just to remove
+        // the factor of 2 that would otherwise appear
+        // in MSE gradient calculations. (Convention)
+        critic_loss = critic_loss.mul_scalar(0.5);
 
         let log_dict = log_dict.push(
             "critic_loss_combined".to_string(),
@@ -304,7 +307,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         // target critic updates
         if global_step > (self.last_update + self.update_every) {
             // hard update
-            self.target_qs.update(&self.qs, None);
+            self.target_qs.update(&self.qs, self.critic_tau);
 
             self.last_update = global_step;
         }
@@ -372,7 +375,7 @@ mod test{
             EntCoef::Trainable(m, _, _) => m.val(),
         };
 
-        ent.train_step(log_probs, lr);
+        ent.train_step(log_probs, lr, &Default::default());
 
         let ent_after = match &ent{
             EntCoef::Constant(_) => panic!("shouldn't be here"),

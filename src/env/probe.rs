@@ -317,6 +317,83 @@ impl Env<usize, usize> for ProbeEnvStateActionTest {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ProbeEnvContinuousActions{
+    state: f32,
+    rng: ThreadRng,
+}
+
+impl Default for ProbeEnvContinuousActions {
+    fn default() -> Self {
+        Self { state: 0.0, rng: Default::default() }
+    }
+}
+
+
+
+impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
+    fn step(&mut self, action: &Vec<f32>) -> EnvObservation<Vec<f32>> {
+        assert!(action.len() == 1);
+
+        let reward = 1.0 - (action[0] - self.state).abs();
+
+        EnvObservation{
+            obs: [0.0].to_vec(),
+            reward,
+            terminated: true,
+            truncated: false,
+            info: Default::default(),
+        }
+    }
+
+    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
+        self.state = self.rng.gen::<f32>()
+
+        [self.state].to_vec()
+    }
+
+    fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
+        Box::new(
+            BoxSpace::from((
+                [0.0].to_vec(),
+                [1.0].to_vec()
+            ))
+        )
+    }
+
+    fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
+        Box::new(
+            BoxSpace::from((
+                [0.0].to_vec(),
+                [1.0].to_vec()
+            ))
+        )
+    }
+
+    fn reward_range(&self) -> RewardRange {
+        RewardRange{
+            low: 0.0,
+            high: 1.0,
+        }
+    }
+
+    fn render(&self) {
+        
+    }
+
+    fn renderable(&self) -> bool {
+        false
+    }
+
+    fn close(&mut self) {
+
+    }
+
+    fn unwrapped(&self) -> &dyn Env<Vec<f32>, Vec<f32>> {
+        self
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::env::base::Env;

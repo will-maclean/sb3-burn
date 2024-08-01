@@ -43,12 +43,16 @@ impl<B: Backend> PiModel<B> {
         (means, stds)
     }
 
-    pub fn act(&self, obs: &Tensor<B, 1>) -> Tensor<B, 1> {
+    pub fn act(&self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
         let (means, stds) = self.get_dist_params(obs.clone().unsqueeze_dim(0));
 
-        let dist = Normal::new(means, stds);
-
-        dist.rsample().squeeze(0)
+        if deterministic {
+            means.squeeze(0)
+        } else {
+            let dist = Normal::new(means, stds);
+    
+            dist.rsample().squeeze(0)
+        }
     }
 
     pub fn act_log_prob(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {

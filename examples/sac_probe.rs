@@ -16,7 +16,7 @@ use sb3_burn::{
         logger::{CsvLogger, Logger},
         spaces::BoxSpace,
     },
-    env::classic_control::pendulum::make_pendulum,
+    env::{base::Env, probe::ProbeEnvContinuousActions},
     simple_sac::{
         agent::SACAgent,
         models::{PiModel, QModelSet},
@@ -33,7 +33,7 @@ fn main() {
 
     let train_device = LibTorchDevice::Cuda(0);
 
-    let env = make_pendulum(None);
+    let env = ProbeEnvContinuousActions::default();
 
     let config_optimizer =
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
@@ -58,9 +58,9 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(256)
         .with_memory_size(1000000)
-        .with_n_steps(20000)
-        .with_warmup_steps(1000)
-        .with_lr(1e-3)
+        .with_n_steps(2000)
+        .with_warmup_steps(256)
+        .with_lr(1e-2)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(false);
@@ -75,14 +75,14 @@ fn main() {
         true,
         None,
         Some(0.995),
-        Box::new(BoxSpace::from(([0.0].to_vec(), [0.0].to_vec()))),
-        Box::new(BoxSpace::from(([0.0].to_vec(), [0.0].to_vec()))),
+        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
+        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
     );
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/sac_pendulum/log_sac_pendulum.csv"),
+        PathBuf::from("logs/sac_probe/log_sac_probe.csv"),
         false,
     );
 
@@ -93,8 +93,8 @@ fn main() {
 
     let mut trainer: OfflineTrainer<_, Adam<LibTorch>, _, _, _> = OfflineTrainer::new(
         offline_params,
-        env,
-        make_pendulum(None),
+        Box::new(env),
+        Box::new(ProbeEnvContinuousActions::default()),
         agent,
         buffer,
         Box::new(logger),
