@@ -42,7 +42,7 @@ Algorithms:
 | Algorithm | Implementation |
 | --------- | -------------- |
 | DQN       | Implemented    |
-| SAC       | In Progress        |
+| SAC       | In Progress (on main)       |
 | PPO       | Planned        |
 
 Environments:
@@ -53,6 +53,7 @@ Environments:
 | Pendulum       | Rust, done    |
 | MountainCar       | Rust, done    |
 | Python gym handler | In progress |
+| Multiple probe environments | Rust, done |
 
 ## Usage
 The `examples` directory shows how algorithms and environemnts can be used.
