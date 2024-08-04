@@ -3074,6 +3074,7 @@ dependencies = [
  "ndarray",
  "plotters",
  "rand",
+ "serde",
 ]
 
 [[package]]

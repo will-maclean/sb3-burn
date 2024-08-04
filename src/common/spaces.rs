@@ -135,13 +135,22 @@ impl<B: Backend, const D: usize> Space<Tensor<B, D>> for BoxSpace<Tensor<B, D>> 
             return false;
         }
 
-        sample.clone().greater_equal(self.low.clone()).all().into_scalar() & 
-            sample.clone().lower_equal(self.low.clone()).all().into_scalar()
+        sample
+            .clone()
+            .greater_equal(self.low.clone())
+            .all()
+            .into_scalar()
+            & sample
+                .clone()
+                .lower_equal(self.low.clone())
+                .all()
+                .into_scalar()
     }
 
     fn sample(&mut self) -> Tensor<B, D> {
         let shape = self.low.shape();
-        let sample: Tensor<B, D> = Tensor::random(shape, Distribution::Uniform(0.0, 1.0), &self.low.device());
+        let sample: Tensor<B, D> =
+            Tensor::random(shape, Distribution::Uniform(0.0, 1.0), &self.low.device());
         let range = self.high.clone().sub(self.low.clone());
         let sample = sample.mul(range).add(self.low.clone());
 

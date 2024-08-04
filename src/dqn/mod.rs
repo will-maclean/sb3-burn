@@ -188,9 +188,21 @@ where
 mod test {
     use std::path::PathBuf;
 
-    use burn::{backend::{Autodiff, NdArray}, optim::{Adam, AdamConfig}};
+    use burn::{
+        backend::{Autodiff, NdArray},
+        optim::{Adam, AdamConfig},
+    };
 
-    use crate::{common::{algorithm::{OfflineAlgParams, OfflineTrainer}, buffer::ReplayBuffer, eval::EvalConfig, logger::CsvLogger}, dqn::{module::LinearDQNNet, DQNAgent, DQNConfig}, env::{base::Env, gridworld::GridWorldEnv}};
+    use crate::{
+        common::{
+            algorithm::{OfflineAlgParams, OfflineTrainer},
+            buffer::ReplayBuffer,
+            eval::EvalConfig,
+            logger::CsvLogger,
+        },
+        dqn::{module::LinearDQNNet, DQNAgent, DQNConfig},
+        env::{base::Env, gridworld::GridWorldEnv},
+    };
 
     #[test]
     fn test_dqn_lightweight() {
@@ -216,7 +228,7 @@ mod test {
             optim,
             DQNConfig::new(),
             env.observation_space(),
-            env.action_space()
+            env.action_space(),
         );
         let buffer = ReplayBuffer::new(offline_params.memory_size);
 
@@ -225,10 +237,7 @@ mod test {
         log_dir.push("tmp_logs");
         let _ = std::fs::create_dir(&log_dir);
 
-        let logger = CsvLogger::new(
-            PathBuf::from("tmp_logs/log.csv"),
-            false,
-        );
+        let logger = CsvLogger::new(PathBuf::from("tmp_logs/log.csv"), false);
 
         let mut trainer: OfflineTrainer<_, Adam<NdArray>, _, _, _> = OfflineTrainer::new(
             offline_params,
@@ -239,7 +248,7 @@ mod test {
             Box::new(logger),
             None,
             EvalConfig::new(),
-            &device
+            &device,
         );
 
         trainer.train();
