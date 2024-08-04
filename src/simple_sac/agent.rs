@@ -6,8 +6,7 @@ use burn::{
     },
     optim::{adaptor::OptimizerAdaptor, Adam, AdamConfig, GradientsParams, Optimizer},
     tensor::{
-        backend::{AutodiffBackend, Backend},
-        ElementConversion, Shape, Tensor,
+        backend::{AutodiffBackend, Backend}, Bool, ElementConversion, Shape, Tensor
     },
 };
 
@@ -172,6 +171,14 @@ impl<B: AutodiffBackend> SACAgent<B> {
     }
 }
 
+fn disp_tensorf<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D>){
+    println!("{name}. {t}\n");
+}
+
+fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>){
+    println!("{name}. {t}\n");
+}
+
 impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
     fn act(
         &self,
@@ -204,23 +211,32 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
     ) -> (Option<f32>, LogItem) {
         let log_dict = LogItem::default();
 
-        let sample_data = replay_buffer.batch_sample(32);
+        let sample_data = replay_buffer.batch_sample(offline_params.batch_size);
 
         let states = sample_data.states.to_tensor(train_device);
         let actions = sample_data.actions.to_tensor(train_device);
         let next_states = sample_data.next_states.to_tensor(train_device);
-        let rewards = sample_data.rewards.to_tensor(train_device).unsqueeze_dim(0);
+        let rewards = sample_data.rewards.to_tensor(train_device).unsqueeze_dim(1);
         let terminated = sample_data
             .terminated
             .to_tensor(train_device)
-            .unsqueeze_dim(0);
+            .unsqueeze_dim(1);
         let truncated = sample_data
             .truncated
             .to_tensor(train_device)
-            .unsqueeze_dim(0);
+            .unsqueeze_dim(1);
         let dones = (terminated.float() + truncated.float()).bool();
 
+        // disp_tensorf("states", &states);
+        // disp_tensorf("actions", &actions);
+        // disp_tensorf("next_states", &next_states);
+        // disp_tensorf("rewards", &rewards);
+        // disp_tensorb("dones", &dones);
+
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
+
+        // disp_tensorf("actions_pi", &actions_pi);
+        // disp_tensorf("log_prob", &log_prob);
 
         // train entropy coeficient if required to do so
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
@@ -239,14 +255,25 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         // select action according to policy
         let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
+
+        // disp_tensorf("next_action_sampled", &next_action_sampled);
+        // disp_tensorf("next_action_log_prob", &next_action_log_prob);
+
         // next_action_sampled
         let next_q_vals = self
             .target_qs
             .q_from_actions(next_states, next_action_sampled);
+
         let next_q_vals = Tensor::cat(next_q_vals, 1);
+        // disp_tensorf("1next_q_vals", &next_q_vals);
+
         let next_q_vals = next_q_vals.min_dim(1);
+        // disp_tensorf("2next_q_vals", &next_q_vals);
+
         // add the entropy term
         let next_q_vals = next_q_vals - next_action_log_prob.mul_scalar(ent_coef);
+        // disp_tensorf("3next_q_vals", &next_q_vals);
+        
         // td error + entropy term
         let target_q_vals = rewards
             + dones
@@ -254,6 +281,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
                 .float()
                 .mul(next_q_vals)
                 .mul_scalar(offline_params.gamma);
+        
+        // disp_tensorf("target_q_vals", &target_q_vals);
         
         let target_q_vals = target_q_vals.detach();
 
@@ -265,6 +294,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             critic_loss =
                 critic_loss + MseLoss::new().forward(q, target_q_vals.clone(), Reduction::Mean);
         }
+        // disp_tensorf("critic_loss", &critic_loss);
 
         // Confirmed with sb3 community that the
         // 0.5 scaling has nothing to do with the number

@@ -60,7 +60,7 @@ fn main() {
         .with_memory_size(1000000)
         .with_n_steps(2000)
         .with_warmup_steps(256)
-        .with_lr(1e-2)
+        .with_lr(5e-3)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(false);

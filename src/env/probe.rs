@@ -335,7 +335,9 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     fn step(&mut self, action: &Vec<f32>) -> EnvObservation<Vec<f32>> {
         assert!(action.len() == 1);
 
-        let reward = 1.0 - (action[0] - self.state).abs();
+        let a: f32 = (action[0]).clamp(0.0, 1.0);
+
+        let reward = 1.0 - (a - self.state).abs();
 
         EnvObservation{
             obs: [0.0].to_vec(),
@@ -347,7 +349,7 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     }
 
     fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
-        self.state = self.rng.gen::<f32>()
+        self.state = 0.0; // self.rng.gen::<f32>();
 
         [self.state].to_vec()
     }
