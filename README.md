@@ -27,13 +27,13 @@ custom environemts with unusual state/action types, without needing to reimpleme
 The project currently contains a working DQN algorithm, as well as a set of implemented environments. The planned works for the
 immediate future are:
 
-1. Testing / code coverage
-2. Examples / rustdoc / sb3_book
-3. Checkpointing / saving / loading / resuming training
-4. Benchmarking performance, including visualisation creation
-5. Implementing more common gym environments
-6. Complex distributions
-7. Soft Actor Critic
+1. Soft Actor Critic
+2. Testing / code coverage
+3. Examples / rustdoc / sb3_book
+4. Checkpointing / saving / loading / resuming training
+5. crates.io
+6. Benchmarking performance, including visualisation creation
+7. Implementing more common gym environments
 
 ## Implemented Works
 
