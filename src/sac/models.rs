@@ -1,7 +1,5 @@
 use burn::{
-    module::Module,
-    prelude::Backend,
-    tensor::Tensor,
+    module::Module, nn::{Linear, LinearConfig}, prelude::Backend, tensor::Tensor
 };
 
 use crate::common::{
@@ -13,32 +11,30 @@ use crate::common::{
 #[derive(Debug, Module)]
 pub struct PiModel<B: Backend> {
     mlp: MLP<B>,
+    means: Linear<B>,
+    log_stds: Linear<B>,
 }
 
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size, 256, 256, 2 * n_actions].to_vec(), device),
+            mlp: MLP::new(&[obs_size, 256, 256].to_vec(), device),
+            means: LinearConfig::new(256, n_actions).init(device),
+            log_stds: LinearConfig::new(256, n_actions).init(device),
         }
     }
 }
 
 impl<B: Backend> PiModel<B> {
-    fn forward(&self, x: Tensor<B, 2>) -> Tensor<B, 2> {
-        self.mlp.forward(x)
-    }
 
     pub fn get_dist_params(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-        let x = self.forward(obs);
+        let latent = self.mlp.forward(obs);
 
-        let b = x.shape().dims[0];
-        let n = x.shape().dims[1] / 2;
+        let means = self.means.forward(latent.clone());
 
-        let means = x.clone().slice([0..b, 0..n]);
-
-        let stds = x.slice([0..b, n..n * 2]); // extract from model output
-        let stds = stds.clamp(-20, 2); // clamp for safety
-        let stds = stds.exp(); // exponentiate to convert to std
+        let log_stds = self.log_stds.forward(latent); // extract from model output
+        let log_stds = log_stds.clamp(-20, 2); // clamp for safety
+        let stds = log_stds.exp(); // exponentiate to convert to std
 
         (means, stds)
     }
