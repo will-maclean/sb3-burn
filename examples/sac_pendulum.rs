@@ -17,7 +17,7 @@ use sb3_burn::{
         spaces::BoxSpace,
     },
     env::classic_control::pendulum::{make_pendulum, make_pendulum_eval},
-    simple_sac::{
+    sac::{
         agent::SACAgent,
         models::{PiModel, QModelSet},
     },

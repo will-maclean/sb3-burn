@@ -17,7 +17,7 @@ use sb3_burn::{
         spaces::BoxSpace,
     },
     env::{base::Env, probe::ProbeEnvContinuousActions},
-    simple_sac::{
+    sac::{
         agent::SACAgent,
         models::{PiModel, QModelSet},
     },

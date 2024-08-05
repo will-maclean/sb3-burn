@@ -427,7 +427,7 @@ mod test{
 
     use burn::{backend::{Autodiff, Wgpu}, optim::{AdamConfig, GradientsParams, Optimizer}, tensor::Tensor};
 
-    use crate::simple_sac::agent::EntCoef;
+    use crate::sac::agent::EntCoef;
 
     use super::EntCoefModule;
 
