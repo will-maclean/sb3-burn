@@ -16,7 +16,7 @@ use sb3_burn::{
         logger::{CsvLogger, Logger},
         spaces::BoxSpace,
     },
-    env::classic_control::pendulum::make_pendulum,
+    env::classic_control::pendulum::{make_pendulum, make_pendulum_eval},
     simple_sac::{
         agent::SACAgent,
         models::{PiModel, QModelSet},
@@ -94,7 +94,7 @@ fn main() {
     let mut trainer: OfflineTrainer<_, Adam<LibTorch>, _, _, _> = OfflineTrainer::new(
         offline_params,
         env,
-        make_pendulum(None),
+        make_pendulum_eval(None),
         agent,
         buffer,
         Box::new(logger),

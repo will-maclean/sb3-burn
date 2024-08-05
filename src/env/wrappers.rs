@@ -4,6 +4,138 @@ use crate::common::spaces::Space;
 
 use super::base::{Env, EnvObservation, InfoData, RewardRange};
 
+
+pub struct ScaleRewardWrapper<O, A>
+where 
+    O: Clone + Debug,
+    A: Clone + Debug,
+{
+    env: Box<dyn Env<O, A>>,
+    scaling: f32,
+}
+
+impl<O, A> ScaleRewardWrapper<O, A>
+where 
+    O: Clone + Debug,
+    A: Clone + Debug,
+{
+    pub fn new(env: Box<dyn Env<O, A>>, scaling: f32) -> Self  {
+        Self { env, scaling }
+    }
+}
+
+impl<O, A> Env<O, A> for ScaleRewardWrapper<O, A>
+where 
+    O: Clone + Debug,
+    A: Clone + Debug,
+{
+    fn step(&mut self, action: &A) -> EnvObservation<O> {
+        let mut response = self.env.step(action);
+
+        response.reward = response.reward * self.scaling;
+
+        response
+    }
+
+    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<super::base::ResetOptions>) -> O {
+        self.env.reset(seed, options)
+    }
+
+    fn action_space(&self) -> Box<dyn Space<A>> {
+        self.env.action_space()
+    }
+
+    fn observation_space(&self) -> Box<dyn Space<O>> {
+        self.env.observation_space()
+    }
+
+    fn reward_range(&self) -> RewardRange {
+        self.env.reward_range()
+    }
+
+    fn render(&self) {
+        self.env.render()
+    }
+
+    fn renderable(&self) -> bool {
+        self.env.renderable()
+    }
+
+    fn close(&mut self) {
+        self.env.close()
+    }
+
+    fn unwrapped(&self) -> &dyn Env<O, A> {
+        self.env.unwrapped()
+    }
+}
+
+
+pub struct SignRewardWrapper<O, A>
+where 
+    O: Clone + Debug,
+    A: Clone + Debug,
+{
+    env: Box<dyn Env<O, A>>,
+}
+
+impl<O, A> SignRewardWrapper<O, A>
+where 
+    O: Clone + Debug,
+    A: Clone + Debug,
+{
+    pub fn new(env: Box<dyn Env<O, A>>) -> Self  {
+        Self { env }
+    }
+}
+
+impl<O, A> Env<O, A> for SignRewardWrapper<O, A>
+where 
+    O: Clone + Debug,
+    A: Clone + Debug,
+{
+    fn step(&mut self, action: &A) -> EnvObservation<O> {
+        let mut response = self.env.step(action);
+
+        response.reward = response.reward.signum();
+
+        response
+    }
+
+    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<super::base::ResetOptions>) -> O {
+        self.env.reset(seed, options)
+    }
+
+    fn action_space(&self) -> Box<dyn Space<A>> {
+        self.env.action_space()
+    }
+
+    fn observation_space(&self) -> Box<dyn Space<O>> {
+        self.env.observation_space()
+    }
+
+    fn reward_range(&self) -> RewardRange {
+        self.env.reward_range()
+    }
+
+    fn render(&self) {
+        self.env.render()
+    }
+
+    fn renderable(&self) -> bool {
+        self.env.renderable()
+    }
+
+    fn close(&mut self) {
+        self.env.close()
+    }
+
+    fn unwrapped(&self) -> &dyn Env<O, A> {
+        self.env.unwrapped()
+    }
+}
+
+
 pub struct TimeLimitWrapper<O: Clone + Debug, A: Clone + Debug> {
     env: Box<dyn Env<O, A>>,
     max_steps: usize,

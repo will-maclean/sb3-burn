@@ -1,3 +1,5 @@
+use core::f32;
+
 use crate::{
     common::{
         spaces::{BoxSpace, Space},
@@ -5,9 +7,12 @@ use crate::{
     },
     env::{
         base::{Env, EnvObservation, ResetOptions, RewardRange},
-        wrappers::TimeLimitWrapper,
+        wrappers::{ScaleRewardWrapper, TimeLimitWrapper},
     },
 };
+
+const DEFAULT_X: f32 = f32::consts::PI;
+const DEFAULT_Y: f32 = 1.0;
 
 pub struct PendulumEnv {
     // constant
@@ -46,7 +51,7 @@ impl Default for PendulumEnv {
             m: 1.0,
             l: 1.0,
             obs_space: BoxSpace::from((low, high)),
-            action_space: BoxSpace::from((vec![-2.0], vec![1.0])),
+            action_space: BoxSpace::from((vec![-2.0], vec![2.0])),
             state: vec![0.0, 0.0],
             last_u: 0.0,
         }
@@ -84,13 +89,16 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
     }
 
     fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<ResetOptions>) -> Vec<f32> {
-        if let Some(_options) = options {
+        let (x, y) = if let Some(_options) = options {
             println!("Warning - passing options to PendulumEnv, but options are not implemented");
             // let x: f32 = options.get("x_init").unwrap().into();
             // let y: f32 = options.get("y_init").unwrap().into();
 
             // self.obs_space = BoxSpace::from((vec![x, y], vec![-x, -y]));
-        }
+            (DEFAULT_X, DEFAULT_Y)
+        } else {
+            (DEFAULT_X, DEFAULT_Y)
+        };
 
         if let Some(seed) = seed {
             self.action_space.seed(seed);
@@ -98,7 +106,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
         }
 
         self.last_u = 0.0;
-        self.state = self.obs_space.sample();
+        self.state = BoxSpace::from(([-x, -y].to_vec(), [x, y].to_vec())).sample();
 
         self._get_obs()
     }
@@ -133,6 +141,13 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
 }
 
 pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
+    let env = make_pendulum_eval(max_steps);
+    let env = ScaleRewardWrapper::new(env, 0.01);
+
+    Box::new(env)
+}
+
+pub fn make_pendulum_eval(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
     let max_steps = match max_steps {
         Some(s) => s,
         None => 200, // 200 is default for Pendulum
