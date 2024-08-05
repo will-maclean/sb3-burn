@@ -13,7 +13,7 @@ pub mod utils;
 mod test {
     // burn sanity tests
 
-    use burn::{backend::{Autodiff, Wgpu}, tensor::Tensor};
+    // use burn::{backend::{Autodiff, Wgpu}, tensor::Tensor};
 
     //TODO: tests with wgpu are panicing. re-enable when working again
     // #[test]
