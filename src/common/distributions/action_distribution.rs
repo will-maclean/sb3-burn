@@ -106,7 +106,8 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
             .clone()
             .exp()
             .unsqueeze_dim(0)
-            .repeat(0, obs.shape().dims[0]);
+            .repeat_dim(0, obs.shape().dims[0]);
+
         let mean = self.means.forward(obs);
         self.dist = Normal::new(mean, scale).no_grad();
 

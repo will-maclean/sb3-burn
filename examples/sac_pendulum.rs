@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use burn::{
     backend::{
-        libtorch::LibTorchDevice,
-        Autodiff, LibTorch,
+        libtorch::LibTorchDevice, Autodiff, LibTorch
     },
     grad_clipping::GradientClippingConfig,
     optim::{Adam, AdamConfig},
@@ -56,7 +55,7 @@ fn main() {
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(256)
+        .with_batch_size(3)
         .with_memory_size(1000000)
         .with_n_steps(20000)
         .with_warmup_steps(1000)

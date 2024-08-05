@@ -225,12 +225,12 @@ mod test {
         let b_t = Tensor::<NdArray, 1>::from_floats(b, &Default::default());
 
         let c_t = a_t.clone() + b_t.clone();
-        let c: Vec<f32> = c_t.into_data().value;
+        let c: Vec<f32> = c_t.into_data().to_vec().unwrap();
 
         assert_eq!(c, vec![1.0, 2.0, 3.0]);
 
         let c_t = a_t - b_t;
-        let c: Vec<f32> = c_t.into_data().value;
+        let c: Vec<f32> = c_t.into_data().to_vec().unwrap();
 
         assert_eq!(c, vec![-1.0, 0.0, 1.0]);
     }

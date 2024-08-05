@@ -45,9 +45,9 @@ impl<B: Backend> PiModel<B> {
         if deterministic {
             means.squeeze(0)
         } else {
-            let dist = Normal::new(means, stds);
+            let dist = Normal::new(means.squeeze(0), stds.squeeze(0));
     
-            dist.rsample().squeeze(0)
+            dist.rsample()
         }
     }
 

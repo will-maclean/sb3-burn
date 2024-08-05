@@ -349,7 +349,7 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     }
 
     fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
-        self.state = 0.0; // self.rng.gen::<f32>();
+        self.state = self.rng.gen::<f32>();
 
         [self.state].to_vec()
     }

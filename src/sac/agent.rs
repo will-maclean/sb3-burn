@@ -1,14 +1,14 @@
 use std::time;
 
 use burn::{
-    module::{Module, Param, Parameter},
+    module::Module,
     nn::{
         loss::{MseLoss, Reduction},
         Initializer, Linear, LinearConfig,
     },
     optim::{adaptor::OptimizerAdaptor, Adam, AdamConfig, GradientsParams, Optimizer},
     tensor::{
-        backend::{AutodiffBackend, Backend}, Bool, ElementConversion, Shape, Tensor
+        backend::{AutodiffBackend, Backend}, ElementConversion, Shape, Tensor
     },
 };
 
@@ -39,7 +39,7 @@ impl<B: Backend> EntCoefModule<B> {
         }
     }
 
-    pub fn mul(&self, other: Tensor<B, 1>) -> Tensor<B, 1> {
+    pub fn mul(&self, other: Tensor<B, 2>) -> Tensor<B, 2> {
         self.ent.forward(other)
     }
 
@@ -84,9 +84,15 @@ impl<B: AutodiffBackend> EntCoef<B> {
                 // Takeaways:
                 // - it's fine if loss is 0, there should be gradients as long as (log prob + target entropy) != 0
 
+                println!("log_probs: {log_probs}");
+
                 let temp_m = m.clone().fork(device);
 
-                let loss = -temp_m.mul(log_probs.add_scalar(*target_entropy).mean());
+                let log_probs = log_probs.detach().unsqueeze_dim(1);
+                let loss = -temp_m.mul(log_probs.add_scalar(*target_entropy)).mean();
+
+                // println!("loss shape: {:?}", loss.shape().dims);
+                // println!("loss: {loss}");
 
                 let g: <B as AutodiffBackend>::Gradients = loss.backward();
                 let grads = GradientsParams::from_grads(g, &temp_m);
@@ -174,12 +180,12 @@ impl<B: AutodiffBackend> SACAgent<B> {
 }
 
 fn disp_tensorf<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D>){
-    // println!("{name}. {t}\n");
+    println!("{name}. {t}\n");
 }
 
-fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>){
-    // println!("{name}. {t}\n");
-}
+// fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>){
+//     println!("{name}. {t}\n");
+// }
 
 impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
     fn act(
@@ -196,10 +202,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .act(&obs.clone().to_tensor(inference_device), greedy)
             .detach()
             .into_data()
-            .value
-            .into_iter()
-            .map(|x| x.elem())
-            .collect();
+            .to_vec()
+            .unwrap();
 
         (a, LogItem::default())
     }
@@ -211,7 +215,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         offline_params: &crate::common::algorithm::OfflineAlgParams,
         train_device: &<B as Backend>::Device,
     ) -> (Option<f32>, LogItem) {
-        let print_instant = false; //(global_step > 500) & ( global_step % 1000 == 0);
+        let print_instant = (global_step > 500) & ( global_step % 1000 == 0);
 
         let log_dict = LogItem::default();
 
@@ -237,11 +241,11 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .unsqueeze_dim(1);
         let dones = (terminated.float() + truncated.float()).bool();
 
-        disp_tensorf("states", &states);
-        disp_tensorf("actions", &actions);
-        disp_tensorf("next_states", &next_states);
-        disp_tensorf("rewards", &rewards);
-        disp_tensorb("dones", &dones);
+        // disp_tensorf("states", &states);
+        // disp_tensorf("actions", &actions);
+        // disp_tensorf("next_states", &next_states);
+        // disp_tensorf("rewards", &rewards);
+        // disp_tensorb("dones", &dones);
 
         let instant_timer = time::Instant::now();
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
@@ -251,8 +255,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             println!("i={global_step}. actions_pi duration: {}", duration);
         }
 
-        disp_tensorf("actions_pi", &actions_pi);
-        disp_tensorf("log_prob", &log_prob);
+        // disp_tensorf("actions_pi", &actions_pi);
+        // disp_tensorf("log_prob", &log_prob);
 
         // train entropy coeficient if required to do so
         let instant_timer = time::Instant::now();
@@ -284,8 +288,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
             println!("i={global_step}. next_action_sampled duration: {}", duration);
         }
-        disp_tensorf("next_action_sampled", &next_action_sampled);
-        disp_tensorf("next_action_log_prob", &next_action_log_prob);
+        // disp_tensorf("next_action_sampled", &next_action_sampled);
+        // disp_tensorf("next_action_log_prob", &next_action_log_prob);
 
         // next_action_sampled
         let instant_timer = time::Instant::now();
@@ -300,14 +304,14 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         let instant_timer = time::Instant::now();
         let next_q_vals = Tensor::cat(next_q_vals, 1);
-        disp_tensorf("1next_q_vals", &next_q_vals);
+        // disp_tensorf("1next_q_vals", &next_q_vals);
 
         let next_q_vals = next_q_vals.min_dim(1);
-        disp_tensorf("2next_q_vals", &next_q_vals);
+        // disp_tensorf("2next_q_vals", &next_q_vals);
 
         // add the entropy term
         let next_q_vals = next_q_vals - next_action_log_prob.mul_scalar(ent_coef);
-        disp_tensorf("3next_q_vals", &next_q_vals);
+        // disp_tensorf("3next_q_vals", &next_q_vals);
         
         // td error + entropy term
         let target_q_vals = rewards
@@ -317,7 +321,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
                 .mul(next_q_vals)
                 .mul_scalar(offline_params.gamma);
         
-        disp_tensorf("target_q_vals", &target_q_vals);
+        // disp_tensorf("target_q_vals", &target_q_vals);
         
         let target_q_vals = target_q_vals.detach();
 
@@ -343,7 +347,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             critic_loss =
                 critic_loss + MseLoss::new().forward(q, target_q_vals.clone(), Reduction::Mean);
         }
-        disp_tensorf("critic_loss", &critic_loss);
+        // disp_tensorf("critic_loss", &critic_loss);
 
         // Confirmed with sb3 community that the
         // 0.5 scaling has nothing to do with the number
@@ -381,9 +385,13 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         // recalculate q values with new critics
         let q_vals = self.qs.q_from_actions(states.clone(), actions_pi);
         let q_vals = Tensor::cat(q_vals, 1).detach();
+        disp_tensorf("q_vals", &q_vals);
         let min_q = q_vals.min_dim(1);
+        disp_tensorf("min_q", &min_q);
         let actor_loss = log_prob.mul_scalar(ent_coef) - min_q;
+        disp_tensorf("1actor_loss", &actor_loss);
         let actor_loss = actor_loss.mean();
+        disp_tensorf("2actor_loss", &actor_loss);
 
         let log_dict = log_dict.push(
             "actor_loss".to_string(),
@@ -443,7 +451,7 @@ mod test{
 
         let log_probs: Tensor<Backend, 1> = Tensor::from_floats([1.0, 2.0, 3.0, -1.0], &Default::default());
 
-        let loss = -model.mul(log_probs.add_scalar(target_entropy).detach().mean());
+        let loss = -model.mul(log_probs.add_scalar(target_entropy).detach().unsqueeze_dim(0)).mean();
 
         let g = loss.backward();
         let grads = GradientsParams::from_grads(g, &model);

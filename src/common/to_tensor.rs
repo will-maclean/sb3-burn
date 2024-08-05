@@ -14,7 +14,7 @@ impl ToTensorF<1> for Vec<f32> {
     fn to_tensor<B: Backend>(self, device: &<B as Backend>::Device) -> Tensor<B, 1> {
         let n = self.len();
 
-        Tensor::from_data(Data::new(self, Shape::new([n])).convert(), device)
+        Tensor::from_data([n], device)
     }
 }
 
@@ -24,7 +24,7 @@ impl ToTensorF<2> for Vec<Vec<f32>> {
         let n1 = self[0].len();
         let data: Vec<f32> = self.concat();
 
-        Tensor::from_data(Data::new(data, Shape::new([n0, n1])).convert(), device)
+        Tensor::<B, 1>::from_floats(data.as_slice(), device).reshape([n0, n1])
     }
 }
 
@@ -40,10 +40,9 @@ impl ToTensorI<1> for usize {
 
 impl ToTensorI<1> for Vec<usize> {
     fn to_tensor<B: Backend>(self, device: &<B as Backend>::Device) -> Tensor<B, 1, Int> {
-        let n = self.len();
         let data: Vec<i32> = self.into_iter().map(|x| x as i32).collect();
 
-        Tensor::from_data(Data::new(data, Shape::new([n])).convert(), device)
+        Tensor::from_ints(data.as_slice(), device)
     }
 }
 
@@ -53,19 +52,16 @@ pub trait ToTensorB<const D: usize>: Clone {
 
 impl ToTensorB<1> for bool {
     fn to_tensor<B: Backend>(self, device: &<B as Backend>::Device) -> Tensor<B, 1, Bool> {
-        Tensor::<B, 1, Int>::from_data(
-            Data::new(vec![self as i32], Shape::new([1])).convert(),
+        Tensor::<B, 1, Bool>::from_bool(
+            TensorData::from([self]),
             device,
         )
-        .bool()
     }
 }
 
 impl ToTensorB<1> for Vec<bool> {
     fn to_tensor<B: Backend>(self, device: &<B as Backend>::Device) -> Tensor<B, 1, Bool> {
-        let n = self.len();
-
-        Tensor::<B, 1, Int>::from_data(Data::new(self, Shape::new([n])).convert(), device).bool()
+        Tensor::<B, 1, Bool>::from_bool(TensorData::from(self.as_slice()), device)
     }
 }
 
