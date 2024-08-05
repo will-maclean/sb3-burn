@@ -12,9 +12,7 @@ impl ToTensorF<1> for f32 {
 
 impl ToTensorF<1> for Vec<f32> {
     fn to_tensor<B: Backend>(self, device: &<B as Backend>::Device) -> Tensor<B, 1> {
-        let n = self.len();
-
-        Tensor::from_data([n], device)
+        Tensor::from_data(self.as_slice(), device)
     }
 }
 
@@ -91,7 +89,6 @@ mod test {
         let d: Vec<f32> = vec![1.1, 2.2];
         let t: Tensor<NdArray, 1> = d.to_tensor(&Default::default());
 
-        assert_eq!(t.shape().dims.len(), 1);
         assert_eq!(t.shape().dims, [2]);
     }
 

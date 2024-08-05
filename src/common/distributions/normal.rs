@@ -110,7 +110,7 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
 #[cfg(test)]
 mod test {
     use burn::{
-        backend::Wgpu,
+        backend::NdArray,
         tensor::{ElementConversion, Tensor},
     };
 
@@ -120,7 +120,7 @@ mod test {
 
     #[test]
     fn test_normal_distribution() {
-        type Backend = Wgpu;
+        type Backend = NdArray;
         let loc = Tensor::<Backend, 2>::from_floats([[1.0, 0.0], [2.0, -2.0]], &Default::default());
         let scale =
             Tensor::<Backend, 2>::from_floats([[1.0, 0.1], [2.0, 2.0]], &Default::default());
@@ -150,7 +150,7 @@ mod test {
     #[should_panic]
     #[test]
     fn test_bad_normal_init1() {
-        type Backend = Wgpu;
+        type Backend = NdArray;
         let loc = Tensor::<Backend, 1>::from_floats([1.0], &Default::default());
         let scale = Tensor::<Backend, 1>::from_floats([0.0], &Default::default());
 
@@ -160,7 +160,7 @@ mod test {
     #[should_panic]
     #[test]
     fn test_bad_normal_init2() {
-        type Backend = Wgpu;
+        type Backend = NdArray;
         let loc = Tensor::<Backend, 1>::from_floats([1.0], &Default::default());
         let scale = Tensor::<Backend, 1>::from_floats([-1.0], &Default::default());
 
@@ -169,7 +169,7 @@ mod test {
 
     #[test]
     fn normal_dist_calc_verification() {
-        type Backend = Wgpu;
+        type Backend = NdArray;
 
         // calculated with PyTorch
         // dist = Normal(mean=0.0, std=1.0)
