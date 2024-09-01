@@ -80,7 +80,7 @@ impl<B: Backend> DiagGaussianDistribution<B> {
             log_std: Param::from_tensor(
                 Tensor::ones(Shape::new([action_dim]), device).mul_scalar(log_std_init),
             ),
-            dist: dist.no_grad(),
+            dist,
         }
     }
 }
@@ -116,10 +116,12 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
 
         let loc = self.means.forward(obs);
 
+        self.dist = Normal::new(loc.clone(), scale);
+
         if deterministic {
             loc
         } else {
-            Normal::new(loc, scale).sample()
+            self.dist.sample()
         }
     }
 }

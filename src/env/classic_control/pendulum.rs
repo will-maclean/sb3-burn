@@ -142,9 +142,9 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
 
 pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
     let env = make_pendulum_eval(max_steps);
-    let env = ScaleRewardWrapper::new(env, 0.01);
+    // let env = ScaleRewardWrapper::new(env, 0.01);
 
-    Box::new(env)
+    env
 }
 
 pub fn make_pendulum_eval(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
