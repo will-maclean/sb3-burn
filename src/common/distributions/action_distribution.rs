@@ -3,7 +3,6 @@ use burn::{
     nn::{Linear, LinearConfig},
     tensor::{backend::Backend, Shape, Tensor},
 };
-use serde::de;
 
 use crate::common::{
     agent::Policy,
