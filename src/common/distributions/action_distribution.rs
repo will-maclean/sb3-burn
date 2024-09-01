@@ -5,7 +5,10 @@ use burn::{
 };
 use serde::de;
 
-use crate::common::{agent::Policy, utils::{disp_tensorf, module_update::update_linear}};
+use crate::common::{
+    agent::Policy,
+    utils::{disp_tensorf, module_update::update_linear},
+};
 
 use super::{distribution::BaseDistribution, normal::Normal};
 
@@ -113,7 +116,7 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
             .repeat_dim(0, obs.shape().dims[0]);
 
         let loc = self.means.forward(obs);
-        
+
         if deterministic {
             loc
         } else {
@@ -137,7 +140,13 @@ pub struct SquashedDiagGaussianDistribution<B: Backend> {
 }
 
 impl<B: Backend> SquashedDiagGaussianDistribution<B> {
-    pub fn new(latent_dim: usize, action_dim: usize, log_std_init: f32, device: &B::Device, epsilon: f32) -> Self{
+    pub fn new(
+        latent_dim: usize,
+        action_dim: usize,
+        log_std_init: f32,
+        device: &B::Device,
+        epsilon: f32,
+    ) -> Self {
         Self {
             diag_gaus_dist: DiagGaussianDistribution::new(
                 latent_dim,
@@ -165,7 +174,13 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
 
         // Squash correction (from original SAC implementation)
         // this comes from the fact that tanh is bijective and differentiable
-        let out = log_prob - sample.powi_scalar(2).mul_scalar(-1).add_scalar(1.0 + self.epsilon).log().sum_dim(1);
+        let out = log_prob
+            - sample
+                .powi_scalar(2)
+                .mul_scalar(-1)
+                .add_scalar(1.0 + self.epsilon)
+                .log()
+                .sum_dim(1);
 
         disp_tensorf("second log prob", &out);
 
@@ -256,7 +271,8 @@ mod test {
             Shape::new([latent_size]),
             Distribution::Normal(0.0, 1.0),
             &Default::default(),
-        ).unsqueeze_dim(0);
+        )
+        .unsqueeze_dim(0);
 
         let action_sample = dist.actions_from_obs(dummy_obs, false);
         let log_prob = dist.log_prob(action_sample);

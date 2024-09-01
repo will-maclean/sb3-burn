@@ -19,17 +19,16 @@ mod test {
     // #[test]
     // fn mean_can_debug_wgpu(){
     //     let t: Tensor<Wgpu, 1> = Tensor::from_floats([0.0, 1.0, 2.0], &Default::default());
-        
+
     //     println!("{}", t);
     //     println!("{}", t.mean());
-        
-        
+
     //     let t: Tensor<Autodiff<Wgpu>, 1> = Tensor::from_floats([0.0, 1.0, 2.0], &Default::default());
-        
+
     //     println!("{t}");
     //     println!("{}", t.mean());
     // }
-    
+
     //TODO: seems to be a burn bug. Disabling for now so tests pass
     // #[test]
     // fn mean_can_debug_libtorch(){

@@ -1,10 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{
-        libtorch::LibTorchDevice,
-        Autodiff, LibTorch,
-    },
+    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
     optim::{Adam, AdamConfig},
 };
@@ -81,10 +78,7 @@ fn main() {
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
-    let logger = CsvLogger::new(
-        PathBuf::from("logs/sac_probe/log_sac_probe.csv"),
-        false,
-    );
+    let logger = CsvLogger::new(PathBuf::from("logs/sac_probe/log_sac_probe.csv"), false);
 
     match logger.check_can_log(false) {
         Ok(_) => {}

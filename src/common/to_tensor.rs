@@ -50,10 +50,7 @@ pub trait ToTensorB<const D: usize>: Clone {
 
 impl ToTensorB<1> for bool {
     fn to_tensor<B: Backend>(self, device: &<B as Backend>::Device) -> Tensor<B, 1, Bool> {
-        Tensor::<B, 1, Bool>::from_bool(
-            TensorData::from([self]),
-            device,
-        )
+        Tensor::<B, 1, Bool>::from_bool(TensorData::from([self]), device)
     }
 }
 

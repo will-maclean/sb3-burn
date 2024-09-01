@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{
-        ndarray::NdArrayDevice, Autodiff, NdArray
-    },
+    backend::{ndarray::NdArrayDevice, Autodiff, NdArray},
     grad_clipping::GradientClippingConfig,
     optim::{Adam, AdamConfig},
 };

@@ -57,11 +57,11 @@ pub fn angle_normalise(f: f32) -> f32 {
     (f + PI) % (2.0 * PI) - PI
 }
 
-pub fn disp_tensorf<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D>){
+pub fn disp_tensorf<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D>) {
     // println!("{name}. {t}\n");
 }
 
-pub fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>){
+pub fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>) {
     // println!("{name}. {t}\n");
 }
 

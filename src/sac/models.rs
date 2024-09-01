@@ -1,6 +1,4 @@
-use burn::{
-    module::Module, prelude::Backend, tensor::Tensor
-};
+use burn::{module::Module, prelude::Backend, tensor::Tensor};
 
 use crate::common::{
     agent::Policy,
@@ -24,7 +22,6 @@ impl<B: Backend> PiModel<B> {
 }
 
 impl<B: Backend> PiModel<B> {
-
     // pub fn get_dist_params(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
     //     let latent = self.mlp.forward(obs);
 
@@ -60,10 +57,7 @@ pub struct QModel<B: Backend> {
 impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(
-                &[obs_size + n_actions, 8, n_actions].to_vec(),
-                device,
-            ),
+            mlp: MLP::new(&[obs_size + n_actions, 8, n_actions].to_vec(), device),
         }
     }
 }

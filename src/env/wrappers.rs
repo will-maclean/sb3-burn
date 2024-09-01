@@ -4,9 +4,8 @@ use crate::common::spaces::Space;
 
 use super::base::{Env, EnvObservation, InfoData, RewardRange};
 
-
 pub struct ScaleRewardWrapper<O, A>
-where 
+where
     O: Clone + Debug,
     A: Clone + Debug,
 {
@@ -15,17 +14,17 @@ where
 }
 
 impl<O, A> ScaleRewardWrapper<O, A>
-where 
+where
     O: Clone + Debug,
     A: Clone + Debug,
 {
-    pub fn new(env: Box<dyn Env<O, A>>, scaling: f32) -> Self  {
+    pub fn new(env: Box<dyn Env<O, A>>, scaling: f32) -> Self {
         Self { env, scaling }
     }
 }
 
 impl<O, A> Env<O, A> for ScaleRewardWrapper<O, A>
-where 
+where
     O: Clone + Debug,
     A: Clone + Debug,
 {
@@ -70,9 +69,8 @@ where
     }
 }
 
-
 pub struct SignRewardWrapper<O, A>
-where 
+where
     O: Clone + Debug,
     A: Clone + Debug,
 {
@@ -80,17 +78,17 @@ where
 }
 
 impl<O, A> SignRewardWrapper<O, A>
-where 
+where
     O: Clone + Debug,
     A: Clone + Debug,
 {
-    pub fn new(env: Box<dyn Env<O, A>>) -> Self  {
+    pub fn new(env: Box<dyn Env<O, A>>) -> Self {
         Self { env }
     }
 }
 
 impl<O, A> Env<O, A> for SignRewardWrapper<O, A>
-where 
+where
     O: Clone + Debug,
     A: Clone + Debug,
 {
@@ -134,7 +132,6 @@ where
         self.env.unwrapped()
     }
 }
-
 
 pub struct TimeLimitWrapper<O: Clone + Debug, A: Clone + Debug> {
     env: Box<dyn Env<O, A>>,

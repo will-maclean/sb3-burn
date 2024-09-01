@@ -318,18 +318,19 @@ impl Env<usize, usize> for ProbeEnvStateActionTest {
 }
 
 #[derive(Debug, Clone)]
-pub struct ProbeEnvContinuousActions{
+pub struct ProbeEnvContinuousActions {
     state: f32,
     rng: ThreadRng,
 }
 
 impl Default for ProbeEnvContinuousActions {
     fn default() -> Self {
-        Self { state: 0.0, rng: Default::default() }
+        Self {
+            state: 0.0,
+            rng: Default::default(),
+        }
     }
 }
-
-
 
 impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     fn step(&mut self, action: &Vec<f32>) -> EnvObservation<Vec<f32>> {
@@ -339,7 +340,7 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
 
         let reward = 1.0 - (a - self.state).abs();
 
-        EnvObservation{
+        EnvObservation {
             obs: [0.0].to_vec(),
             reward,
             terminated: true,
@@ -355,41 +356,27 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     }
 
     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
-        Box::new(
-            BoxSpace::from((
-                [0.0].to_vec(),
-                [1.0].to_vec()
-            ))
-        )
+        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())))
     }
 
     fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
-        Box::new(
-            BoxSpace::from((
-                [0.0].to_vec(),
-                [1.0].to_vec()
-            ))
-        )
+        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())))
     }
 
     fn reward_range(&self) -> RewardRange {
-        RewardRange{
+        RewardRange {
             low: 0.0,
             high: 1.0,
         }
     }
 
-    fn render(&self) {
-        
-    }
+    fn render(&self) {}
 
     fn renderable(&self) -> bool {
         false
     }
 
-    fn close(&mut self) {
-
-    }
+    fn close(&mut self) {}
 
     fn unwrapped(&self) -> &dyn Env<Vec<f32>, Vec<f32>> {
         self
