@@ -27,7 +27,7 @@ pub struct EvalConfig {
 }
 
 pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: Clone + Debug>(
-    agent: &A,
+    agent: &mut A,
     env: &mut dyn Env<OS, AS>,
     cfg: &EvalConfig,
     device: &B::Device,

@@ -1,4 +1,4 @@
-use burn::tensor::{backend::Backend, Float, Tensor};
+use burn::tensor::{backend::Backend, Bool, Float, Tensor};
 use rand::Rng;
 
 pub mod module_update;
@@ -55,6 +55,14 @@ pub fn vec_usize_to_one_hot<B: Backend>(
 
 pub fn angle_normalise(f: f32) -> f32 {
     (f + PI) % (2.0 * PI) - PI
+}
+
+pub fn disp_tensorf<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D>){
+    // println!("{name}. {t}\n");
+}
+
+pub fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>){
+    // println!("{name}. {t}\n");
 }
 
 #[cfg(test)]

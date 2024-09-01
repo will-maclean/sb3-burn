@@ -86,7 +86,7 @@ where
     Q: DQNNet<B, OS> + burn::module::AutodiffModule<B>,
 {
     fn act(
-        &self,
+        &mut self,
         _global_step: usize,
         global_frac: f32,
         obs: &OS,

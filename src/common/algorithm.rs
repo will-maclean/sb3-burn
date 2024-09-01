@@ -114,7 +114,7 @@ impl<
 
         if self.offline_params.eval_at_start_of_training {
             let log: LogItem = evaluate_policy(
-                &self.agent,
+                &mut self.agent,
                 &mut *self.eval_env,
                 &self.eval_cfg,
                 self.train_device,
@@ -188,7 +188,7 @@ impl<
                 & (i % self.offline_params.evaluate_every_steps == 0)
             {
                 let log: LogItem = evaluate_policy(
-                    &self.agent,
+                    &mut self.agent,
                     &mut *self.eval_env,
                     &self.eval_cfg,
                     self.train_device,
@@ -224,7 +224,7 @@ impl<
 
         if self.offline_params.eval_at_end_of_training {
             let log: LogItem = evaluate_policy(
-                &self.agent,
+                &mut self.agent,
                 &mut *self.eval_env,
                 &self.eval_cfg,
                 self.train_device,

@@ -29,7 +29,7 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     /// inference device: The Backend device on which the act operation should run. This may require moving modules
     /// to the correct device.
     fn act(
-        &self,
+        &mut self,
         global_step: usize,
         global_frac: f32,
         obs: &O,
