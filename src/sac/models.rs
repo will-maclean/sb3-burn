@@ -15,8 +15,8 @@ pub struct PiModel<B: Backend> {
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size, 32, 32].to_vec(), device),
-            dist: SquashedDiagGaussianDistribution::new(32, n_actions, device, 1e-6),
+            mlp: MLP::new(&[obs_size, 256, 256].to_vec(), device),
+            dist: SquashedDiagGaussianDistribution::new(256, n_actions, device, 1e-6),
         }
     }
 }
@@ -46,7 +46,7 @@ pub struct QModel<B: Backend> {
 impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size + n_actions, 32, n_actions].to_vec(), device),
+            mlp: MLP::new(&[obs_size + n_actions, 256, 256, n_actions].to_vec(), device),
         }
     }
 }

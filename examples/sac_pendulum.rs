@@ -54,7 +54,7 @@ fn main() {
 
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(3)
-        .with_memory_size(1000000)
+        .with_memory_size(20000)
         .with_n_steps(20000)
         .with_warmup_steps(1000)
         .with_lr(1e-3)
@@ -73,7 +73,7 @@ fn main() {
         None,
         Some(0.995),
         Box::new(BoxSpace::from(([0.0].to_vec(), [0.0].to_vec()))),
-        Box::new(BoxSpace::from(([0.0].to_vec(), [0.0].to_vec()))),
+        Box::new(BoxSpace::from(([-2.0].to_vec(), [2.0].to_vec()))),
     );
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);

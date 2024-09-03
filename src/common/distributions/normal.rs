@@ -77,7 +77,7 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
     fn rsample(&self) -> Tensor<B, D> {
         let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0));
 
-        s.mul(self.scale.clone()) + self.loc.clone()
+        self.scale.clone().mul(s) + self.loc.clone()
     }
 
     fn log_prob(&self, value: Tensor<B, D>) -> Tensor<B, D> {

@@ -1,5 +1,3 @@
-use std::time;
-
 use burn::{
     module::Module,
     nn::{
@@ -246,6 +244,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             train_device,
         );
 
+        println!("ent_cof: {}\n", ent_coef);
 
         let log_dict = log_dict.push("ent_coef".to_string(), LogData::Float(ent_coef));
 
@@ -290,13 +289,15 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let target_q_vals = target_q_vals.detach();
 
         // calculate the critic loss
-        let q_vals = self.qs.q_from_actions(states.clone(), actions.clone());
+        let q_vals: Vec<Tensor<B, 2>> = self.qs.q_from_actions(states.clone(), actions.clone());
 
         let mut critic_loss: Tensor<B, 1> = Tensor::zeros(Shape::new([1]), train_device);
         for q in q_vals {
+            disp_tensorf("q", &q);
             critic_loss =
                 critic_loss + MseLoss::new().forward(q, target_q_vals.clone(), Reduction::Mean);
         }
+
         disp_tensorf("critic_loss", &critic_loss);
 
         // Confirmed with sb3 community that the 0.5 scaling has nothing to do with the number
@@ -351,6 +352,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
             self.last_update = global_step;
         }
+
+        // panic!();
 
         (None, log_dict)
     }

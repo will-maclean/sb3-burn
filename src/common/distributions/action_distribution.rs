@@ -94,11 +94,11 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
     }
 
     fn mode(&mut self) -> Tensor<B, 2> {
-        self.dist.mode().tanh()
+        self.dist.mode()
     }
 
     fn sample(&mut self) -> Tensor<B, 2> {
-        self.dist.rsample().tanh()
+        self.dist.rsample()
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
@@ -129,7 +129,6 @@ impl<B: Backend> Policy<B> for DiagGaussianDistribution<B> {
 pub struct SquashedDiagGaussianDistribution<B: Backend> {
     diag_gaus_dist: DiagGaussianDistribution<B>,
     epsilon: f32,
-    gaus_actions: Option<Tensor<B, 2>>,
 }
 
 impl<B: Backend> SquashedDiagGaussianDistribution<B> {
@@ -146,7 +145,6 @@ impl<B: Backend> SquashedDiagGaussianDistribution<B> {
                 device,
             ),
             epsilon,
-            gaus_actions: None,
         }
     }
 }
@@ -183,15 +181,11 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
     }
 
     fn mode(&mut self) -> Tensor<B, 2> {
-        self.gaus_actions = Some(self.diag_gaus_dist.mode());
-
-        self.gaus_actions.clone().unwrap().tanh()
+        self.diag_gaus_dist.mode().tanh()
     }
 
     fn sample(&mut self) -> Tensor<B, 2> {
-        self.gaus_actions = Some(self.diag_gaus_dist.sample());
-
-        self.gaus_actions.clone().unwrap().tanh()
+        self.diag_gaus_dist.sample().tanh()
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
