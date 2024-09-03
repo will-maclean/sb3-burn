@@ -1,5 +1,5 @@
 use burn::{
-    module::{Module, Param},
+    module::Module,
     nn::{Linear, LinearConfig},
     tensor::{backend::Backend, Shape, Tensor},
 };
@@ -56,7 +56,7 @@ where
 #[derive(Debug, Module)]
 pub struct DiagGaussianDistribution<B: Backend> {
     means: Linear<B>,
-    log_std: Param<Tensor<B, 1>>,
+    log_std: Linear<B>,
     dist: Normal<B, 2>,
 }
 
@@ -64,22 +64,18 @@ impl<B: Backend> DiagGaussianDistribution<B> {
     pub fn new(
         latent_dim: usize,
         action_dim: usize,
-        log_std_init: f32,
         device: &B::Device,
     ) -> Self {
         // create the distribution with dummy values for now
         let loc: Tensor<B, 2> =
             Tensor::ones(Shape::new([action_dim]), &Default::default()).unsqueeze_dim(0);
-        let std: Tensor<B, 2> = Tensor::ones(Shape::new([action_dim]), &Default::default())
-            .mul_scalar(log_std_init)
-            .unsqueeze_dim(0);
+        let std: Tensor<B, 2> =
+            Tensor::ones(Shape::new([action_dim]), &Default::default()).unsqueeze_dim(0);
         let dist: Normal<B, 2> = Normal::new(loc, std);
 
         Self {
             means: LinearConfig::new(latent_dim, action_dim).init(device),
-            log_std: Param::from_tensor(
-                Tensor::ones(Shape::new([action_dim]), device).mul_scalar(log_std_init),
-            ),
+            log_std: LinearConfig::new(latent_dim, action_dim).init(device),
             dist,
         }
     }
@@ -106,13 +102,9 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
-        let scale: Tensor<B, 2> = self
-            .log_std
-            .val()
-            .clone()
-            .exp()
-            .unsqueeze_dim(0)
-            .repeat_dim(0, obs.shape().dims[0]);
+        let scale: Tensor<B, 2> = self.log_std.forward(obs.clone())
+            .clamp(-20, 2)
+            .exp();
 
         let loc = self.means.forward(obs);
 
@@ -144,7 +136,6 @@ impl<B: Backend> SquashedDiagGaussianDistribution<B> {
     pub fn new(
         latent_dim: usize,
         action_dim: usize,
-        log_std_init: f32,
         device: &B::Device,
         epsilon: f32,
     ) -> Self {
@@ -152,7 +143,6 @@ impl<B: Backend> SquashedDiagGaussianDistribution<B> {
             diag_gaus_dist: DiagGaussianDistribution::new(
                 latent_dim,
                 action_dim,
-                log_std_init,
                 device,
             ),
             epsilon,
@@ -205,13 +195,7 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
-        let actions = self.diag_gaus_dist.actions_from_obs(obs, deterministic);
-
-        disp_tensorf("actions_pre_squah", &actions);
-        let actions = actions.tanh();
-        disp_tensorf("actions_post_squah", &actions);
-
-        actions
+        self.diag_gaus_dist.actions_from_obs(obs, deterministic).tanh()
     }
 }
 
@@ -259,11 +243,9 @@ mod test {
         type Backend = Autodiff<NdArray>;
         let latent_size = 10;
         let action_size = 3;
-        let log_std_init = 0.4;
         let mut dist: DiagGaussianDistribution<Backend> = DiagGaussianDistribution::new(
             latent_size,
             action_size,
-            log_std_init,
             &Default::default(),
         );
 

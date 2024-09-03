@@ -209,17 +209,10 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         offline_params: &crate::common::algorithm::OfflineAlgParams,
         train_device: &<B as Backend>::Device,
     ) -> (Option<f32>, LogItem) {
-        let print_instant = false; //(global_step > 500) & ( global_step % 1000 == 0);
 
         let log_dict = LogItem::default();
 
-        let instant_timer = time::Instant::now();
         let sample_data = replay_buffer.batch_sample(offline_params.batch_size);
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
-
-            println!("i={global_step}. buffer sample duration: {}", duration);
-        }
 
         let states = sample_data.states.to_tensor(train_device);
         let actions = sample_data.actions.to_tensor(train_device);
@@ -241,29 +234,18 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         disp_tensorf("rewards", &rewards);
         disp_tensorb("dones", &dones);
 
-        let instant_timer = time::Instant::now();
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
-
-            println!("i={global_step}. actions_pi duration: {}", duration);
-        }
 
         disp_tensorf("actions_pi", &actions_pi);
         disp_tensorf("log_prob", &log_prob);
 
         // train entropy coeficient if required to do so
-        let instant_timer = time::Instant::now();
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
             log_prob.clone().flatten(0, 1),
             offline_params.lr,
             train_device,
         );
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
 
-            println!("i={global_step}. ent_coef duration: {}", duration);
-        }
 
         let log_dict = log_dict.push("ent_coef".to_string(), LogData::Float(ent_coef));
 
@@ -274,32 +256,17 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         };
 
         // select action according to policy
-        let instant_timer = time::Instant::now();
 
         let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
 
-            println!(
-                "i={global_step}. next_action_sampled duration: {}",
-                duration
-            );
-        }
         disp_tensorf("next_action_sampled", &next_action_sampled);
         disp_tensorf("next_action_log_prob", &next_action_log_prob);
 
         // next_action_sampled
-        let instant_timer = time::Instant::now();
         let next_q_vals = self
             .target_qs
             .q_from_actions(next_states, next_action_sampled);
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
 
-            println!("i={global_step}. next_q_vals duration: {}", duration);
-        }
-
-        let instant_timer = time::Instant::now();
         let next_q_vals = Tensor::cat(next_q_vals, 1);
         disp_tensorf("1next_q_vals", &next_q_vals);
 
@@ -322,22 +289,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         let target_q_vals = target_q_vals.detach();
 
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
-
-            println!("i={global_step}. target_q_vals duration: {}", duration);
-        }
-
         // calculate the critic loss
-        let instant_timer = time::Instant::now();
         let q_vals = self.qs.q_from_actions(states.clone(), actions.clone());
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
-
-            println!("i={global_step}. q_vals duration: {}", duration);
-        }
-
-        let instant_timer = time::Instant::now();
 
         let mut critic_loss: Tensor<B, 1> = Tensor::zeros(Shape::new([1]), train_device);
         for q in q_vals {
@@ -346,18 +299,10 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         }
         disp_tensorf("critic_loss", &critic_loss);
 
-        // Confirmed with sb3 community that the
-        // 0.5 scaling has nothing to do with the number
-        // of critics - rather, it is just to remove
-        // the factor of 2 that would otherwise appear
+        // Confirmed with sb3 community that the 0.5 scaling has nothing to do with the number
+        // of critics - rather, it is just to remove he factor of 2 that would otherwise appear
         // in MSE gradient calculations. (Convention)
         critic_loss = critic_loss.mul_scalar(0.5);
-
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
-
-            println!("i={global_step}. critic_loss duration: {}", duration);
-        }
 
         let log_dict = log_dict.push(
             "critic_loss_combined".to_string(),
@@ -365,21 +310,12 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         );
 
         // optimise the critics
-        let instant_timer = time::Instant::now();
         let critic_loss_grads = critic_loss.clone().backward();
         let critic_grads = GradientsParams::from_grads(critic_loss_grads, &self.qs);
         self.qs = self
             .q_optim
             .step(offline_params.lr, self.qs.clone(), critic_grads);
 
-        if print_instant {
-            let duration = (time::Instant::now() - instant_timer).as_micros();
-
-            println!(
-                "i={global_step}. critic_loss backprop duration: {}",
-                duration
-            );
-        }
 
         // Policy loss
         // recalculate q values with new critics
@@ -415,8 +351,6 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
             self.last_update = global_step;
         }
-
-        // panic!("");
 
         (None, log_dict)
     }

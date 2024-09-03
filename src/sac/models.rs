@@ -15,24 +15,13 @@ pub struct PiModel<B: Backend> {
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size, 8, 8].to_vec(), device),
-            dist: SquashedDiagGaussianDistribution::new(8, n_actions, 1.0, device, 1e-6),
+            mlp: MLP::new(&[obs_size, 32, 32].to_vec(), device),
+            dist: SquashedDiagGaussianDistribution::new(32, n_actions, device, 1e-6),
         }
     }
 }
 
 impl<B: Backend> PiModel<B> {
-    // pub fn get_dist_params(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-    //     let latent = self.mlp.forward(obs);
-
-    //     let means = self.means.forward(latent.clone());
-
-    //     let log_stds = self.log_stds.forward(latent); // extract from model output
-    //     let log_stds = log_stds.clamp(-20, 2); // clamp for safety
-    //     let stds = log_stds.exp(); // exponentiate to convert to std
-
-    //     (means, stds)
-    // }
 
     pub fn act(&mut self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
         let latent = self.mlp.forward(obs.clone().unsqueeze_dim(0));
@@ -57,7 +46,7 @@ pub struct QModel<B: Backend> {
 impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size + n_actions, 8, n_actions].to_vec(), device),
+            mlp: MLP::new(&[obs_size + n_actions, 32, n_actions].to_vec(), device),
         }
     }
 }
