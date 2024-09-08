@@ -179,7 +179,7 @@ impl Env<Vec<f32>, usize> for CartpoleEnv {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.05; 4], vec![0.05; 4]);

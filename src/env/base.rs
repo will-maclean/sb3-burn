@@ -31,7 +31,7 @@ pub struct RewardRange {
 
 pub trait Env<O, A> {
     fn step(&mut self, action: &A) -> EnvObservation<O>;
-    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<ResetOptions>) -> O;
+    fn reset(&mut self, seed: Option<u64>, options: Option<ResetOptions>) -> O;
     fn action_space(&self) -> Box<dyn Space<A>>;
     fn observation_space(&self) -> Box<dyn Space<O>>;
     fn reward_range(&self) -> RewardRange;

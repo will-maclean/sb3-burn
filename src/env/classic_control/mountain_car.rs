@@ -79,7 +79,7 @@ impl Env<Vec<f32>, usize> for MountainCarEnv {
         }
     }
 
-    fn reset(&mut self, _seed: Option<[u8; 32]>, _options: Option<ResetOptions>) -> Vec<f32> {
+    fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
         self.needs_reset = false;
 
         self.state = generate_random_vector(vec![-0.6, 0.0], vec![-0.4, 0.0]);

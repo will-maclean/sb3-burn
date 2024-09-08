@@ -7,7 +7,7 @@ use crate::{
     },
     env::{
         base::{Env, EnvObservation, ResetOptions, RewardRange},
-        wrappers::{ScaleRewardWrapper, TimeLimitWrapper},
+        wrappers::TimeLimitWrapper,
     },
 };
 
@@ -88,7 +88,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
         }
     }
 
-    fn reset(&mut self, seed: Option<[u8; 32]>, options: Option<ResetOptions>) -> Vec<f32> {
+    fn reset(&mut self, seed: Option<u64>, options: Option<ResetOptions>) -> Vec<f32> {
         let (x, y) = if let Some(_options) = options {
             println!("Warning - passing options to PendulumEnv, but options are not implemented");
             // let x: f32 = options.get("x_init").unwrap().into();
@@ -142,7 +142,6 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
 
 pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
     let env = make_pendulum_eval(max_steps);
-    // let env = ScaleRewardWrapper::new(env, 0.01);
 
     env
 }
