@@ -35,14 +35,14 @@ impl PendulumEnv {
         let theta = self.state[0];
         let theta_dot = self.state[1];
 
-        vec![theta.cos(), theta.sin(), theta_dot]
+        vec![theta.cos(), theta.sin(), theta_dot / 8.0]
     }
 }
 
 impl Default for PendulumEnv {
     fn default() -> Self {
-        let high = vec![1.0, 1.0, 8.0];
-        let low = vec![-1.0, -1.0, -8.0];
+        let high = vec![1.0, 1.0, 1.0];
+        let low = vec![-1.0, -1.0, -1.0];
         Self {
             max_speed: 8.0,
             max_torque: 2.0,
@@ -65,7 +65,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
         let th = self.state[0];
         let th_dot = self.state[1];
 
-        let u = action[0];
+        let u = 2.0 * action[0];
         let u = u.clamp(-self.max_torque, self.max_torque);
         self.last_u = u;
 
