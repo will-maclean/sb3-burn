@@ -6,8 +6,7 @@ use burn::{
     },
     optim::{adaptor::OptimizerAdaptor, Adam, AdamConfig, GradientsParams, Optimizer},
     tensor::{
-        backend::{AutodiffBackend, Backend},
-        ElementConversion, Shape, Tensor,
+        backend::{AutodiffBackend, Backend}, Bool, ElementConversion, Shape, Tensor
     },
 };
 
@@ -177,6 +176,119 @@ impl<B: AutodiffBackend> SACAgent<B> {
             update_every: 1,
         }
     }
+
+    fn train_critics(&mut self,
+        states: Tensor<B, 2>,
+        actions: Tensor<B, 2>,
+        next_states: Tensor<B, 2>,
+        rewards: Tensor<B, 2>,
+        dones: Tensor<B, 2, Bool>,
+        gamma: f32,
+        train_device: &B::Device,
+        ent_coef: f32,
+        lr: f64,
+        log_dict: LogItem,
+    ) -> LogItem{
+        // select action according to policy
+        let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
+
+        disp_tensorf("next_action_sampled", &next_action_sampled);
+        disp_tensorf("next_action_log_prob", &next_action_log_prob);
+
+        // next_action_sampled
+        let next_q_vals = self
+            .target_qs
+            .q_from_actions(next_states, next_action_sampled);
+
+        let next_q_vals = Tensor::cat(next_q_vals, 1);
+        disp_tensorf("1next_q_vals", &next_q_vals);
+
+        let next_q_vals = next_q_vals.min_dim(1);
+        disp_tensorf("2next_q_vals", &next_q_vals);
+
+        // add the entropy term
+        let next_q_vals = next_q_vals - next_action_log_prob.mul_scalar(ent_coef);
+        disp_tensorf("3next_q_vals", &next_q_vals);
+
+        // td error + entropy term
+        let target_q_vals = rewards
+            + dones
+                .bool_not()
+                .float()
+                .mul(next_q_vals)
+                .mul_scalar(gamma);
+
+        disp_tensorf("target_q_vals", &target_q_vals);
+
+        let target_q_vals = target_q_vals.detach();
+
+        // calculate the critic loss
+        let q_vals: Vec<Tensor<B, 2>> = self.qs.q_from_actions(states, actions);
+
+        let loss_fn = MseLoss::new();
+        let mut critic_loss: Tensor<B, 1> = Tensor::zeros(Shape::new([1]), train_device);
+        for q in q_vals {
+            disp_tensorf("q", &q);
+            critic_loss =
+                critic_loss + loss_fn.forward(q, target_q_vals.clone(), Reduction::Mean);
+        }
+
+        disp_tensorf("critic_loss", &critic_loss);
+
+        // Confirmed with sb3 community that the 0.5 scaling has nothing to do with the number
+        // of critics - rather, it is just to remove he factor of 2 that would otherwise appear
+        // in MSE gradient calculations. (Convention)
+        critic_loss = critic_loss.mul_scalar(0.5);
+
+        let log_dict = log_dict.push(
+            "critic_loss_combined".to_string(),
+            LogData::Float(critic_loss.clone().into_scalar().elem()),
+        );
+
+        // optimise the critics
+        let critic_loss_grads = critic_loss.clone().backward();
+        let critic_grads = GradientsParams::from_grads(critic_loss_grads, &self.qs);
+        self.qs = self
+            .q_optim
+            .step(lr, self.qs.clone(), critic_grads);
+
+        log_dict
+
+    }
+
+    fn train_policy(&mut self,
+        states: Tensor<B, 2>,
+        ent_coef: f32,
+        lr: f64,
+        actions_pi: Tensor<B, 2>,
+        log_prob: Tensor<B, 2>,
+        log_dict: LogItem,
+    ) -> LogItem{
+        // Policy loss
+        // recalculate q values with new critics
+        let q_vals = self.qs.q_from_actions(states, actions_pi);
+        let q_vals = Tensor::cat(q_vals, 1).detach();
+        disp_tensorf("q_vals", &q_vals);
+        let min_q = q_vals.min_dim(1);
+        disp_tensorf("min_q", &min_q);
+        let actor_loss = log_prob.mul_scalar(ent_coef) - min_q;
+        disp_tensorf("1actor_loss", &actor_loss);
+        let actor_loss = actor_loss.mean();
+        disp_tensorf("2actor_loss", &actor_loss);
+
+        let log_dict = log_dict.push(
+            "actor_loss".to_string(),
+            LogData::Float(actor_loss.clone().into_scalar().elem()),
+        );
+
+        let actor_loss_back = actor_loss.backward();
+        let actor_grads = GradientsParams::from_grads(actor_loss_back, &self.pi);
+        self.pi = self
+            .pi_optim
+            .step(lr, self.pi.clone(), actor_grads);
+
+        log_dict
+    }
 }
 
 impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
@@ -254,92 +366,27 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             log_dict
         };
 
-        // select action according to policy
-
-        let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
-
-        disp_tensorf("next_action_sampled", &next_action_sampled);
-        disp_tensorf("next_action_log_prob", &next_action_log_prob);
-
-        // next_action_sampled
-        let next_q_vals = self
-            .target_qs
-            .q_from_actions(next_states, next_action_sampled);
-
-        let next_q_vals = Tensor::cat(next_q_vals, 1);
-        disp_tensorf("1next_q_vals", &next_q_vals);
-
-        let next_q_vals = next_q_vals.min_dim(1);
-        disp_tensorf("2next_q_vals", &next_q_vals);
-
-        // add the entropy term
-        let next_q_vals = next_q_vals - next_action_log_prob.mul_scalar(ent_coef);
-        disp_tensorf("3next_q_vals", &next_q_vals);
-
-        // td error + entropy term
-        let target_q_vals = rewards
-            + dones
-                .bool_not()
-                .float()
-                .mul(next_q_vals)
-                .mul_scalar(offline_params.gamma);
-
-        disp_tensorf("target_q_vals", &target_q_vals);
-
-        let target_q_vals = target_q_vals.detach();
-
-        // calculate the critic loss
-        let q_vals: Vec<Tensor<B, 2>> = self.qs.q_from_actions(states.clone(), actions.clone());
-
-        let mut critic_loss: Tensor<B, 1> = Tensor::zeros(Shape::new([1]), train_device);
-        for q in q_vals {
-            disp_tensorf("q", &q);
-            critic_loss =
-                critic_loss + MseLoss::new().forward(q, target_q_vals.clone(), Reduction::Mean);
-        }
-
-        disp_tensorf("critic_loss", &critic_loss);
-
-        // Confirmed with sb3 community that the 0.5 scaling has nothing to do with the number
-        // of critics - rather, it is just to remove he factor of 2 that would otherwise appear
-        // in MSE gradient calculations. (Convention)
-        critic_loss = critic_loss.mul_scalar(0.5);
-
-        let log_dict = log_dict.push(
-            "critic_loss_combined".to_string(),
-            LogData::Float(critic_loss.clone().into_scalar().elem()),
+        let log_dict = self.train_critics(
+            states.clone(),
+            actions,
+            next_states,
+            rewards,
+            dones,
+            offline_params.gamma,
+            train_device,
+            ent_coef,
+            offline_params.lr,
+            log_dict,
         );
 
-        // optimise the critics
-        let critic_loss_grads = critic_loss.clone().backward();
-        let critic_grads = GradientsParams::from_grads(critic_loss_grads, &self.qs);
-        self.qs = self
-            .q_optim
-            .step(offline_params.lr, self.qs.clone(), critic_grads);
-
-
-        // Policy loss
-        // recalculate q values with new critics
-        let q_vals = self.qs.q_from_actions(states.clone(), actions_pi);
-        let q_vals = Tensor::cat(q_vals, 1).detach();
-        disp_tensorf("q_vals", &q_vals);
-        let min_q = q_vals.min_dim(1);
-        disp_tensorf("min_q", &min_q);
-        let actor_loss = log_prob.mul_scalar(ent_coef) - min_q;
-        disp_tensorf("1actor_loss", &actor_loss);
-        let actor_loss = actor_loss.mean();
-        disp_tensorf("2actor_loss", &actor_loss);
-
-        let log_dict = log_dict.push(
-            "actor_loss".to_string(),
-            LogData::Float(actor_loss.clone().into_scalar().elem()),
+        let log_dict = self.train_policy(
+            states, 
+            ent_coef, 
+            offline_params.lr, 
+            actions_pi, 
+            log_prob, 
+            log_dict
         );
-
-        let actor_loss_back = actor_loss.backward();
-        let actor_grads = GradientsParams::from_grads(actor_loss_back, &self.pi);
-        self.pi = self
-            .pi_optim
-            .step(offline_params.lr, self.pi.clone(), actor_grads);
 
         // target critic updates
         if global_step > (self.last_update + self.update_every) {

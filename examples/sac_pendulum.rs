@@ -73,7 +73,7 @@ fn main() {
         None,
         Some(0.995),
         Box::new(BoxSpace::from(([0.0].to_vec(), [0.0].to_vec()))),
-        Box::new(BoxSpace::from(([-2.0].to_vec(), [2.0].to_vec()))),
+        Box::new(BoxSpace::from(([-1.0].to_vec(), [1.0].to_vec()))),
     );
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);
