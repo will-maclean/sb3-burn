@@ -24,8 +24,8 @@ impl<B: Backend, const D: usize> Normal<B, D> {
         );
 
         Self {
-            loc: loc.no_grad(),
-            scale: scale.no_grad(),
+            loc,
+            scale,
         }
     }
 }
