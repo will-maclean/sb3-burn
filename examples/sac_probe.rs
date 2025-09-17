@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
     optim::{Adam, AdamConfig},
 };
@@ -26,7 +25,7 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<LibTorch>;
+    type TrainingBacked = Autodiff<Wgpu>;
 
     let train_device = LibTorchDevice::Cuda(0);
 

@@ -67,7 +67,7 @@ pub struct ProbeEnvBackpropTest {
 
 impl ProbeEnvBackpropTest {
     fn gen_obs(&mut self) -> usize {
-        if self.rng.gen_bool(0.5) {
+        if self.rng.random_bool(0.5) {
             1
         } else {
             0
@@ -263,7 +263,7 @@ pub struct ProbeEnvStateActionTest {
 
 impl ProbeEnvStateActionTest {
     fn gen_obs(&mut self) -> usize {
-        if self.rng.gen_bool(0.5) {
+        if self.rng.random_bool(0.5) {
             1
         } else {
             0

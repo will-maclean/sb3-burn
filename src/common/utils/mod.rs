@@ -27,14 +27,14 @@ pub fn generate_random_vector(lows: Vec<f32>, highs: Vec<f32>) -> Vec<f32> {
         panic!("Vectors of lows and highs must have the same length");
     }
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let mut random_vector = Vec::with_capacity(lows.len());
 
     for (low, high) in lows.iter().zip(highs.iter()) {
         if low > high {
             panic!("Each low value must be less than or equal to its corresponding high value");
         }
-        random_vector.push(rng.gen_range(*low..=*high));
+        random_vector.push(rng.random_range(*low..=*high));
     }
 
     random_vector
@@ -45,12 +45,7 @@ pub fn vec_usize_to_one_hot<B: Backend>(
     classes: usize,
     device: &B::Device,
 ) -> Tensor<B, 2, Float> {
-    Tensor::stack(
-        data.iter()
-            .map(|d| Tensor::<B, 1>::one_hot(*d, classes, device))
-            .collect(),
-        0,
-    )
+    Tensor::stack(data.iter().map(|d| d.one_hot(classes, device)).collect(), 0)
 }
 
 pub fn angle_normalise(f: f32) -> f32 {
