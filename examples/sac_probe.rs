@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{
+    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
     optim::{Adam, AdamConfig},
 };
@@ -25,7 +26,7 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<Wgpu>;
+    type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
 
@@ -84,7 +85,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, Adam<LibTorch>, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(ProbeEnvContinuousActions::default()),

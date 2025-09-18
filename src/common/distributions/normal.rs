@@ -2,7 +2,7 @@ use std::f32::consts::{E, PI};
 
 use burn::{
     module::Module,
-    tensor::{backend::Backend, Distribution, Tensor},
+    tensor::{backend::Backend, cast::ToElement, Distribution, Tensor},
 };
 
 use super::{
@@ -19,14 +19,16 @@ pub struct Normal<B: Backend, const D: usize> {
 impl<B: Backend, const D: usize> Normal<B, D> {
     pub fn new(loc: Tensor<B, D>, scale: Tensor<B, D>) -> Self {
         assert!(
-            scale.clone().greater_elem(0.0).all().into_scalar(),
+            scale
+                .clone()
+                .greater_elem(0.0)
+                .all()
+                .into_scalar()
+                .to_bool(),
             "scale>0 check failed. scale: {scale}"
         );
 
-        Self {
-            loc,
-            scale,
-        }
+        Self { loc, scale }
     }
 }
 

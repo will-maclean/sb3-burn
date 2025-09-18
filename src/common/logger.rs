@@ -58,6 +58,7 @@ impl From<EvalResult> for LogItem {
 }
 
 pub struct CsvLogger {
+    overwrite: bool,
     dump_path: PathBuf,
     to_stdout: bool,
     keys: Vec<String>,
@@ -65,12 +66,13 @@ pub struct CsvLogger {
 }
 
 impl CsvLogger {
-    pub fn new(dump_path: PathBuf, to_stdout: bool) -> Self {
+    pub fn new(dump_path: PathBuf, to_stdout: bool, overwrite: bool) -> Self {
         Self {
             dump_path,
             to_stdout,
             data: Vec::new(),
             keys: Vec::new(),
+            overwrite,
         }
     }
 }
@@ -134,7 +136,7 @@ impl Logger for CsvLogger {
     }
 
     fn check_can_log(&self, try_to_fix: bool) -> Result<(), &str> {
-        if self.dump_path.exists() {
+        if self.dump_path.exists() && !self.overwrite {
             Err("logger dump file already exists")
         } else if self.dump_path.extension() != Some(OsStr::new("csv")) {
             Err("logger dump path should be a csv")
@@ -237,7 +239,7 @@ mod test {
     fn test_should_log() {
         let mut pth = env::current_dir().unwrap();
         pth.push("log.csv");
-        let logger = CsvLogger::new(pth, false);
+        let logger = CsvLogger::new(pth, false, true);
         let can_check = logger.check_can_log(false);
 
         assert_eq!(can_check, Ok(()));
@@ -245,7 +247,7 @@ mod test {
 
     #[test]
     fn test_shouldnt_log1() {
-        let logger = CsvLogger::new(PathBuf::from("this/path/shouldnt/exist.csv"), false);
+        let logger = CsvLogger::new(PathBuf::from("this/path/shouldnt/exist.csv"), false, true);
         let can_check = logger.check_can_log(false);
 
         assert_eq!(can_check, Err("logger dump path dir does not exist"));
@@ -255,7 +257,7 @@ mod test {
     fn test_shouldnt_log2() {
         let mut pth = env::current_dir().unwrap();
         pth.push("log.txt");
-        let logger = CsvLogger::new(pth, false);
+        let logger = CsvLogger::new(pth, false, true);
         let can_check = logger.check_can_log(false);
 
         assert_eq!(can_check, Err("logger dump path should be a csv"));
@@ -271,7 +273,7 @@ mod test {
             .write(true)
             .open(pth.clone());
 
-        let logger = CsvLogger::new(pth.clone(), false);
+        let logger = CsvLogger::new(pth.clone(), false, false);
         let can_check = logger.check_can_log(false);
 
         assert_eq!(can_check, Err("logger dump file already exists"));

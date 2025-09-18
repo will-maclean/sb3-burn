@@ -6,7 +6,8 @@ use burn::{
     },
     optim::{adaptor::OptimizerAdaptor, Adam, AdamConfig, GradientsParams, Optimizer},
     tensor::{
-        backend::{AutodiffBackend, Backend}, Bool, ElementConversion, Shape, Tensor
+        backend::{AutodiffBackend, Backend},
+        Bool, ElementConversion, Shape, Tensor,
     },
 };
 
@@ -51,7 +52,7 @@ enum EntCoef<B: AutodiffBackend> {
     Constant(f32),
     Trainable(
         EntCoefModule<B>,
-        OptimizerAdaptor<Adam<B::InnerBackend>, EntCoefModule<B>, B>,
+        OptimizerAdaptor<Adam, EntCoefModule<B>, B>,
         f32,
     ),
 }
@@ -111,8 +112,8 @@ pub struct SACAgent<B: AutodiffBackend> {
     target_qs: QModelSet<B>,
 
     // optimisers
-    pi_optim: OptimizerAdaptor<Adam<B::InnerBackend>, PiModel<B>, B>,
-    q_optim: OptimizerAdaptor<Adam<B::InnerBackend>, QModelSet<B>, B>,
+    pi_optim: OptimizerAdaptor<Adam, PiModel<B>, B>,
+    q_optim: OptimizerAdaptor<Adam, QModelSet<B>, B>,
 
     // parameters
     ent_coef: EntCoef<B>,
@@ -133,8 +134,8 @@ impl<B: AutodiffBackend> SACAgent<B> {
         target_qs: QModelSet<B>,
 
         // optimisers
-        pi_optim: OptimizerAdaptor<Adam<B::InnerBackend>, PiModel<B>, B>,
-        q_optim: OptimizerAdaptor<Adam<B::InnerBackend>, QModelSet<B>, B>,
+        pi_optim: OptimizerAdaptor<Adam, PiModel<B>, B>,
+        q_optim: OptimizerAdaptor<Adam, QModelSet<B>, B>,
 
         // parameters
         ent_coef: Option<f32>,
@@ -177,7 +178,8 @@ impl<B: AutodiffBackend> SACAgent<B> {
         }
     }
 
-    fn train_critics(&mut self,
+    fn train_critics(
+        &mut self,
         states: Tensor<B, 2>,
         actions: Tensor<B, 2>,
         next_states: Tensor<B, 2>,
@@ -188,7 +190,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         ent_coef: f32,
         lr: f64,
         log_dict: LogItem,
-    ) -> LogItem{
+    ) -> LogItem {
         // select action according to policy
         let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
 
@@ -211,12 +213,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         disp_tensorf("3next_q_vals", &next_q_vals);
 
         // td error + entropy term
-        let target_q_vals = rewards
-            + dones
-                .bool_not()
-                .float()
-                .mul(next_q_vals)
-                .mul_scalar(gamma);
+        let target_q_vals = rewards + dones.bool_not().float().mul(next_q_vals).mul_scalar(gamma);
 
         disp_tensorf("target_q_vals", &target_q_vals);
 
@@ -229,8 +226,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         let mut critic_loss: Tensor<B, 1> = Tensor::zeros(Shape::new([1]), train_device);
         for q in q_vals {
             disp_tensorf("q", &q);
-            critic_loss =
-                critic_loss + loss_fn.forward(q, target_q_vals.clone(), Reduction::Mean);
+            critic_loss = critic_loss + loss_fn.forward(q, target_q_vals.clone(), Reduction::Mean);
         }
 
         disp_tensorf("critic_loss", &critic_loss);
@@ -248,22 +244,20 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // optimise the critics
         let critic_loss_grads = critic_loss.clone().backward();
         let critic_grads = GradientsParams::from_grads(critic_loss_grads, &self.qs);
-        self.qs = self
-            .q_optim
-            .step(lr, self.qs.clone(), critic_grads);
+        self.qs = self.q_optim.step(lr, self.qs.clone(), critic_grads);
 
         log_dict
-
     }
 
-    fn train_policy(&mut self,
+    fn train_policy(
+        &mut self,
         states: Tensor<B, 2>,
         ent_coef: f32,
         lr: f64,
         actions_pi: Tensor<B, 2>,
         log_prob: Tensor<B, 2>,
         log_dict: LogItem,
-    ) -> LogItem{
+    ) -> LogItem {
         // Policy loss
         // recalculate q values with new critics
         let q_vals = self.qs.q_from_actions(states, actions_pi);
@@ -283,9 +277,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
 
         let actor_loss_back = actor_loss.backward();
         let actor_grads = GradientsParams::from_grads(actor_loss_back, &self.pi);
-        self.pi = self
-            .pi_optim
-            .step(lr, self.pi.clone(), actor_grads);
+        self.pi = self.pi_optim.step(lr, self.pi.clone(), actor_grads);
 
         log_dict
     }
@@ -319,7 +311,6 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         offline_params: &crate::common::algorithm::OfflineAlgParams,
         train_device: &<B as Backend>::Device,
     ) -> (Option<f32>, LogItem) {
-
         let log_dict = LogItem::default();
 
         let sample_data = replay_buffer.batch_sample(offline_params.batch_size);
@@ -380,12 +371,12 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         );
 
         let log_dict = self.train_policy(
-            states, 
-            ent_coef, 
-            offline_params.lr, 
-            actions_pi, 
-            log_prob, 
-            log_dict
+            states,
+            ent_coef,
+            offline_params.lr,
+            actions_pi,
+            log_prob,
+            log_dict,
         );
 
         // target critic updates

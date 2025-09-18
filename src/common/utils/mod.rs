@@ -1,6 +1,8 @@
 use burn::tensor::{backend::Backend, Bool, Float, Tensor};
 use rand::Rng;
 
+use crate::common::to_tensor::ToTensorI;
+
 pub mod module_update;
 pub mod modules;
 
@@ -45,7 +47,7 @@ pub fn vec_usize_to_one_hot<B: Backend>(
     classes: usize,
     device: &B::Device,
 ) -> Tensor<B, 2, Float> {
-    Tensor::stack(data.iter().map(|d| d.one_hot(classes, device)).collect(), 0)
+    data.to_tensor(device).one_hot::<2>(classes).float()
 }
 
 pub fn angle_normalise(f: f32) -> f32 {

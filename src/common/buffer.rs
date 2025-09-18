@@ -1,5 +1,4 @@
 use rand::seq::SliceRandom;
-use rand::thread_rng;
 
 /// Stores a batch of `ReplayBuffer<O, A>` samples
 pub struct BatchedReplayBufferSlice<O, A> {
@@ -148,7 +147,7 @@ impl<O: Clone, A: Clone> ReplayBuffer<O, A> {
             );
         }
 
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         // Generate a list of indices
         let mut indices: Vec<usize> = (0..self.states.len()).collect();

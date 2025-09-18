@@ -67,6 +67,7 @@ fn main() {
     let logger = CsvLogger::new(
         PathBuf::from("logs/dqn_cartpole/log_dqn_cartpole.csv"),
         false,
+        true,
     );
 
     match logger.check_can_log(false) {
@@ -74,7 +75,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, Adam<LibTorch>, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(CartpoleEnv::new(500)),

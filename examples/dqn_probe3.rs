@@ -58,7 +58,7 @@ fn main() {
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
-    let logger = CsvLogger::new(PathBuf::from("logs/dqn_probe3/dqn_probe3.csv"), false);
+    let logger = CsvLogger::new(PathBuf::from("logs/dqn_probe3/dqn_probe3.csv"), false, true);
 
     match logger.check_can_log(false) {
         Ok(_) => {}
@@ -66,7 +66,7 @@ fn main() {
     }
 
     let x = ProbeEnvDiscountingTest::default();
-    let mut trainer: OfflineTrainer<_, Adam<LibTorch>, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(x),
