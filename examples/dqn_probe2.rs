@@ -22,7 +22,7 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
     type TrainBackend = Autodiff<LibTorch>;
-    let train_device = LibTorchDevice::Cuda(0);
+    let train_device = LibTorchDevice::default();
 
     let config_optimizer =
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));

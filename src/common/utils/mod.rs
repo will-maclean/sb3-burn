@@ -1,4 +1,4 @@
-use burn::tensor::{backend::Backend, Bool, Float, Tensor};
+use burn::tensor::{backend::Backend, Bool, Float, Shape, Tensor};
 use rand::Rng;
 
 use crate::common::to_tensor::ToTensorI;
@@ -47,7 +47,14 @@ pub fn vec_usize_to_one_hot<B: Backend>(
     classes: usize,
     device: &B::Device,
 ) -> Tensor<B, 2, Float> {
-    data.to_tensor(device).one_hot::<2>(classes).float()
+    if classes == 1 {
+        // burn doesn't let us to one-hot encoding when
+        // there's only one class (not sure why). We
+        // can just manually make that one ourselves.
+        Tensor::ones(Shape::new([data.len(), 1]), device)
+    } else {
+        data.to_tensor(device).one_hot::<2>(classes).float()
+    }
 }
 
 pub fn angle_normalise(f: f32) -> f32 {
