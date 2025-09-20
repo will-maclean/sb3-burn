@@ -13,3 +13,9 @@ ndarray = "0.16.1"
 plotters = "0.3.6"
 rand = "0.9.2"
 serde = { version = "1.0.203", features = ["std", "derive"] }
+
+[profile.release]
+opt-level=3
+lto = "thin"
+codegen-units = 1
+panic = "abort"

@@ -22,7 +22,6 @@ impl<B: Backend> PiModel<B> {
 }
 
 impl<B: Backend> PiModel<B> {
-
     pub fn act(&mut self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
         let latent = self.mlp.forward(obs.clone().unsqueeze_dim(0));
 
@@ -46,7 +45,10 @@ pub struct QModel<B: Backend> {
 impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size + n_actions, 256, 256, n_actions].to_vec(), device),
+            mlp: MLP::new(
+                &[obs_size + n_actions, 256, 256, n_actions].to_vec(),
+                device,
+            ),
         }
     }
 }

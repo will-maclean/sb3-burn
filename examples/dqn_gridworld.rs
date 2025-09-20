@@ -55,7 +55,11 @@ fn main() {
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
-    let logger = CsvLogger::new(PathBuf::from("logs/dqn_gridworld/dqn_gridworld.csv"), false);
+    let logger = CsvLogger::new(
+        PathBuf::from("logs/dqn_gridworld/dqn_gridworld.csv"),
+        false,
+        true,
+    );
 
     match logger.check_can_log(false) {
         Ok(_) => {}

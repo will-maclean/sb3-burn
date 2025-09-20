@@ -28,7 +28,7 @@ fn main() {
 
     type TrainingBacked = Autodiff<LibTorch>;
 
-    let train_device = LibTorchDevice::Cuda(0);
+    let train_device = LibTorchDevice::default();
 
     let env = ProbeEnvContinuousActions::default();
 
@@ -55,7 +55,7 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(256)
         .with_memory_size(1000000)
-        .with_n_steps(2000)
+        .with_n_steps(20000)
         .with_warmup_steps(256)
         .with_lr(5e-3)
         .with_eval_at_start_of_training(true)
@@ -78,7 +78,11 @@ fn main() {
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
-    let logger = CsvLogger::new(PathBuf::from("logs/sac_probe/log_sac_probe.csv"), false);
+    let logger = CsvLogger::new(
+        PathBuf::from("logs/sac_probe/log_sac_probe.csv"),
+        false,
+        true,
+    );
 
     match logger.check_can_log(false) {
         Ok(_) => {}

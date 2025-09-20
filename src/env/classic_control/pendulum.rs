@@ -7,7 +7,7 @@ use crate::{
     },
     env::{
         base::{Env, EnvObservation, ResetOptions, RewardRange},
-        wrappers::TimeLimitWrapper,
+        wrappers::{ScaleRewardWrapper, TimeLimitWrapper},
     },
 };
 
@@ -120,7 +120,6 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
     }
 
     fn reward_range(&self) -> RewardRange {
-        // Is this correct?
         RewardRange {
             low: f32::MIN,
             high: 0.0,
@@ -142,6 +141,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
 
 pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
     let env = make_pendulum_eval(max_steps);
+    let env = Box::new(ScaleRewardWrapper::new(env, 1.0/16.0));
 
     env
 }

@@ -88,8 +88,13 @@ impl<B: AutodiffBackend> EntCoef<B> {
 
                 let temp_m = m.clone().fork(device);
 
+                // Standard SAC alpha training: minimize
+                // J(alpha) = E[ alpha * (-log_pi - target_entropy) ]
+                // Optimize w.r.t. log_alpha for positivity and scale-invariance.
                 let log_probs = log_probs.detach().unsqueeze_dim(1);
-                let loss = -temp_m.mul(log_probs.add_scalar(*target_entropy)).mean();
+                let log_alpha = temp_m.ent.weight.val(); // shape [1,1]
+                let alpha = log_alpha.exp();
+                let loss = -(alpha * (log_probs.add_scalar(*target_entropy))).mean();
 
                 // println!("loss shape: {:?}", loss.shape().dims);
                 // println!("loss: {loss}");
@@ -154,7 +159,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
 
         let ent_coef = match (ent_coef, trainable_ent_coef) {
             (None, false) => panic!("If not training ent_coef, an ent_coef must be supplied"),
-            (None, true) => 0.01,
+            (None, true) => 0.0,
             (Some(val), false) => val,
             (Some(val), true) => {
                 // Note: we optimize the log of the entropy coeff which is slightly different from the paper
@@ -194,8 +199,8 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // select action according to policy
         let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
 
-        disp_tensorf("next_action_sampled", &next_action_sampled);
-        disp_tensorf("next_action_log_prob", &next_action_log_prob);
+        // disp_tensorf("next_action_sampled", &next_action_sampled);
+        // disp_tensorf("next_action_log_prob", &next_action_log_prob);
 
         // next_action_sampled
         let next_q_vals = self
@@ -203,19 +208,19 @@ impl<B: AutodiffBackend> SACAgent<B> {
             .q_from_actions(next_states, next_action_sampled);
 
         let next_q_vals = Tensor::cat(next_q_vals, 1);
-        disp_tensorf("1next_q_vals", &next_q_vals);
+        // disp_tensorf("1next_q_vals", &next_q_vals);
 
         let next_q_vals = next_q_vals.min_dim(1);
-        disp_tensorf("2next_q_vals", &next_q_vals);
+        // disp_tensorf("2next_q_vals", &next_q_vals);
 
         // add the entropy term
         let next_q_vals = next_q_vals - next_action_log_prob.mul_scalar(ent_coef);
-        disp_tensorf("3next_q_vals", &next_q_vals);
+        // disp_tensorf("3next_q_vals", &next_q_vals);
 
         // td error + entropy term
         let target_q_vals = rewards + dones.bool_not().float().mul(next_q_vals).mul_scalar(gamma);
 
-        disp_tensorf("target_q_vals", &target_q_vals);
+        // disp_tensorf("target_q_vals", &target_q_vals);
 
         let target_q_vals = target_q_vals.detach();
 
@@ -225,14 +230,14 @@ impl<B: AutodiffBackend> SACAgent<B> {
         let loss_fn = MseLoss::new();
         let mut critic_loss: Tensor<B, 1> = Tensor::zeros(Shape::new([1]), train_device);
         for q in q_vals {
-            disp_tensorf("q", &q);
+            // disp_tensorf("q", &q);
             critic_loss = critic_loss + loss_fn.forward(q, target_q_vals.clone(), Reduction::Mean);
         }
 
-        disp_tensorf("critic_loss", &critic_loss);
+        // disp_tensorf("critic_loss", &critic_loss);
 
         // Confirmed with sb3 community that the 0.5 scaling has nothing to do with the number
-        // of critics - rather, it is just to remove he factor of 2 that would otherwise appear
+        // of critics - rather, it is just to remove the factor of 2 that would otherwise appear
         // in MSE gradient calculations. (Convention)
         critic_loss = critic_loss.mul_scalar(0.5);
 
@@ -261,14 +266,14 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // Policy loss
         // recalculate q values with new critics
         let q_vals = self.qs.q_from_actions(states, actions_pi);
-        let q_vals = Tensor::cat(q_vals, 1).detach();
-        disp_tensorf("q_vals", &q_vals);
+        let q_vals = Tensor::cat(q_vals, 1);
+        // disp_tensorf("q_vals", &q_vals);
         let min_q = q_vals.min_dim(1);
-        disp_tensorf("min_q", &min_q);
+        // disp_tensorf("min_q", &min_q);
         let actor_loss = log_prob.mul_scalar(ent_coef) - min_q;
-        disp_tensorf("1actor_loss", &actor_loss);
+        // disp_tensorf("1actor_loss", &actor_loss);
         let actor_loss = actor_loss.mean();
-        disp_tensorf("2actor_loss", &actor_loss);
+        // disp_tensorf("2actor_loss", &actor_loss);
 
         let log_dict = log_dict.push(
             "actor_loss".to_string(),
@@ -329,16 +334,16 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .unsqueeze_dim(1);
         let dones = (terminated.float() + truncated.float()).bool();
 
-        disp_tensorf("states", &states);
-        disp_tensorf("actions", &actions);
-        disp_tensorf("next_states", &next_states);
-        disp_tensorf("rewards", &rewards);
-        disp_tensorb("dones", &dones);
+        // disp_tensorf("states", &states);
+        // disp_tensorf("actions", &actions);
+        // disp_tensorf("next_states", &next_states);
+        // disp_tensorf("rewards", &rewards);
+        // disp_tensorb("dones", &dones);
 
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
 
-        disp_tensorf("actions_pi", &actions_pi);
-        disp_tensorf("log_prob", &log_prob);
+        // disp_tensorf("actions_pi", &actions_pi);
+        // disp_tensorf("log_prob", &log_prob);
 
         // train entropy coeficient if required to do so
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
@@ -347,7 +352,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             train_device,
         );
 
-        println!("ent_cof: {}\n", ent_coef);
+        // println!("ent_cof: {}\n", ent_coef);
 
         let log_dict = log_dict.push("ent_coef".to_string(), LogData::Float(ent_coef));
 

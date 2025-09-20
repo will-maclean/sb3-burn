@@ -137,15 +137,15 @@ impl<B: Backend> SquashedDiagGaussianDistribution<B> {
 
 impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
     fn log_prob(&self, sample: Tensor<B, 2>) -> Tensor<B, 2> {
-        disp_tensorf("actions in", &sample);
+        // disp_tensorf("actions in", &sample);
 
         let actions = tanh_bijector_inverse(sample.clone(), self.epsilon);
 
-        disp_tensorf("actions post atanh", &actions);
+        // disp_tensorf("actions post atanh", &actions);
 
-        let log_prob = self.diag_gaus_dist.log_prob(actions);
+        let log_prob = self.diag_gaus_dist.log_prob(actions).sum_dim(1);
 
-        disp_tensorf("first log prob", &log_prob);
+        // disp_tensorf("first log prob", &log_prob);
 
         // Squash correction (from original SAC implementation)
         // this comes from the fact that tanh is bijective and differentiable
@@ -157,7 +157,7 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
                 .log()
                 .sum_dim(1);
 
-        disp_tensorf("second log prob", &out);
+        // disp_tensorf("second log prob", &out);
 
         out
     }

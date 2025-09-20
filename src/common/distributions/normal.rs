@@ -84,13 +84,17 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
 
     fn log_prob(&self, value: Tensor<B, D>) -> Tensor<B, D> {
         let log_scale = self.scale.clone().log();
+        let var = self.variance();
 
-        log_scale.add_scalar((2.0 * PI).sqrt().log(E)).sub(
-            (value - self.loc.clone())
-                .powi_scalar(2)
-                .div_scalar(2)
-                .div(self.variance()),
-        )
+        log_scale
+            .mul_scalar(-1.0)
+            .add_scalar(-0.5 * (2.0 * PI).log(E))
+            .sub(
+                (value - self.loc.clone())
+                    .powi_scalar(2)
+                    .div(var)
+                    .mul_scalar(0.5),
+            )
     }
 
     fn cdf(&self, _value: Tensor<B, D>) -> Tensor<B, D> {

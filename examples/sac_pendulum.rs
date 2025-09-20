@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
+    backend::{wgpu::WgpuDevice, Autodiff, Wgpu},
     grad_clipping::GradientClippingConfig,
     optim::{Adam, AdamConfig},
 };
@@ -26,9 +26,9 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<LibTorch>;
+    type TrainingBacked = Autodiff<Wgpu>;
 
-    let train_device = LibTorchDevice::default();
+    let train_device = WgpuDevice::DiscreteGpu(0);
 
     let env = make_pendulum(None);
 
@@ -53,8 +53,9 @@ fn main() {
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(3)
-        .with_memory_size(20000)
+        .with_batch_size(256)
+        .with_memory_size(50000)
+        .with_gamma(0.99)
         .with_n_steps(20000)
         .with_warmup_steps(1000)
         .with_lr(1e-3)
@@ -81,6 +82,7 @@ fn main() {
     let logger = CsvLogger::new(
         PathBuf::from("logs/sac_pendulum/log_sac_pendulum.csv"),
         false,
+        true,
     );
 
     match logger.check_can_log(false) {
