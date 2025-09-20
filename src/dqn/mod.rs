@@ -237,9 +237,9 @@ mod test {
         log_dir.push("tmp_logs");
         let _ = std::fs::create_dir(&log_dir);
 
-        let logger = CsvLogger::new(PathBuf::from("tmp_logs/log.csv"), false);
+        let logger = CsvLogger::new(PathBuf::from("tmp_logs/log.csv"), false, true);
 
-        let mut trainer: OfflineTrainer<_, Adam<NdArray>, _, _, _> = OfflineTrainer::new(
+        let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
             offline_params,
             Box::new(env),
             Box::<GridWorldEnv>::default(),

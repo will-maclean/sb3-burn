@@ -1,5 +1,5 @@
 use ndarray::{indices_of, Array, Dim};
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 use crate::common::spaces::{BoxSpace, Discrete, Space};
 
@@ -154,15 +154,15 @@ impl Env<Vec<f32>, usize> for GridWorldEnv {
         }
 
         // set the goal position
-        let mut rng = thread_rng();
-        let goal_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
+        let mut rng = rand::rng();
+        let goal_pos = (rng.random_range(0..self.dim), rng.random_range(0..self.dim));
         self.field[goal_pos] = 2.0;
 
         // set the player position
-        let mut player_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
+        let mut player_pos = (rng.random_range(0..self.dim), rng.random_range(0..self.dim));
 
         while player_pos == goal_pos {
-            player_pos = (rng.gen_range(0..self.dim), rng.gen_range(0..self.dim));
+            player_pos = (rng.random_range(0..self.dim), rng.random_range(0..self.dim));
         }
 
         let player_pos = player_pos;

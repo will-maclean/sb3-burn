@@ -67,7 +67,7 @@ pub struct ProbeEnvBackpropTest {
 
 impl ProbeEnvBackpropTest {
     fn gen_obs(&mut self) -> usize {
-        if self.rng.gen_bool(0.5) {
+        if self.rng.random_bool(0.5) {
             1
         } else {
             0
@@ -263,7 +263,7 @@ pub struct ProbeEnvStateActionTest {
 
 impl ProbeEnvStateActionTest {
     fn gen_obs(&mut self) -> usize {
-        if self.rng.gen_bool(0.5) {
+        if self.rng.random_bool(0.5) {
             1
         } else {
             0
@@ -350,7 +350,7 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     }
 
     fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
-        self.state = self.rng.gen::<f32>();
+        self.state = self.rng.random::<f32>();
 
         [self.state].to_vec()
     }

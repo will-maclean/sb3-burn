@@ -1,3 +1,4 @@
+use burn::tensor::cast::ToElement;
 use burn::tensor::{backend::Backend, Distribution, Tensor};
 use dyn_clone::DynClone;
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -37,7 +38,7 @@ impl From<usize> for Discrete {
     fn from(value: usize) -> Self {
         Self {
             n: value,
-            rng: Rc::new(RefCell::new(StdRng::from_entropy())),
+            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
         }
     }
 }
@@ -48,7 +49,7 @@ impl Space<usize> for Discrete {
     }
 
     fn sample(&mut self) -> usize {
-        self.rng.borrow_mut().gen_range(0..self.n)
+        self.rng.borrow_mut().random_range(0..self.n)
     }
 
     fn seed(&mut self, seed: u64) {
@@ -85,7 +86,7 @@ impl From<(Vec<f32>, Vec<f32>)> for BoxSpace<Vec<f32>> {
         Self {
             low: value.0,
             high: value.1,
-            rng: Rc::new(RefCell::new(StdRng::from_entropy())),
+            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
         }
     }
 }
@@ -108,7 +109,7 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
             .map(|_| {
                 let low_bound = self.low.iter().cloned().fold(f32::INFINITY, f32::min);
                 let high_bound = self.high.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-                self.rng.borrow_mut().gen_range(low_bound..high_bound)
+                self.rng.borrow_mut().random_range(low_bound..high_bound)
             })
             .collect()
     }
@@ -128,7 +129,7 @@ impl<B: Backend, const D: usize> From<(Tensor<B, D>, Tensor<B, D>)> for BoxSpace
         Self {
             low: value.0,
             high: value.1,
-            rng: Rc::new(RefCell::new(StdRng::from_entropy())),
+            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
         }
     }
 }
@@ -144,11 +145,13 @@ impl<B: Backend, const D: usize> Space<Tensor<B, D>> for BoxSpace<Tensor<B, D>> 
             .greater_equal(self.low.clone())
             .all()
             .into_scalar()
+            .to_bool()
             & sample
                 .clone()
                 .lower_equal(self.low.clone())
                 .all()
                 .into_scalar()
+                .to_bool()
     }
 
     fn sample(&mut self) -> Tensor<B, D> {

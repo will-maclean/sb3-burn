@@ -61,16 +61,13 @@ pub struct DiagGaussianDistribution<B: Backend> {
 }
 
 impl<B: Backend> DiagGaussianDistribution<B> {
-    pub fn new(
-        latent_dim: usize,
-        action_dim: usize,
-        device: &B::Device,
-    ) -> Self {
+    pub fn new(latent_dim: usize, action_dim: usize, device: &B::Device) -> Self {
         // create the distribution with dummy values for now
         let loc: Tensor<B, 2> =
-            Tensor::ones(Shape::new([action_dim]), &Default::default()).unsqueeze_dim(0);
+            Tensor::<B, 1>::ones(Shape::new::<1>([action_dim]), &Default::default())
+                .unsqueeze_dim(0);
         let std: Tensor<B, 2> =
-            Tensor::ones(Shape::new([action_dim]), &Default::default()).unsqueeze_dim(0);
+            Tensor::<B, 1>::ones(Shape::new([action_dim]), &Default::default()).unsqueeze_dim(0);
         let dist: Normal<B, 2> = Normal::new(loc, std);
 
         Self {
@@ -102,9 +99,7 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
-        let scale: Tensor<B, 2> = self.log_std.forward(obs.clone())
-            .clamp(-20, 2)
-            .exp();
+        let scale: Tensor<B, 2> = self.log_std.forward(obs.clone()).clamp(-20, 2).exp();
 
         let loc = self.means.forward(obs);
 
@@ -132,18 +127,9 @@ pub struct SquashedDiagGaussianDistribution<B: Backend> {
 }
 
 impl<B: Backend> SquashedDiagGaussianDistribution<B> {
-    pub fn new(
-        latent_dim: usize,
-        action_dim: usize,
-        device: &B::Device,
-        epsilon: f32,
-    ) -> Self {
+    pub fn new(latent_dim: usize, action_dim: usize, device: &B::Device, epsilon: f32) -> Self {
         Self {
-            diag_gaus_dist: DiagGaussianDistribution::new(
-                latent_dim,
-                action_dim,
-                device,
-            ),
+            diag_gaus_dist: DiagGaussianDistribution::new(latent_dim, action_dim, device),
             epsilon,
         }
     }
@@ -189,7 +175,9 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
-        self.diag_gaus_dist.actions_from_obs(obs, deterministic).tanh()
+        self.diag_gaus_dist
+            .actions_from_obs(obs, deterministic)
+            .tanh()
     }
 }
 
@@ -225,10 +213,12 @@ fn tanh_bijector_atanh<B: Backend>(x: Tensor<B, 2>) -> Tensor<B, 2> {
 mod test {
     use burn::{
         backend::{Autodiff, NdArray},
-        tensor::{Distribution, Shape, Tensor},
+        tensor::{Distribution, ElementConversion, Shape, Tensor},
     };
 
-    use crate::common::distributions::action_distribution::ActionDistribution;
+    use crate::common::distributions::action_distribution::{
+        ActionDistribution, SquashedDiagGaussianDistribution,
+    };
 
     use super::DiagGaussianDistribution;
 
@@ -237,14 +227,11 @@ mod test {
         type Backend = Autodiff<NdArray>;
         let latent_size = 10;
         let action_size = 3;
-        let mut dist: DiagGaussianDistribution<Backend> = DiagGaussianDistribution::new(
-            latent_size,
-            action_size,
-            &Default::default(),
-        );
+        let mut dist: DiagGaussianDistribution<Backend> =
+            DiagGaussianDistribution::new(latent_size, action_size, &Default::default());
 
         // create some dummy obs
-        let dummy_obs: Tensor<Backend, 2> = Tensor::random(
+        let dummy_obs: Tensor<Backend, 2> = Tensor::<Backend, 1>::random(
             Shape::new([latent_size]),
             Distribution::Normal(0.0, 1.0),
             &Default::default(),
@@ -262,5 +249,26 @@ mod test {
         // make sure no panic
         dist.mode();
         dist.entropy();
+    }
+
+    #[test]
+    fn test_squashed_gaussian() {
+        type Backend = NdArray;
+
+        let n_features: usize = 3;
+        let n_actions: usize = 2;
+
+        let mut dist: SquashedDiagGaussianDistribution<Backend> =
+            SquashedDiagGaussianDistribution::new(n_features, n_actions, &Default::default(), 1e-6);
+
+        let actions = dist.sample();
+
+        assert!(actions
+            .abs()
+            .max()
+            .lower_equal_elem(1.0)
+            .all()
+            .into_scalar()
+            .elem::<bool>())
     }
 }
