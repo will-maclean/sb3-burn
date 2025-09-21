@@ -4,10 +4,7 @@ use burn::{
     tensor::{backend::Backend, Shape, Tensor},
 };
 
-use crate::common::{
-    agent::Policy,
-    utils::module_update::update_linear,
-};
+use crate::common::{agent::Policy, utils::module_update::update_linear};
 
 use super::{distribution::BaseDistribution, normal::Normal};
 
@@ -116,7 +113,7 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
 impl<B: Backend> Policy<B> for DiagGaussianDistribution<B> {
     fn update(&mut self, from: &Self, tau: Option<f32>) {
         self.means = update_linear(&from.means, self.means.clone(), tau);
-        //TODO: update self.log_std
+        self.log_std = update_linear(&from.log_std, self.log_std.clone(), tau);
     }
 }
 
