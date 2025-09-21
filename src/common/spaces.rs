@@ -2,8 +2,6 @@ use burn::tensor::cast::ToElement;
 use burn::tensor::{backend::Backend, Distribution, Tensor};
 use dyn_clone::DynClone;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// Defines a space in which a action, observation, or other may exist
 pub trait Space<T: Clone>: DynClone {
@@ -31,14 +29,14 @@ pub struct Discrete {
     n: usize,
 
     /// rng used for sampling
-    rng: Rc<RefCell<StdRng>>,
+    rng: StdRng,
 }
 
 impl From<usize> for Discrete {
     fn from(value: usize) -> Self {
         Self {
             n: value,
-            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
+            rng: StdRng::from_os_rng(),
         }
     }
 }
@@ -49,12 +47,11 @@ impl Space<usize> for Discrete {
     }
 
     fn sample(&mut self) -> usize {
-        self.rng.borrow_mut().random_range(0..self.n)
+        self.rng.random_range(0..self.n)
     }
 
     fn seed(&mut self, seed: u64) {
-        let mut rng = self.rng.borrow_mut();
-        *rng = StdRng::seed_from_u64(seed);
+        self.rng = StdRng::seed_from_u64(seed);
     }
 
     fn shape(&self) -> usize {
@@ -78,7 +75,7 @@ pub struct BoxSpace<T> {
     high: T,
 
     /// rng used for sampling
-    rng: Rc<RefCell<StdRng>>,
+    rng: StdRng,
 }
 
 impl From<(Vec<f32>, Vec<f32>)> for BoxSpace<Vec<f32>> {
@@ -86,7 +83,7 @@ impl From<(Vec<f32>, Vec<f32>)> for BoxSpace<Vec<f32>> {
         Self {
             low: value.0,
             high: value.1,
-            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
+            rng: StdRng::from_os_rng(),
         }
     }
 }
@@ -106,17 +103,12 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
 
     fn sample(&mut self) -> Vec<f32> {
         (0..self.low.len())
-            .map(|_| {
-                let low_bound = self.low.iter().cloned().fold(f32::INFINITY, f32::min);
-                let high_bound = self.high.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-                self.rng.borrow_mut().random_range(low_bound..high_bound)
-            })
+            .map(|i| self.rng.random_range(self.low[i]..=self.high[i]))
             .collect()
     }
 
     fn seed(&mut self, seed: u64) {
-        let mut rng = self.rng.borrow_mut();
-        *rng = StdRng::seed_from_u64(seed);
+        self.rng = StdRng::seed_from_u64(seed);
     }
 
     fn shape(&self) -> Vec<f32> {
@@ -139,7 +131,7 @@ impl<B: Backend, const D: usize> From<(Tensor<B, D>, Tensor<B, D>)> for BoxSpace
         Self {
             low: value.0,
             high: value.1,
-            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
+            rng: StdRng::from_os_rng(),
         }
     }
 }
@@ -175,8 +167,7 @@ impl<B: Backend, const D: usize> Space<Tensor<B, D>> for BoxSpace<Tensor<B, D>> 
     }
 
     fn seed(&mut self, seed: u64) {
-        let mut rng = self.rng.borrow_mut();
-        *rng = StdRng::seed_from_u64(seed);
+        self.rng = StdRng::seed_from_u64(seed);
     }
 
     fn shape(&self) -> Tensor<B, D> {
