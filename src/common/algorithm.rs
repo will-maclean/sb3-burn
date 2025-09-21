@@ -112,6 +112,7 @@ impl<
     }
 
     pub fn train(&mut self) {
+        println!("Starting training...");
         self.callback.on_training_start(self);
 
         let mut running_loss = Vec::new();
@@ -281,6 +282,7 @@ impl<
             self.logger.log(log);
         }
 
+        println!("Training complete. Handling end-of-training procedures...");
         self.callback.on_training_end(self);
         let _ = self.logger.dump();
     }

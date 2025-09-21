@@ -6,7 +6,7 @@ use burn::{
 
 use crate::common::{
     agent::Policy,
-    utils::{disp_tensorf, module_update::update_linear},
+    utils::module_update::update_linear,
 };
 
 use super::{distribution::BaseDistribution, normal::Normal};
