@@ -17,7 +17,7 @@ use crate::common::{
     logger::{LogData, LogItem},
     spaces::{BoxSpace, Space},
     to_tensor::{ToTensorB, ToTensorF},
-    utils::{disp_tensorb, disp_tensorf},
+    utils::scale_actions_to_env,
 };
 
 use crate::common::timer::Profiler;
@@ -201,7 +201,8 @@ impl<B: AutodiffBackend> SACAgent<B> {
         log_dict: LogItem,
     ) -> LogItem {
         // select action according to policy
-        let (next_action_sampled_raw, next_action_log_prob_raw) = self.pi.act_log_prob(next_states.clone());
+        let (next_action_sampled_raw, next_action_log_prob_raw) =
+            self.pi.act_log_prob(next_states.clone());
 
         let (next_action_sampled, action_scale, _) =
             scale_actions_to_env(next_action_sampled_raw, &self.action_space, train_device);
@@ -273,7 +274,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
     ) -> LogItem {
         // Policy loss
         // recalculate q values with new critics
-        let q_vals = self.qs.q_from_actions(states, actions_pi);
+        let q_vals = self.qs.clone().no_grad().q_from_actions(states, actions_pi);
         let q_vals = Tensor::cat(q_vals, 1);
         // disp_tensorf("q_vals", &q_vals);
         let min_q = q_vals.min_dim(1);
@@ -296,19 +297,6 @@ impl<B: AutodiffBackend> SACAgent<B> {
     }
 }
 
-fn scale_actions_to_env<B: AutodiffBackend>(
-    actions: Tensor<B, 2>,
-    action_space: &BoxSpace<Vec<f32>>,
-    device: &B::Device,
-) -> (Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2>) {
-    let low = action_space.low().clone().to_tensor(device).unsqueeze_dim(0);
-    let high = action_space.high().clone().to_tensor(device).unsqueeze_dim(0);
-    let scale = (high.clone() - low.clone()) / 2.0;
-    let bias = (high + low) / 2.0;
-    
-    (actions * scale.clone() + bias.clone(), scale, bias)
-}
-
 impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
     fn act(
         &mut self,
@@ -323,11 +311,9 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .pi
             .act(&obs.clone().to_tensor(inference_device), greedy)
             .detach();
-        let (a_scaled, _, _) = scale_actions_to_env(a_raw.unsqueeze(), &self.action_space, inference_device);
-        let a_scaled = a_scaled
-            .into_data()
-            .to_vec()
-            .unwrap();
+        let (a_scaled, _, _) =
+            scale_actions_to_env(a_raw.unsqueeze(), &self.action_space, inference_device);
+        let a_scaled = a_scaled.into_data().to_vec().unwrap();
 
         (a_scaled, LogItem::default())
     }
@@ -345,7 +331,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             replay_buffer.batch_sample(offline_params.batch_size)
         });
 
-        self.profiler.record("buffer_sample", t_buffer_sample.elapsed().as_secs_f64());
+        self.profiler
+            .record("buffer_sample", t_buffer_sample.elapsed().as_secs_f64());
 
         let t_to_tensor0 = std::time::Instant::now();
         let states = sample_data.states.to_tensor(train_device);
@@ -356,8 +343,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .terminated
             .to_tensor(train_device)
             .unsqueeze_dim(1);
-            self.profiler
-                .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
+        self.profiler
+            .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
 
         // disp_tensorf("states", &states);
         // disp_tensorf("actions", &actions);
@@ -374,7 +361,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let log_prob = log_prob_raw - action_scale.log().sum_dim(1);
 
         self.profiler
-                .record("policy", t_policy0.elapsed().as_secs_f64());
+            .record("policy", t_policy0.elapsed().as_secs_f64());
 
         // disp_tensorf("actions_pi", &actions_pi);
         // disp_tensorf("log_prob", &log_prob);
@@ -386,7 +373,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             offline_params.lr,
             train_device,
         );
-            self.profiler.record("ent_coef", t_ent0.elapsed().as_secs_f64());
+        self.profiler
+            .record("ent_coef", t_ent0.elapsed().as_secs_f64());
 
         // println!("ent_cof: {}\n", ent_coef);
 
@@ -411,7 +399,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             offline_params.lr,
             log_dict,
         );
-            self.profiler.record("critic", t_critic0.elapsed().as_secs_f64());
+        self.profiler
+            .record("critic", t_critic0.elapsed().as_secs_f64());
 
         let t_actor0 = std::time::Instant::now();
         let log_dict = self.train_policy(
@@ -422,10 +411,11 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             log_prob,
             log_dict,
         );
-            self.profiler.record("actor", t_actor0.elapsed().as_secs_f64());
+        self.profiler
+            .record("actor", t_actor0.elapsed().as_secs_f64());
 
         // target critic updates
-        if global_step > (self.last_update + self.update_every) {
+        if global_step >= (self.last_update + self.update_every) {
             // hard update
             self.target_qs.update(&self.qs, self.critic_tau);
 
