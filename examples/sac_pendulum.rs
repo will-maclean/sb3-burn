@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{wgpu::WgpuDevice, Autodiff, Wgpu},
+    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
     optim::{Adam, AdamConfig},
 };
@@ -26,9 +26,8 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<Wgpu>;
-
-    let train_device = WgpuDevice::DiscreteGpu(0);
+    type TrainingBacked = Autodiff<LibTorch>;
+    let train_device = LibTorchDevice::Cuda(0);
 
     let env = make_pendulum(None);
 
@@ -57,8 +56,8 @@ fn main() {
         .with_memory_size(50000)
         .with_gamma(0.99)
         .with_n_steps(50000)
-        .with_warmup_steps(1000)
-        .with_lr(1e-3)
+        .with_warmup_steps(5000)
+        .with_lr(3e-4)
         .with_profile_timers(true)
         .with_profile_log_every_steps(250)
         .with_eval_at_start_of_training(true)
@@ -71,8 +70,8 @@ fn main() {
         qs,
         pi_optim,
         q_optim,
-        None,
-        true,
+        Some(0.2),
+        false,
         None,
         Some(0.005),
         Box::new(BoxSpace::from(([0.0].to_vec(), [0.0].to_vec()))),
