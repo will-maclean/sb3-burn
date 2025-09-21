@@ -51,7 +51,7 @@ impl Default for PendulumEnv {
             m: 1.0,
             l: 1.0,
             obs_space: BoxSpace::from((low, high)),
-            action_space: BoxSpace::from((vec![-2.0], vec![2.0])),
+            action_space: BoxSpace::from((vec![-1.0], vec![1.0])),
             state: vec![0.0, 0.0],
             last_u: 0.0,
         }

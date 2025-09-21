@@ -201,7 +201,11 @@ impl<B: AutodiffBackend> SACAgent<B> {
         log_dict: LogItem,
     ) -> LogItem {
         // select action according to policy
-        let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
+        let (next_action_sampled_raw, next_action_log_prob_raw) = self.pi.act_log_prob(next_states.clone());
+
+        let (next_action_sampled, action_scale, _) =
+            scale_actions_to_env(next_action_sampled_raw, &self.action_space, train_device);
+        let next_action_log_prob = next_action_log_prob_raw - action_scale.log().sum_dim(1);
 
         // disp_tensorf("next_action_sampled", &next_action_sampled);
         // disp_tensorf("next_action_log_prob", &next_action_log_prob);
@@ -292,6 +296,19 @@ impl<B: AutodiffBackend> SACAgent<B> {
     }
 }
 
+fn scale_actions_to_env<B: AutodiffBackend>(
+    actions: Tensor<B, 2>,
+    action_space: &BoxSpace<Vec<f32>>,
+    device: &B::Device,
+) -> (Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2>) {
+    let low = action_space.low().clone().to_tensor(device).unsqueeze_dim(0);
+    let high = action_space.high().clone().to_tensor(device).unsqueeze_dim(0);
+    let scale = (high.clone() - low.clone()) / 2.0;
+    let bias = (high + low) / 2.0;
+    
+    (actions * scale.clone() + bias.clone(), scale, bias)
+}
+
 impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
     fn act(
         &mut self,
@@ -302,15 +319,17 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         inference_device: &<B>::Device,
     ) -> (Vec<f32>, LogItem) {
         // don't judge me
-        let a: Vec<f32> = self
+        let a_raw = self
             .pi
             .act(&obs.clone().to_tensor(inference_device), greedy)
-            .detach()
+            .detach();
+        let (a_scaled, _, _) = scale_actions_to_env(a_raw.unsqueeze(), &self.action_space, inference_device);
+        let a_scaled = a_scaled
             .into_data()
             .to_vec()
             .unwrap();
 
-        (a, LogItem::default())
+        (a_scaled, LogItem::default())
     }
 
     fn train_step(
@@ -347,8 +366,14 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         // disp_tensorb("dones", &dones);
 
         let t_policy0 = std::time::Instant::now();
-        let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
-            self.profiler
+        let (actions_pi_raw, log_prob_raw) = self.pi.act_log_prob(states.clone());
+
+        let (actions_pi_scaled, action_scale, _) =
+            scale_actions_to_env(actions_pi_raw, &self.action_space, train_device);
+
+        let log_prob = log_prob_raw - action_scale.log().sum_dim(1);
+
+        self.profiler
                 .record("policy", t_policy0.elapsed().as_secs_f64());
 
         // disp_tensorf("actions_pi", &actions_pi);
@@ -393,7 +418,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             states,
             ent_coef,
             offline_params.lr,
-            actions_pi,
+            actions_pi_scaled,
             log_prob,
             log_dict,
         );

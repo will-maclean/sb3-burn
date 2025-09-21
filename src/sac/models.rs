@@ -46,7 +46,7 @@ impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
             mlp: MLP::new(
-                &[obs_size + n_actions, 256, 256, n_actions].to_vec(),
+                &[obs_size + n_actions, 256, 256, 1].to_vec(),
                 device,
             ),
         }
