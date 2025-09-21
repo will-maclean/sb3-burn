@@ -63,6 +63,16 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     ///
     /// Space<T> is cloned using dyn_clone.
     fn action_space(&self) -> Box<dyn Space<A>>;
+
+    /// Optional hook: flush averaged profiling data for the last interval.
+    /// Default: no-op.
+    fn profile_flush(
+        &mut self,
+        _step: usize,
+        _interval_steps: usize,
+    ) -> Option<LogItem> {
+        None
+    }
 }
 
 /// The Policy trait defines the specific behaviours we need from

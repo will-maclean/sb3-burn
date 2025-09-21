@@ -16,6 +16,7 @@ use super::{
     logger::{LogData, LogItem, Logger},
     utils::mean,
 };
+use crate::common::timer::Profiler;
 
 #[derive(Config)]
 pub struct OfflineAlgParams {
@@ -45,6 +46,12 @@ pub struct OfflineAlgParams {
     pub train_every: usize,
     #[config(default = 1)]
     pub grad_steps: usize,
+    #[config(default = false)]
+    /// Enable per-phase timing with low-overhead Instants
+    pub profile_timers: bool,
+    #[config(default = 250)]
+    /// Log timing averages every N steps (when profiling)
+    pub profile_log_every_steps: usize,
 }
 
 pub struct OfflineTrainer<
@@ -131,24 +138,37 @@ impl<
         let mut state = self.env.reset(None, None);
         let mut ep_start_time = time::Instant::now();
 
+        // Reusable interval profiler for the trainer loop
+        let mut trainer_prof = Profiler::new(self.offline_params.profile_timers);
+
         for i in (0..self.offline_params.n_steps).progress_with_style(style) {
+            let loop_start = time::Instant::now();
             let (action, log) = match i < self.offline_params.warmup_steps {
                 true => (self.env.action_space().sample(), Default::default()),
-                false => self.agent.act(
-                    i,
-                    (i as f32) / (self.offline_params.n_steps as f32),
-                    &state,
-                    false,
-                    self.train_device,
-                ),
+                false => {
+                    let t0 = time::Instant::now();
+                    let res = self.agent.act(
+                        i,
+                        (i as f32) / (self.offline_params.n_steps as f32),
+                        &state,
+                        false,
+                        self.train_device,
+                    );
+                        trainer_prof.record("act", t0.elapsed().as_secs_f64());
+                    res
+                }
             };
 
             self.logger.log(log);
 
+            let t0 = time::Instant::now();
             let step_res = self.env.step(&action);
+                trainer_prof.record("env_step", t0.elapsed().as_secs_f64());
 
             if self.offline_params.render & self.env.renderable() {
+                let t0 = time::Instant::now();
                 self.env.render();
+                    trainer_prof.record("render", t0.elapsed().as_secs_f64());
             }
 
             let done = step_res.terminated | step_res.truncated;
@@ -156,6 +176,7 @@ impl<
             running_reward += step_res.reward;
             ep_len += 1;
 
+            let t0 = time::Instant::now();
             self.buffer.add(
                 state,
                 action,
@@ -164,9 +185,11 @@ impl<
                 step_res.terminated,
                 step_res.truncated,
             );
+                trainer_prof.record("buf_add", t0.elapsed().as_secs_f64());
 
             if (i >= self.offline_params.warmup_steps) & (i % self.offline_params.train_every == 0)
             {
+                let t_train0 = time::Instant::now();
                 for _ in 0..self.offline_params.grad_steps {
                     let (loss, log) = self.agent.train_step(
                         i,
@@ -182,11 +205,13 @@ impl<
 
                     self.logger.log(log)
                 }
+                    trainer_prof.record("train", t_train0.elapsed().as_secs_f64());
             }
 
             if self.offline_params.evaluate_during_training
                 & (i % self.offline_params.evaluate_every_steps == 0)
             {
+                let t0 = time::Instant::now();
                 let log: LogItem = evaluate_policy(
                     &mut self.agent,
                     &mut *self.eval_env,
@@ -196,6 +221,28 @@ impl<
                 .into();
 
                 self.logger.log(log);
+                    trainer_prof.record("eval", t0.elapsed().as_secs_f64());
+            }
+
+            if self.offline_params.profile_timers {
+                trainer_prof.record("loop", loop_start.elapsed().as_secs_f64());
+
+                if (i + 1) % self.offline_params.profile_log_every_steps == 0 {
+                    if let Some(item) = trainer_prof
+                        .into_logitem(i, self.offline_params.profile_log_every_steps, Some("trainer_"))
+                    {
+                        self.logger.log(item);
+                    }
+                    trainer_prof.reset();
+
+                    // Also flush agent-level profiler averages, if any
+                    if let Some(agent_log) = self
+                        .agent
+                        .profile_flush(i, self.offline_params.profile_log_every_steps)
+                    {
+                        self.logger.log(agent_log);
+                    }
+                }
             }
 
             if done {

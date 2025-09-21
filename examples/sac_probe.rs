@@ -55,7 +55,7 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(256)
         .with_memory_size(1000000)
-        .with_n_steps(20000)
+        .with_n_steps(2000)
         .with_warmup_steps(256)
         .with_lr(5e-3)
         .with_eval_at_start_of_training(true)

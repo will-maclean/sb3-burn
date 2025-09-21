@@ -56,9 +56,11 @@ fn main() {
         .with_batch_size(256)
         .with_memory_size(50000)
         .with_gamma(0.99)
-        .with_n_steps(20000)
+        .with_n_steps(50000)
         .with_warmup_steps(1000)
         .with_lr(1e-3)
+        .with_profile_timers(true)
+        .with_profile_log_every_steps(250)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(false);

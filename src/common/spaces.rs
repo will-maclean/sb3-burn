@@ -124,6 +124,16 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
     }
 }
 
+impl BoxSpace<Vec<f32>> {
+    pub fn low(&self) -> &Vec<f32> {
+        &self.low
+    }
+
+    pub fn high(&self) -> &Vec<f32> {
+        &self.high
+    }
+}
+
 impl<B: Backend, const D: usize> From<(Tensor<B, D>, Tensor<B, D>)> for BoxSpace<Tensor<B, D>> {
     fn from(value: (Tensor<B, D>, Tensor<B, D>)) -> Self {
         Self {

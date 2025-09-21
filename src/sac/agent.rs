@@ -20,6 +20,8 @@ use crate::common::{
     utils::{disp_tensorb, disp_tensorf},
 };
 
+use crate::common::timer::Profiler;
+
 use super::models::{PiModel, QModelSet};
 
 #[derive(Debug, Module)]
@@ -129,6 +131,7 @@ pub struct SACAgent<B: AutodiffBackend> {
     observation_space: Box<BoxSpace<Vec<f32>>>,
     action_space: Box<BoxSpace<Vec<f32>>>,
     last_update: usize,
+    profiler: Profiler,
 }
 
 impl<B: AutodiffBackend> SACAgent<B> {
@@ -180,6 +183,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
             action_space,
             last_update: 0,
             update_every: 1,
+            profiler: Profiler::new(true),
         }
     }
 
@@ -317,9 +321,14 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         train_device: &<B as Backend>::Device,
     ) -> (Option<f32>, LogItem) {
         let log_dict = LogItem::default();
+        let t_buffer_sample = std::time::Instant::now();
+        let sample_data = self.profiler.time("sample", || {
+            replay_buffer.batch_sample(offline_params.batch_size)
+        });
 
-        let sample_data = replay_buffer.batch_sample(offline_params.batch_size);
+        self.profiler.record("buffer_sample", t_buffer_sample.elapsed().as_secs_f64());
 
+        let t_to_tensor0 = std::time::Instant::now();
         let states = sample_data.states.to_tensor(train_device);
         let actions = sample_data.actions.to_tensor(train_device);
         let next_states = sample_data.next_states.to_tensor(train_device);
@@ -332,6 +341,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .truncated
             .to_tensor(train_device)
             .unsqueeze_dim(1);
+            self.profiler
+                .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
         let dones = (terminated.float() + truncated.float()).bool();
 
         // disp_tensorf("states", &states);
@@ -340,17 +351,22 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         // disp_tensorf("rewards", &rewards);
         // disp_tensorb("dones", &dones);
 
+        let t_policy0 = std::time::Instant::now();
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
+            self.profiler
+                .record("policy", t_policy0.elapsed().as_secs_f64());
 
         // disp_tensorf("actions_pi", &actions_pi);
         // disp_tensorf("log_prob", &log_prob);
 
         // train entropy coeficient if required to do so
+        let t_ent0 = std::time::Instant::now();
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
             log_prob.clone().flatten(0, 1),
             offline_params.lr,
             train_device,
         );
+            self.profiler.record("ent_coef", t_ent0.elapsed().as_secs_f64());
 
         // println!("ent_cof: {}\n", ent_coef);
 
@@ -362,6 +378,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             log_dict
         };
 
+        let t_critic0 = std::time::Instant::now();
         let log_dict = self.train_critics(
             states.clone(),
             actions,
@@ -374,7 +391,9 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             offline_params.lr,
             log_dict,
         );
+            self.profiler.record("critic", t_critic0.elapsed().as_secs_f64());
 
+        let t_actor0 = std::time::Instant::now();
         let log_dict = self.train_policy(
             states,
             ent_coef,
@@ -383,6 +402,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             log_prob,
             log_dict,
         );
+            self.profiler.record("actor", t_actor0.elapsed().as_secs_f64());
 
         // target critic updates
         if global_step > (self.last_update + self.update_every) {
@@ -407,6 +427,14 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
         self.action_space.clone()
+    }
+
+    fn profile_flush(&mut self, step: usize, interval_steps: usize) -> Option<LogItem> {
+        let item = self
+            .profiler
+            .into_logitem(step, interval_steps, Some("agent_"));
+        self.profiler.reset();
+        item
     }
 }
 

@@ -108,7 +108,7 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
         if deterministic {
             loc
         } else {
-            self.dist.sample()
+            self.dist.rsample()
         }
     }
 }
