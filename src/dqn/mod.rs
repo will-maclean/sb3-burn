@@ -137,8 +137,7 @@ where
         let actions = sample.actions.to_tensor(train_device).unsqueeze_dim(1);
         let next_states = sample.next_states;
         let rewards = sample.rewards.to_tensor(train_device).unsqueeze_dim(1);
-        let terminated = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
-        let truncated = sample.truncated.to_tensor(train_device).unsqueeze_dim(1);
+        let done = sample.terminated.to_tensor(train_device).unsqueeze_dim(1);
 
         let q_vals_ungathered = self
             .q1
@@ -149,7 +148,6 @@ where
                 .forward(next_states, self.observation_space(), train_device);
         let next_q_vals = next_q_vals_ungathered.max_dim(1);
 
-        let done = terminated.float().add(truncated.float()).bool();
         let targets = rewards + done.bool_not().float() * next_q_vals * offline_params.gamma;
 
         let loss = MseLoss::new().forward(q_vals, targets, Reduction::Mean);

@@ -337,13 +337,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .terminated
             .to_tensor(train_device)
             .unsqueeze_dim(1);
-        let truncated = sample_data
-            .truncated
-            .to_tensor(train_device)
-            .unsqueeze_dim(1);
             self.profiler
                 .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
-        let dones = (terminated.float() + truncated.float()).bool();
 
         // disp_tensorf("states", &states);
         // disp_tensorf("actions", &actions);
@@ -384,7 +379,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             actions,
             next_states,
             rewards,
-            dones,
+            terminated,
             offline_params.gamma,
             train_device,
             ent_coef,
