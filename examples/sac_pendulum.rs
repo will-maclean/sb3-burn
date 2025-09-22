@@ -55,14 +55,15 @@ fn main() {
         .with_batch_size(256)
         .with_memory_size(50000)
         .with_gamma(0.99)
-        .with_n_steps(50000)
-        .with_warmup_steps(5000)
+        .with_n_steps(100_000)
+        .with_warmup_steps(10000)
         .with_lr(3e-4)
         .with_profile_timers(true)
         .with_profile_log_every_steps(250)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_during_training(false);
+        .with_evaluate_during_training(true)
+        .with_evaluate_every_steps(2000);
 
     let agent = SACAgent::new(
         pi,
@@ -70,11 +71,12 @@ fn main() {
         qs,
         pi_optim,
         q_optim,
-        Some(0.2),
-        false,
+        Some(0.1),
+        true,
         None,
-        Some(0.005),
-        Box::new(BoxSpace::from(([0.0].to_vec(), [0.0].to_vec()))),
+        Some(1e-3),
+        Some(0.01),
+        Box::new(BoxSpace::from(([-1.0, -1.0, -1.0].to_vec(), [1.0, 1.0, 1.0].to_vec()))),
         Box::new(BoxSpace::from(([-1.0].to_vec(), [1.0].to_vec()))),
     );
 

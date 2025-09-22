@@ -95,11 +95,9 @@ impl<B: AutodiffBackend> EntCoef<B> {
                 // Optimize w.r.t. log_alpha for positivity and scale-invariance.
                 let log_probs = log_probs.detach().unsqueeze_dim(1);
                 let log_alpha = temp_m.ent.weight.val(); // shape [1,1]
-                let alpha = log_alpha.exp();
-                let loss = -(alpha * (log_probs.add_scalar(*target_entropy))).mean();
 
-                // println!("loss shape: {:?}", loss.shape().dims);
-                // println!("loss: {loss}");
+                // Use log_alpha directly in the loss, without exp().
+                let loss = -(log_alpha * (log_probs.add_scalar(*target_entropy))).mean();
 
                 let g: <B as AutodiffBackend>::Gradients = loss.backward();
                 let grads = GradientsParams::from_grads(g, &temp_m);
@@ -132,6 +130,7 @@ pub struct SACAgent<B: AutodiffBackend> {
     action_space: Box<BoxSpace<Vec<f32>>>,
     last_update: usize,
     profiler: Profiler,
+    ent_lr: f64,
 }
 
 impl<B: AutodiffBackend> SACAgent<B> {
@@ -149,6 +148,8 @@ impl<B: AutodiffBackend> SACAgent<B> {
         ent_coef: Option<f32>,
         trainable_ent_coef: bool,
         target_entropy: Option<f32>,
+        // learning rate for entropy temperature (alpha)
+        ent_coef_lr: Option<f64>,
         critic_tau: Option<f32>,
 
         // housekeeping
@@ -184,6 +185,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
             last_update: 0,
             update_every: 1,
             profiler: Profiler::new(true),
+            ent_lr: ent_coef_lr.unwrap_or(1e-3f64),
         }
     }
 
@@ -343,6 +345,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .terminated
             .to_tensor(train_device)
             .unsqueeze_dim(1);
+        let dones = terminated.clone();
         self.profiler
             .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
 
@@ -368,11 +371,9 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         // train entropy coeficient if required to do so
         let t_ent0 = std::time::Instant::now();
-        let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
-            log_prob.clone().flatten(0, 1),
-            offline_params.lr,
-            train_device,
-        );
+        let (ent_coef, ent_coef_loss) = self
+            .ent_coef
+            .train_step(log_prob.clone().flatten(0, 1), self.ent_lr, train_device);
         self.profiler
             .record("ent_coef", t_ent0.elapsed().as_secs_f64());
 
@@ -392,7 +393,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             actions,
             next_states,
             rewards,
-            terminated,
+            dones,
             offline_params.gamma,
             train_device,
             ent_coef,

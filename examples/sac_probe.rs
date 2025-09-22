@@ -71,6 +71,7 @@ fn main() {
         None,
         true,
         None,
+        Some(1e-3),
         Some(0.995),
         Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
         Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
