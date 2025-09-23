@@ -61,12 +61,12 @@ pub fn update_conv2d<B: Backend>(from: &Conv2d<B>, to: Conv2d<B>, tau: Option<f3
 mod test {
     use burn::{
         backend::NdArray,
-        module::Module,
+        module::{Module, Param},
         nn::{Linear, LinearConfig},
-        tensor::backend::Backend,
+        tensor::{backend::Backend, Float, Tensor},
     };
 
-    use crate::common::agent::Policy;
+    use crate::common::{agent::Policy, utils::module_update::soft_update_tensor};
 
     use super::update_linear;
 
@@ -125,5 +125,21 @@ mod test {
         let b = LinearPolicy::<B>::new(4, 4, &Default::default());
 
         a.update(&b, None);
+    }
+
+    #[test]
+    fn test_soft_update_value() {
+        type B = NdArray;
+        let from = Param::from_tensor(Tensor::from_floats([1.0], &Default::default()));
+        let to = Param::from_tensor(Tensor::from_floats([0.0], &Default::default()));
+        let tau = 0.05;
+
+        let new_to: Param<Tensor<B, 2, Float>> = soft_update_tensor(&from, to, tau);
+
+        let new_to_f: f32 = new_to.val().into_scalar();
+
+        let diff = tau - new_to_f;
+
+        assert!(diff < 1e-6);
     }
 }

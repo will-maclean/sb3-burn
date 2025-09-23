@@ -18,7 +18,14 @@ impl<B: Backend> MLP<B> {
         let mut layers = Vec::new();
 
         for i in 0..sizes.len() - 1 {
-            layers.push(LinearConfig::new(sizes[i], sizes[i + 1]).init(device))
+            layers.push(
+                LinearConfig::new(sizes[i], sizes[i + 1])
+                    .with_initializer(burn::nn::Initializer::Uniform {
+                        min: 3e-3,
+                        max: 3e-3,
+                    })
+                    .init(device),
+            )
         }
 
         Self { layers }
