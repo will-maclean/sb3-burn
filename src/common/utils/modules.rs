@@ -21,7 +21,7 @@ impl<B: Backend> MLP<B> {
             layers.push(
                 LinearConfig::new(sizes[i], sizes[i + 1])
                     .with_initializer(burn::nn::Initializer::Uniform {
-                        min: 3e-3,
+                        min: -3e-3,
                         max: 3e-3,
                     })
                     .init(device),

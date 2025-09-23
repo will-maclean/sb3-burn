@@ -53,7 +53,7 @@ fn main() {
 
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(256)
-        .with_memory_size(50000)
+        .with_memory_size(100_000)
         .with_gamma(0.99)
         .with_n_steps(100_000)
         .with_warmup_steps(10000)
@@ -75,8 +75,11 @@ fn main() {
         true,
         None,
         Some(1e-3),
-        Some(0.01),
-        Box::new(BoxSpace::from(([-1.0, -1.0, -1.0].to_vec(), [1.0, 1.0, 1.0].to_vec()))),
+        Some(0.005),
+        Box::new(BoxSpace::from((
+            vec![-1.0, -1.0, -1.0],
+            vec![1.0, 1.0, 1.0],
+        ))),
         Box::new(BoxSpace::from(([-1.0].to_vec(), [1.0].to_vec()))),
     );
 

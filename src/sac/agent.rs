@@ -371,9 +371,9 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         // train entropy coeficient if required to do so
         let t_ent0 = std::time::Instant::now();
-        let (ent_coef, ent_coef_loss) = self
-            .ent_coef
-            .train_step(log_prob.clone().flatten(0, 1), self.ent_lr, train_device);
+        let (ent_coef, ent_coef_loss) =
+            self.ent_coef
+                .train_step(log_prob.clone().flatten(0, 1), self.ent_lr, train_device);
         self.profiler
             .record("ent_coef", t_ent0.elapsed().as_secs_f64());
 
@@ -426,8 +426,6 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
             self.last_update = global_step;
         }
-
-        // panic!();
 
         (None, log_dict)
     }

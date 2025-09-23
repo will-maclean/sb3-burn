@@ -68,8 +68,18 @@ impl<B: Backend> DiagGaussianDistribution<B> {
         let dist: Normal<B, 2> = Normal::new(loc, std);
 
         Self {
-            means: LinearConfig::new(latent_dim, action_dim).init(device),
-            log_std: LinearConfig::new(latent_dim, action_dim).init(device),
+            means: LinearConfig::new(latent_dim, action_dim)
+                .with_initializer(burn::nn::Initializer::Uniform {
+                    min: -3e-3,
+                    max: 3e-3,
+                })
+                .init(device),
+            log_std: LinearConfig::new(latent_dim, action_dim)
+                .with_initializer(burn::nn::Initializer::Uniform {
+                    min: -3e-3,
+                    max: 3e-3,
+                })
+                .init(device),
             dist,
         }
     }

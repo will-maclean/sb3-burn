@@ -134,7 +134,7 @@ mod test {
         let to = Param::from_tensor(Tensor::from_floats([0.0], &Default::default()));
         let tau = 0.05;
 
-        let new_to: Param<Tensor<B, 2, Float>> = soft_update_tensor(&from, to, tau);
+        let new_to: Param<Tensor<B, 1, Float>> = soft_update_tensor(&from, to, tau);
 
         let new_to_f: f32 = new_to.val().into_scalar();
 
