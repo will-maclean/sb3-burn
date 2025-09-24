@@ -206,10 +206,21 @@ impl<B: AutodiffBackend> SACAgent<B> {
         let (next_action_sampled_raw, next_action_log_prob_raw) =
             self.pi.act_log_prob(next_states.clone());
 
-        let (next_action_sampled, action_scale, _) =
-            scale_actions_to_env(next_action_sampled_raw, &self.action_space, train_device);
-        let next_action_log_prob = next_action_log_prob_raw - action_scale.log().sum_dim(1);
+        let (next_action_sampled, action_scale, _) = scale_actions_to_env(
+            next_action_sampled_raw.clone(),
+            &self.action_space,
+            train_device,
+        );
+        // let next_action_log_prob =
+        //     next_action_log_prob_raw.clone() - action_scale.clone().log().sum_dim(1);
 
+        let next_action_log_prob_scaled = next_action_log_prob_raw
+            - (next_action_sampled_raw.powi_scalar(2).neg().add_scalar(1.0))
+                .mul(action_scale)
+                .add_scalar(1e-6)
+                .log();
+
+        let next_action_log_prob_scaled = next_action_log_prob_scaled.sum_dim(1);
         // disp_tensorf("next_action_sampled", &next_action_sampled);
         // disp_tensorf("next_action_log_prob", &next_action_log_prob);
 
@@ -225,7 +236,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // disp_tensorf("2next_q_vals", &next_q_vals);
 
         // add the entropy term
-        let next_q_vals = next_q_vals - next_action_log_prob.mul_scalar(ent_coef);
+        let next_q_vals = next_q_vals - next_action_log_prob_scaled.mul_scalar(ent_coef);
         // disp_tensorf("3next_q_vals", &next_q_vals);
 
         // td error + entropy term
@@ -358,12 +369,16 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let t_policy0 = std::time::Instant::now();
         let (actions_pi_raw, log_prob_raw) = self.pi.act_log_prob(states.clone());
 
-        let (actions_pi_scaled, action_scale, action_bias) =
-            scale_actions_to_env(actions_pi_raw, &self.action_space, train_device);
+        let (actions_pi_scaled, action_scale, _) =
+            scale_actions_to_env(actions_pi_raw.clone(), &self.action_space, train_device);
 
         // let log_prob = log_prob_raw - action_scale.log().sum_dim(1);
 
-        let log_prob_scaled = log_prob - ((1 - actions_pi_raw.powi(2)) * action_scale + 1e-6).log();
+        let log_prob_scaled = log_prob_raw
+            - (actions_pi_raw.powi_scalar(2).neg().add_scalar(1.0))
+                .mul(action_scale)
+                .add_scalar(1e-6)
+                .log();
         let log_prob_scaled = log_prob_scaled.sum_dim(1);
 
         self.profiler
