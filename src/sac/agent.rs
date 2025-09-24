@@ -358,10 +358,13 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let t_policy0 = std::time::Instant::now();
         let (actions_pi_raw, log_prob_raw) = self.pi.act_log_prob(states.clone());
 
-        let (actions_pi_scaled, action_scale, _) =
+        let (actions_pi_scaled, action_scale, action_bias) =
             scale_actions_to_env(actions_pi_raw, &self.action_space, train_device);
 
-        let log_prob = log_prob_raw - action_scale.log().sum_dim(1);
+        // let log_prob = log_prob_raw - action_scale.log().sum_dim(1);
+
+        let log_prob_scaled = log_prob - ((1 - actions_pi_raw.powi(2)) * action_scale + 1e-6).log();
+        let log_prob_scaled = log_prob_scaled.sum_dim(1);
 
         self.profiler
             .record("policy", t_policy0.elapsed().as_secs_f64());
@@ -371,9 +374,11 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         // train entropy coeficient if required to do so
         let t_ent0 = std::time::Instant::now();
-        let (ent_coef, ent_coef_loss) = self
-            .ent_coef
-            .train_step(log_prob.clone().flatten(0, 1), self.ent_lr, train_device);
+        let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
+            log_prob_scaled.clone().flatten(0, 1),
+            self.ent_lr,
+            train_device,
+        );
         self.profiler
             .record("ent_coef", t_ent0.elapsed().as_secs_f64());
 
@@ -409,7 +414,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             ent_coef,
             offline_params.lr,
             actions_pi_scaled,
-            log_prob,
+            log_prob_scaled,
             log_dict,
         );
         self.profiler
