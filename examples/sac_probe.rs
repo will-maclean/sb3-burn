@@ -15,7 +15,7 @@ use sb3_burn::{
     },
     env::{base::Env, probe::ProbeEnvContinuousActions},
     sac::{
-        agent::SACAgent,
+        agent::{SACAgent, SACConfig},
         models::{PiModel, QModelSet},
     },
 };
@@ -53,26 +53,31 @@ fn main() {
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(256)
-        .with_memory_size(1000000)
-        .with_n_steps(2000)
+        .with_batch_size(32)
+        .with_memory_size(10000)
+        .with_n_steps(10000)
         .with_warmup_steps(256)
-        .with_lr(5e-3)
+        .with_lr(3e-3)
+        .with_evaluate_every_steps(2000)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_during_training(false);
+        .with_evaluate_during_training(true);
+
+    let sac_config = SACConfig::new()
+        .with_ent_lr(1e-3)
+        .with_critic_tau(0.005)
+        .with_update_every(1)
+        .with_trainable_ent_coef(true)
+        .with_target_entropy(None)
+        .with_ent_coef(None);
 
     let agent = SACAgent::new(
+        sac_config,
         pi,
         qs.clone(),
         qs,
         pi_optim,
         q_optim,
-        None,
-        true,
-        None,
-        Some(1e-3),
-        Some(0.995),
         Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
         Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
     );
@@ -90,7 +95,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_,  _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(ProbeEnvContinuousActions::default()),

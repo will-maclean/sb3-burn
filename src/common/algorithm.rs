@@ -57,7 +57,6 @@ pub struct OfflineAlgParams {
 pub struct OfflineTrainer<
     'a,
     A: Agent<B, OS, AS>,
-    O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,
     OS: Clone,
     AS: Clone,
@@ -68,7 +67,7 @@ pub struct OfflineTrainer<
     pub agent: A,
     pub buffer: ReplayBuffer<OS, AS>,
     pub logger: Box<dyn Logger>,
-    pub callback: Box<dyn Callback<A, O, B, OS, AS>>,
+    pub callback: Box<dyn Callback<A, B, OS, AS>>,
     pub eval_cfg: EvalConfig,
     pub train_device: &'a B::Device,
 }
@@ -76,11 +75,10 @@ pub struct OfflineTrainer<
 impl<
         'a,
         A: Agent<B, OS, AS>,
-        O: SimpleOptimizer<B::InnerBackend>,
         B: AutodiffBackend,
         OS: Clone + Debug,
         AS: Clone + Debug,
-    > OfflineTrainer<'a, A, O, B, OS, AS>
+    > OfflineTrainer<'a, A, B, OS, AS>
 {
     pub fn new(
         offline_params: OfflineAlgParams,
@@ -89,7 +87,7 @@ impl<
         agent: A,
         buffer: ReplayBuffer<OS, AS>,
         logger: Box<dyn Logger>,
-        callback: Option<Box<dyn Callback<A, O, B, OS, AS>>>,
+        callback: Option<Box<dyn Callback<A, B, OS, AS>>>,
         eval_cfg: EvalConfig,
         train_device: &'a B::Device,
     ) -> Self {

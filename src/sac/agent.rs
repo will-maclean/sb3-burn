@@ -1,4 +1,5 @@
 use burn::{
+    config::Config,
     module::Module,
     nn::{
         loss::{MseLoss, Reduction},
@@ -110,7 +111,23 @@ impl<B: AutodiffBackend> EntCoef<B> {
     }
 }
 
+#[derive(Config)]
+pub struct SACConfig {
+    ent_coef: Option<f32>,
+    #[config(default = 1)]
+    update_every: usize,
+    #[config(default = 1e-4)]
+    ent_lr: f64,
+    #[config(default = 0.005)]
+    critic_tau: f32,
+    target_entropy: Option<f32>,
+    #[config(default = true)]
+    trainable_ent_coef: bool,
+}
+
 pub struct SACAgent<B: AutodiffBackend> {
+    config: SACConfig,
+
     // models
     pi: PiModel<B>,
     qs: QModelSet<B>,
@@ -122,19 +139,18 @@ pub struct SACAgent<B: AutodiffBackend> {
 
     // parameters
     ent_coef: EntCoef<B>,
-    critic_tau: Option<f32>,
-    update_every: usize,
 
     // housekeeping
     observation_space: Box<BoxSpace<Vec<f32>>>,
     action_space: Box<BoxSpace<Vec<f32>>>,
     last_update: usize,
     profiler: Profiler,
-    ent_lr: f64,
 }
 
 impl<B: AutodiffBackend> SACAgent<B> {
     pub fn new(
+        mut config: SACConfig,
+
         // models
         pi: PiModel<B>,
         qs: QModelSet<B>,
@@ -144,24 +160,16 @@ impl<B: AutodiffBackend> SACAgent<B> {
         pi_optim: OptimizerAdaptor<Adam, PiModel<B>, B>,
         q_optim: OptimizerAdaptor<Adam, QModelSet<B>, B>,
 
-        // parameters
-        ent_coef: Option<f32>,
-        trainable_ent_coef: bool,
-        target_entropy: Option<f32>,
-        // learning rate for entropy temperature (alpha)
-        ent_coef_lr: Option<f64>,
-        critic_tau: Option<f32>,
-
         // housekeeping
         observation_space: Box<BoxSpace<Vec<f32>>>,
         action_space: Box<BoxSpace<Vec<f32>>>,
     ) -> Self {
-        let target_entropy = match target_entropy {
-            Some(val) => val,
-            None => -(action_space.shape().len() as f32),
+        config.target_entropy = match config.target_entropy {
+            Some(val) => Some(val),
+            None => Some(-(action_space.shape().len() as f32)),
         };
 
-        let ent_coef = match (ent_coef, trainable_ent_coef) {
+        let ent_coef = match (config.ent_coef, config.trainable_ent_coef) {
             (None, false) => panic!("If not training ent_coef, an ent_coef must be supplied"),
             (None, true) => 0.0,
             (Some(val), false) => val,
@@ -178,14 +186,16 @@ impl<B: AutodiffBackend> SACAgent<B> {
             target_qs: target_qs.no_grad(),
             pi_optim,
             q_optim,
-            ent_coef: EntCoef::new(ent_coef, trainable_ent_coef, target_entropy),
-            critic_tau,
+            ent_coef: EntCoef::new(
+                ent_coef,
+                config.trainable_ent_coef,
+                config.target_entropy.unwrap(),
+            ),
             observation_space,
             action_space,
             last_update: 0,
-            update_every: 1,
             profiler: Profiler::new(true),
-            ent_lr: ent_coef_lr.unwrap_or(1e-3f64),
+            config,
         }
     }
 
@@ -369,6 +379,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let t_policy0 = std::time::Instant::now();
         let (actions_pi_raw, log_prob_raw) = self.pi.act_log_prob(states.clone());
 
+        let log_dict = log_dict.push("action_saturation_frac".to_string(), LogData::Float(actions_pi_raw.clone().abs().greater_elem(0.99).float().mean().into_scalar().elem()));
+
         let (actions_pi_scaled, action_scale, _) =
             scale_actions_to_env(actions_pi_raw.clone(), &self.action_space, train_device);
 
@@ -384,6 +396,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         self.profiler
             .record("policy", t_policy0.elapsed().as_secs_f64());
 
+        let log_dict = log_dict.push("entropy_proxy".to_string(), LogData::Float(-log_prob_scaled.clone().mean().into_scalar().elem::<f32>()));
         // disp_tensorf("actions_pi", &actions_pi);
         // disp_tensorf("log_prob", &log_prob);
 
@@ -391,7 +404,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         let t_ent0 = std::time::Instant::now();
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
             log_prob_scaled.clone().flatten(0, 1),
-            self.ent_lr,
+            self.config.ent_lr,
             train_device,
         );
         self.profiler
@@ -436,9 +449,10 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .record("actor", t_actor0.elapsed().as_secs_f64());
 
         // target critic updates
-        if global_step >= (self.last_update + self.update_every) {
+        if global_step >= (self.last_update + self.config.update_every) {
             // hard update
-            self.target_qs.update(&self.qs, self.critic_tau);
+            self.target_qs
+                .update(&self.qs, Some(self.config.critic_tau));
 
             // Important! The way polyak updates are currently implemented
             // will override the setting for whether gradients are required

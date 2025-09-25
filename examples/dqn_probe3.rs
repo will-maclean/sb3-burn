@@ -66,7 +66,7 @@ fn main() {
     }
 
     let x = ProbeEnvDiscountingTest::default();
-    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_, _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(x),

@@ -237,7 +237,7 @@ mod test {
 
         let logger = CsvLogger::new(PathBuf::from("tmp_logs/log.csv"), false, true);
 
-        let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
+        let mut trainer: OfflineTrainer<_,  _, _, _> = OfflineTrainer::new(
             offline_params,
             Box::new(env),
             Box::<GridWorldEnv>::default(),

@@ -15,7 +15,7 @@ use sb3_burn::{
     },
     env::classic_control::pendulum::{make_pendulum, make_pendulum_eval},
     sac::{
-        agent::SACAgent,
+        agent::{SACAgent, SACConfig},
         models::{PiModel, QModelSet},
     },
 };
@@ -55,8 +55,8 @@ fn main() {
         .with_batch_size(256)
         .with_memory_size(50000)
         .with_gamma(0.99)
-        .with_n_steps(100_000)
-        .with_warmup_steps(10000)
+        .with_n_steps(20_000)
+        .with_warmup_steps(2000)
         .with_lr(3e-4)
         .with_profile_timers(true)
         .with_profile_log_every_steps(250)
@@ -65,18 +65,25 @@ fn main() {
         .with_evaluate_during_training(true)
         .with_evaluate_every_steps(2000);
 
+    let sac_config = SACConfig::new()
+        .with_ent_lr(1e-3)
+        .with_critic_tau(0.005)
+        .with_update_every(1)
+        .with_trainable_ent_coef(true)
+        .with_target_entropy(None)
+        .with_ent_coef(None);
+
     let agent = SACAgent::new(
+        sac_config,
         pi,
         qs.clone(),
         qs,
         pi_optim,
         q_optim,
-        Some(0.1),
-        true,
-        None,
-        Some(1e-3),
-        Some(0.01),
-        Box::new(BoxSpace::from(([-1.0, -1.0, -1.0].to_vec(), [1.0, 1.0, 1.0].to_vec()))),
+        Box::new(BoxSpace::from((
+            [-1.0, -1.0, -1.0].to_vec(),
+            [1.0, 1.0, 1.0].to_vec(),
+        ))),
         Box::new(BoxSpace::from(([-1.0].to_vec(), [1.0].to_vec()))),
     );
 
@@ -93,7 +100,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_,  _, _, _> = OfflineTrainer::new(
         offline_params,
         env,
         make_pendulum_eval(None),
@@ -101,7 +108,7 @@ fn main() {
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new().with_n_eval_episodes(2),
+        EvalConfig::new().with_n_eval_episodes(100),
         &train_device,
     );
 

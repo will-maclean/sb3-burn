@@ -317,17 +317,18 @@ impl Env<usize, usize> for ProbeEnvStateActionTest {
     }
 }
 
-#[derive(Debug, Clone)]
 pub struct ProbeEnvContinuousActions {
-    state: f32,
-    rng: ThreadRng,
+    state: Vec<f32>,
+    obs_space: BoxSpace<Vec<f32>>,
+    action_space: BoxSpace<Vec<f32>>,
 }
 
 impl Default for ProbeEnvContinuousActions {
     fn default() -> Self {
         Self {
-            state: 0.0,
-            rng: Default::default(),
+            state: vec![0.0],
+            obs_space: BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())),
+            action_space: BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())),
         }
     }
 }
@@ -338,10 +339,12 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
 
         let a: f32 = (action[0]).clamp(0.0, 1.0);
 
-        let reward = 1.0 - (a - self.state).abs();
+        let reward = 1.0 - (a - self.state[0]).abs();
+
+        self.state = self.obs_space.sample();
 
         EnvObservation {
-            obs: [0.0].to_vec(),
+            obs: self.state.clone(),
             reward,
             terminated: true,
             truncated: false,
@@ -350,17 +353,17 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     }
 
     fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
-        self.state = self.rng.random::<f32>();
+        self.state = self.obs_space.sample();
 
-        [self.state].to_vec()
+        self.state.clone()
     }
 
     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
-        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())))
+        dyn_clone::clone_box(&self.obs_space)
     }
 
     fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
-        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())))
+        dyn_clone::clone_box(&self.action_space)
     }
 
     fn reward_range(&self) -> RewardRange {

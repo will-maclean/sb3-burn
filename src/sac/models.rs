@@ -23,9 +23,9 @@ pub struct PiModel<B: Backend> {
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size, 256, 256].to_vec(), device),
-            scale_head: LinearConfig::new(256, n_actions).init(device),
-            loc_head: LinearConfig::new(256, n_actions).init(device),
+            mlp: MLP::new(&[obs_size, 4].to_vec(), device),
+            scale_head: LinearConfig::new(4, n_actions).init(device),
+            loc_head: LinearConfig::new(4, n_actions).init(device),
             // dist: SquashedDiagGaussianDistribution::new(256, n_actions, device, 1e-6),
             n_actions,
         }
@@ -36,7 +36,7 @@ impl<B: Backend> PiModel<B> {
     fn forward(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
         let latent = relu(self.mlp.forward(obs.clone()));
         let loc = self.loc_head.forward(latent.clone());
-        let log_scale = self.loc_head.forward(latent);
+        let log_scale = self.scale_head.forward(latent);
         let log_scale = log_scale.tanh();
 
         let min_log_scale = -20.0;
@@ -64,7 +64,7 @@ impl<B: Backend> PiModel<B> {
     }
 
     pub fn act_log_prob(&mut self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-        let (loc, log_scale) = self.forward(obs.unsqueeze_dim(0));
+        let (loc, log_scale) = self.forward(obs);
         let scale = log_scale.exp();
         let dist = Normal::new(loc, scale);
         let x_t = dist.rsample();
@@ -89,7 +89,7 @@ pub struct QModel<B: Backend> {
 impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size + n_actions, 256, 256, 1].to_vec(), device),
+            mlp: MLP::new(&[obs_size + n_actions, 4, 1].to_vec(), device),
         }
     }
 }
