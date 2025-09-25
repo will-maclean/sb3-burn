@@ -37,15 +37,11 @@ impl<B: Backend> PiModel<B> {
         let latent = relu(self.mlp.forward(obs.clone()));
         let loc = self.loc_head.forward(latent.clone());
         let log_scale = self.scale_head.forward(latent);
-        let log_scale = log_scale.tanh();
-
-        let min_log_scale = -20.0;
-        let max_log_scale = 2.0;
-
-        let log_scale = min_log_scale + 0.5 * (max_log_scale - min_log_scale) * (log_scale + 1.0);
+        let log_scale = log_scale.clamp(-20.0, 2.0);
 
         (loc, log_scale)
     }
+
     pub fn act(&mut self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
         let (loc, log_scale) = self.forward(obs.clone().unsqueeze_dim(0));
 
