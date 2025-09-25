@@ -224,11 +224,15 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // let next_action_log_prob =
         //     next_action_log_prob_raw.clone() - action_scale.clone().log().sum_dim(1);
 
-        let next_action_log_prob_scaled = next_action_log_prob_raw
-            - (next_action_sampled_raw.powi_scalar(2).neg().add_scalar(1.0))
-                .mul(action_scale)
-                .add_scalar(1e-6)
-                .log();
+        let epsilon = 1e-6f32;
+        let next_action_log_prob_scaled: Tensor<B, 2> = next_action_log_prob_raw
+            - next_action_sampled_raw
+                .powi_scalar(2)
+                .neg()
+                .add_scalar(1.0)
+                .add_scalar(epsilon)
+                .log()
+            - action_scale.add_scalar(epsilon).log();
 
         let next_action_log_prob_scaled = next_action_log_prob_scaled.sum_dim(1);
         // disp_tensorf("next_action_sampled", &next_action_sampled);
@@ -297,7 +301,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
     ) -> LogItem {
         // Policy loss
         // recalculate q values with new critics
-        let q_vals = self.qs.clone().no_grad().q_from_actions(states, actions_pi);
+        let q_vals = self.qs.q_from_actions(states, actions_pi);
         let q_vals = Tensor::cat(q_vals, 1);
         // disp_tensorf("q_vals", &q_vals);
         let min_q = q_vals.min_dim(1);
@@ -377,7 +381,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         // disp_tensorb("dones", &dones);
 
         let t_policy0 = std::time::Instant::now();
-        let (actions_pi_raw, log_prob_raw) = self.pi.act_log_prob(states.clone());
+        let (actions_pi_raw, log_prob_raw) =
+            self.pi.act_log_prob(states.clone());
 
         let log_dict = log_dict.push("action_saturation_frac".to_string(), LogData::Float(actions_pi_raw.clone().abs().greater_elem(0.99).float().mean().into_scalar().elem()));
 
@@ -386,11 +391,10 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         // let log_prob = log_prob_raw - action_scale.log().sum_dim(1);
 
+        let epsilon = 1e-6f32;
         let log_prob_scaled = log_prob_raw
-            - (actions_pi_raw.powi_scalar(2).neg().add_scalar(1.0))
-                .mul(action_scale)
-                .add_scalar(1e-6)
-                .log();
+            - actions_pi_raw.powi_scalar(2).neg().add_scalar(1.0).add_scalar(epsilon).log()
+            - action_scale.add_scalar(epsilon).log();
         let log_prob_scaled = log_prob_scaled.sum_dim(1);
 
         self.profiler

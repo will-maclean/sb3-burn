@@ -39,6 +39,7 @@ fn main() {
     let qs: QModelSet<TrainingBacked> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
+        256,
         &train_device,
         N_CRITICS,
     );
@@ -48,6 +49,7 @@ fn main() {
     let pi = PiModel::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
+        256,
         &train_device,
     );
 
@@ -66,7 +68,7 @@ fn main() {
         .with_evaluate_every_steps(2000);
 
     let sac_config = SACConfig::new()
-        .with_ent_lr(1e-3)
+        .with_ent_lr(3e-4)
         .with_critic_tau(0.005)
         .with_update_every(1)
         .with_trainable_ent_coef(true)

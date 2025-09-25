@@ -40,8 +40,6 @@ pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: C
     let mut running_reward = 0.0;
     let mut ep_len = 0.0;
 
-    println!("Starting evaluation");
-
     while completed_episodes < cfg.n_eval_episodes {
         if cfg.print_obs {
             println!("state: {:?}", state);
@@ -80,6 +78,8 @@ pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: C
             state = step_sample.obs;
         }
     }
+
+    println!("Finished eval. Mean reward: {}", mean(&episode_rewards));
 
     EvalResult {
         mean_len: mean(&episode_lengths),

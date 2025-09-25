@@ -21,11 +21,11 @@ pub struct PiModel<B: Backend> {
 }
 
 impl<B: Backend> PiModel<B> {
-    pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
+    pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size, 4].to_vec(), device),
-            scale_head: LinearConfig::new(4, n_actions).init(device),
-            loc_head: LinearConfig::new(4, n_actions).init(device),
+            mlp: MLP::new(&[obs_size, hidden_size, hidden_size].to_vec(), device),
+            scale_head: LinearConfig::new(hidden_size, n_actions).init(device),
+            loc_head: LinearConfig::new(hidden_size, n_actions).init(device),
             // dist: SquashedDiagGaussianDistribution::new(256, n_actions, device, 1e-6),
             n_actions,
         }
@@ -65,7 +65,7 @@ impl<B: Backend> PiModel<B> {
         let dist = Normal::new(loc, scale);
         let x_t = dist.rsample();
         let action = x_t.clone().tanh();
-        let log_prob = dist.log_prob(x_t);
+        let log_prob = dist.log_prob(x_t.clone());
 
         (action, log_prob)
 
@@ -83,9 +83,9 @@ pub struct QModel<B: Backend> {
 }
 
 impl<B: Backend> QModel<B> {
-    pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
+    pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size + n_actions, 4, 1].to_vec(), device),
+            mlp: MLP::new(&[obs_size + n_actions, hidden_size, hidden_size, 1].to_vec(), device),
         }
     }
 }
@@ -114,11 +114,11 @@ pub struct QModelSet<B: Backend> {
 }
 
 impl<B: Backend> QModelSet<B> {
-    pub fn new(obs_size: usize, n_actions: usize, device: &B::Device, n_critics: usize) -> Self {
+    pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device, n_critics: usize) -> Self {
         let mut qs = Vec::new();
 
         for _ in 0..n_critics {
-            qs.push(QModel::new(obs_size, n_actions, device));
+            qs.push(QModel::new(obs_size, n_actions, hidden_size, device));
         }
 
         Self { qs }

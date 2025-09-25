@@ -40,6 +40,7 @@ fn main() {
     let qs: QModelSet<TrainingBacked> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
+        4,
         &train_device,
         N_CRITICS,
     );
@@ -49,6 +50,7 @@ fn main() {
     let pi = PiModel::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
+        4,
         &train_device,
     );
 

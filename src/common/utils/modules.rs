@@ -20,10 +20,10 @@ impl<B: Backend> MLP<B> {
         for i in 0..sizes.len() - 1 {
             layers.push(
                 LinearConfig::new(sizes[i], sizes[i + 1])
-                    .with_initializer(burn::nn::Initializer::Uniform {
-                        min: -3e-3,
-                        max: 3e-3,
-                    })
+                    // .with_initializer(burn::nn::Initializer::Uniform {
+                    //     min: -3e-3,
+                    //     max: 3e-3,
+                    // })
                     .init(device),
             )
         }
