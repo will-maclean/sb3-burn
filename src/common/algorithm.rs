@@ -2,7 +2,6 @@ use std::fmt::Debug;
 use std::time;
 
 use burn::config::Config;
-use burn::optim::SimpleOptimizer;
 use burn::tensor::backend::AutodiffBackend;
 use indicatif::{ProgressIterator, ProgressStyle};
 

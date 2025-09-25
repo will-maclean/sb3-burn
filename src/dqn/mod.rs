@@ -188,7 +188,7 @@ mod test {
 
     use burn::{
         backend::{Autodiff, NdArray},
-        optim::{Adam, AdamConfig},
+        optim::AdamConfig,
     };
 
     use crate::{

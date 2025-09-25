@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use burn::{
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
-    optim::{Adam, AdamConfig},
+    optim::AdamConfig,
 };
 use sb3_burn::{
     common::{

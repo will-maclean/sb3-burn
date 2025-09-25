@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use burn::{
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
-    optim::{Adam, AdamConfig},
+    optim::AdamConfig,
 };
 use sb3_burn::{
     common::{
@@ -64,7 +64,7 @@ fn main() {
         .with_evaluate_during_training(true);
 
     let sac_config = SACConfig::new()
-        .with_ent_lr(1e-3)
+        .with_ent_lr(1e-4)
         .with_critic_tau(0.005)
         .with_update_every(1)
         .with_trainable_ent_coef(true)
@@ -103,7 +103,7 @@ fn main() {
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new().with_n_eval_episodes(20),
+        EvalConfig::new().with_n_eval_episodes(4).with_print_obs(true).with_print_action(true).with_print_reward(true).with_print_prediction(true),
         &train_device,
     );
 

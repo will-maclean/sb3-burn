@@ -1,4 +1,4 @@
-use burn::{optim::SimpleOptimizer, tensor::backend::AutodiffBackend};
+use burn::tensor::backend::AutodiffBackend;
 use core::fmt::Debug;
 
 use crate::env::base::EnvObservation;
