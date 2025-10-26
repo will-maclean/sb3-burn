@@ -317,18 +317,17 @@ impl Env<usize, usize> for ProbeEnvStateActionTest {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ProbeEnvContinuousActions {
-    state: Vec<f32>,
-    obs_space: BoxSpace<Vec<f32>>,
-    action_space: BoxSpace<Vec<f32>>,
+    state: f32,
+    rng: ThreadRng,
 }
 
 impl Default for ProbeEnvContinuousActions {
     fn default() -> Self {
         Self {
-            state: vec![0.0],
-            obs_space: BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())),
-            action_space: BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())),
+            state: 0.0,
+            rng: Default::default(),
         }
     }
 }
@@ -339,12 +338,10 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
 
         let a: f32 = (action[0]).clamp(0.0, 1.0);
 
-        let reward = 1.0 - (a - self.state[0]).abs();
-
-        self.state = self.obs_space.sample();
+        let reward = 1.0 - (a - self.state).abs();
 
         EnvObservation {
-            obs: self.state.clone(),
+            obs: [0.0].to_vec(),
             reward,
             terminated: true,
             truncated: false,
@@ -353,17 +350,17 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
     }
 
     fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
-        self.state = self.obs_space.sample();
+        self.state = self.rng.random::<f32>();
 
-        self.state.clone()
+        [self.state].to_vec()
     }
 
     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
-        dyn_clone::clone_box(&self.obs_space)
+        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())))
     }
 
     fn observation_space(&self) -> Box<dyn Space<Vec<f32>>> {
-        dyn_clone::clone_box(&self.action_space)
+        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec())))
     }
 
     fn reward_range(&self) -> RewardRange {
@@ -388,7 +385,7 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions {
 
 #[cfg(test)]
 mod test {
-    use crate::env::base::Env;
+    use crate::env::{base::Env, probe::ProbeEnvContinuousActions};
 
     use super::{
         ProbeEnvActionTest, ProbeEnvBackpropTest, ProbeEnvDiscountingTest, ProbeEnvStateActionTest,
@@ -448,5 +445,46 @@ mod test {
             let res = env.step(&env.action_space().sample());
             done = res.truncated | res.terminated;
         }
+    }
+
+    #[test]
+    fn test_probe_env_cont_actions_optimal_action() {
+        let mut env = ProbeEnvContinuousActions::default();
+
+        // should be two step system, where first step
+        // returns state=s, reward=0, done = false,
+        // second step returns done = true, (no state), reward = 1 - |s - a|
+        let state = env.reset(None, None);
+
+        assert_eq!(state.len(), 1);
+
+        let optimal_action = state; // optimal is a = s
+
+        let step = env.step(&optimal_action);
+
+        assert_eq!(step.terminated, true);
+        assert_eq!(step.truncated, false);
+        assert_approx_eq::assert_approx_eq!(step.reward, 1.0)
+    }
+
+    #[test]
+    fn test_probe_env_cont_actions_bad_action() {
+        let mut env = ProbeEnvContinuousActions::default();
+
+        // should be two step system, where first step
+        // returns state=s, reward=0, done = false,
+        // second step returns done = true, (no state), reward = 1 - |s - a|
+        let state = env.reset(None, None);
+
+        assert_eq!(state.len(), 1);
+
+        let bad_action = vec![(state[0] + 1.0).clamp(0.0, 1.0)]; // optimal is a = s
+        let expected_reward = 1.0 - (state[0] - bad_action[0]).abs();
+
+        let step = env.step(&bad_action);
+
+        assert_eq!(step.terminated, true);
+        assert_eq!(step.truncated, false);
+        assert_approx_eq::assert_approx_eq!(step.reward, expected_reward);
     }
 }
