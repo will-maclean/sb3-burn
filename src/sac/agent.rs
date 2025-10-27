@@ -1,10 +1,7 @@
 use burn::{
     config::Config,
-    module::Module,
-    nn::{
-        loss::{MseLoss, Reduction},
-        Initializer, Linear, LinearConfig,
-    },
+    module::{Module, Param},
+    nn::loss::{MseLoss, Reduction},
     optim::{adaptor::OptimizerAdaptor, Adam, AdamConfig, GradientsParams, Optimizer},
     tensor::{
         backend::{AutodiffBackend, Backend},
@@ -25,44 +22,50 @@ use crate::common::timer::Profiler;
 use super::models::{PiModel, QModelSet};
 
 #[derive(Debug, Module)]
-pub struct EntCoefModule<B: Backend> {
-    pub ent: Linear<B>,
+pub struct LogAlphaModule<B: Backend> {
+    log_alpha: Param<Tensor<B, 1>>,
 }
 
-impl<B: Backend> EntCoefModule<B> {
-    pub fn new(starting_val: f32) -> Self {
+impl<B: Backend> LogAlphaModule<B> {
+    pub fn new(starting_log_alpha: f32, device: &B::Device) -> Self {
         Self {
-            ent: LinearConfig::new(1, 1)
-                .with_bias(false)
-                .with_initializer(Initializer::Constant {
-                    value: starting_val as f64,
-                })
-                .init(&Default::default()),
+            log_alpha: Param::from_tensor(Tensor::from_floats([starting_log_alpha], device)),
         }
     }
 
-    pub fn mul(&self, other: Tensor<B, 2>) -> Tensor<B, 2> {
-        self.ent.forward(other)
+    pub fn alpha(&self) -> f32 {
+        self.log_alpha.val().into_scalar().elem::<f32>().exp()
     }
 
-    pub fn val(&self) -> f32 {
-        self.ent.weight.val().into_scalar().elem()
+    pub fn calc_loss(&self, log_probs: Tensor<B, 2>, target_entropy: f32) -> Tensor<B, 1> {
+        let target = log_probs
+            .sum_dim(1)
+            .flatten::<1>(0, 1)
+            .add_scalar(target_entropy)
+            .detach();
+
+        (self.log_alpha.val() * (-target)).mean()
     }
 }
 
 enum EntCoef<B: AutodiffBackend> {
     Constant(f32),
     Trainable(
-        EntCoefModule<B>,
-        OptimizerAdaptor<Adam, EntCoefModule<B>, B>,
+        LogAlphaModule<B>,
+        OptimizerAdaptor<Adam, LogAlphaModule<B>, B>,
         f32,
     ),
 }
 
 impl<B: AutodiffBackend> EntCoef<B> {
-    pub fn new(starting_val: f32, trainable: bool, target_entropy: f32) -> Self {
+    pub fn new(
+        starting_val: f32,
+        trainable: bool,
+        target_entropy: f32,
+        train_device: Option<&B::Device>,
+    ) -> Self {
         if trainable {
-            let module = EntCoefModule::new(starting_val);
+            let module = LogAlphaModule::new(starting_val, train_device.unwrap());
             let optim = AdamConfig::new().init();
             EntCoef::Trainable(module, optim, target_entropy)
         } else {
@@ -72,39 +75,24 @@ impl<B: AutodiffBackend> EntCoef<B> {
 
     pub fn train_step(
         &mut self,
-        log_probs: Tensor<B, 1>,
+        log_probs: Tensor<B, 2>,
         lr: f64,
         device: &B::Device,
     ) -> (f32, Option<f32>) {
         match self {
             EntCoef::Constant(val) => (*val, None),
             EntCoef::Trainable(m, optim, target_entropy) => {
-                // loss = alpha * (log prob + target entropy)
-                // grad(loss) = d(loss)/d(alpha) = log prob + target entropy
-                // new alpha = -learning rate * mean(grad(loss))
-                //
-                // Takeaways:
-                // - it's fine if loss is 0, there should be gradients as long as (log prob + target entropy) != 0
-
-                // println!("log_probs: {log_probs}");
-
                 let temp_m = m.clone().fork(device);
 
-                // Standard SAC alpha training: minimize
-                // J(alpha) = E[ alpha * (-log_pi - target_entropy) ]
-                // Optimize w.r.t. log_alpha for positivity and scale-invariance.
-                let log_probs = log_probs.detach().unsqueeze_dim(1);
-                let log_alpha = temp_m.ent.weight.val(); // shape [1,1]
+                let alpha = temp_m.alpha();
 
-                // Use log_alpha directly in the loss, without exp().
-                let loss = -(log_alpha * (log_probs.add_scalar(*target_entropy))).mean();
-
+                let loss = temp_m.calc_loss(log_probs, *target_entropy);
                 let g: <B as AutodiffBackend>::Gradients = loss.backward();
                 let grads = GradientsParams::from_grads(g, &temp_m);
 
                 *m = optim.step(lr, temp_m, grads);
 
-                (m.val().exp(), Some(loss.into_scalar().elem()))
+                (alpha, Some(loss.into_scalar().elem()))
             }
         }
     }
@@ -189,7 +177,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         };
 
         Self {
-            pi,
+            pi: pi.clone(),
             qs,
             target_qs: target_qs.no_grad(),
             pi_optim,
@@ -198,6 +186,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
                 ent_coef,
                 config.trainable_ent_coef,
                 config.target_entropy.unwrap(),
+                Some(&pi.devices()[0]),
             ),
             observation_space,
             action_space,
@@ -377,7 +366,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .terminated
             .to_tensor(train_device)
             .unsqueeze_dim(1);
-        let dones = terminated.clone();
+        let dones = terminated;
         self.profiler
             .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
 
@@ -418,11 +407,9 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         // train entropy coeficient if required to do so
         let t_ent0 = std::time::Instant::now();
-        let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
-            log_prob.clone().flatten(0, 1),
-            self.config.ent_lr,
-            train_device,
-        );
+        let (ent_coef, ent_coef_loss) =
+            self.ent_coef
+                .train_step(log_prob.clone(), self.config.ent_lr, train_device);
         self.profiler
             .record("ent_coef", t_ent0.elapsed().as_secs_f64());
 
@@ -510,23 +497,24 @@ mod test {
 
     use crate::sac::agent::EntCoef;
 
-    use super::EntCoefModule;
+    use super::LogAlphaModule;
 
     #[test]
     fn test_ent_coef_module() {
-        type Backend = Autodiff<NdArray>;
+        type Ba = Autodiff<NdArray>;
+        let device: <Autodiff<NdArray> as burn::prelude::Backend>::Device = Default::default();
 
-        let target_entropy = -1;
+        let target_entropy = -1.0;
         let lr = 0.001;
         let mut optim = AdamConfig::new().init();
 
-        let model: EntCoefModule<Backend> = EntCoefModule::new(0.0);
+        let model: LogAlphaModule<Ba> = LogAlphaModule::new(0.0, &device);
 
-        let log_probs: Tensor<Backend, 1> =
+        let log_probs: Tensor<Ba, 1> =
             Tensor::from_floats([1.0, 2.0, 3.0, -1.0], &Default::default());
 
         let log_probs = log_probs.detach().unsqueeze_dim(1);
-        let loss = -model.mul(log_probs.add_scalar(target_entropy)).mean();
+        let loss = model.calc_loss(log_probs, target_entropy);
 
         let g = loss.backward();
         let grads = GradientsParams::from_grads(g, &model);
@@ -539,6 +527,7 @@ mod test {
     #[test]
     fn test_ent_coef() {
         type Backend = Autodiff<NdArray>;
+        let device: <Autodiff<NdArray> as burn::prelude::Backend>::Device = Default::default();
 
         let target_entropy = -1.0;
         let lr = 0.001;
@@ -546,18 +535,19 @@ mod test {
         let log_probs: Tensor<Backend, 1> =
             Tensor::from_floats([1.0, 2.0, 3.0, -1.0], &Default::default());
 
-        let mut ent: EntCoef<Backend> = EntCoef::new(starting_ent, true, target_entropy);
+        let mut ent: EntCoef<Backend> =
+            EntCoef::new(starting_ent, true, target_entropy, Some(&device));
 
         let ent_before = match &ent {
             EntCoef::Constant(_) => panic!("shouldn't be here"),
-            EntCoef::Trainable(m, _, _) => m.val(),
+            EntCoef::Trainable(m, _, _) => m.alpha(),
         };
 
-        ent.train_step(log_probs, lr, &Default::default());
+        ent.train_step(log_probs.unsqueeze(), lr, &Default::default());
 
         let ent_after = match &ent {
             EntCoef::Constant(_) => panic!("shouldn't be here"),
-            EntCoef::Trainable(m, _, _) => m.val(),
+            EntCoef::Trainable(m, _, _) => m.alpha(),
         };
 
         assert!(ent_before != ent_after);
