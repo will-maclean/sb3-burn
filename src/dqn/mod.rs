@@ -92,6 +92,7 @@ where
         obs: &OS,
         greedy: bool,
         inference_device: &<B as Backend>::Device,
+        _outputs_in_log: bool,        
     ) -> (usize, LogItem) {
         let eps = linear_decay(
             global_frac,

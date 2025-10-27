@@ -1,7 +1,7 @@
 use burn::{
     module::Module,
     nn::{Linear, LinearConfig},
-    tensor::{activation::relu, backend::Backend, Tensor},
+    tensor::{activation::{gelu}, backend::Backend, Tensor},
 };
 
 use crate::common::agent::Policy;
@@ -37,7 +37,7 @@ impl<B: Backend> MLP<B> {
         if self.layers.len() > 1 {
             for i in 0..self.layers.len() - 1 {
                 x_ = self.layers[i].forward(x_);
-                x_ = relu(x_);
+                x_ = gelu(x_);
             }
         }
 

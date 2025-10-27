@@ -4,6 +4,14 @@ use crate::common::spaces::Space;
 
 use super::base::{Env, EnvObservation, InfoData, RewardRange};
 
+pub struct ScaleActionWrapper<O, A>
+where
+    O: Clone + Debug,
+    A: Clone + Debug,
+{
+    env: Box<dyn Env<O, A>>,
+}
+
 pub struct ScaleRewardWrapper<O, A>
 where
     O: Clone + Debug,

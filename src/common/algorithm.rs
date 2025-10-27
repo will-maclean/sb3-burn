@@ -151,6 +151,7 @@ impl<
                         &state,
                         false,
                         self.train_device,
+                        false,
                     );
                         trainer_prof.record("act", t0.elapsed().as_secs_f64());
                     res

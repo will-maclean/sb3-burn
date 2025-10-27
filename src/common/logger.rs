@@ -41,6 +41,12 @@ impl LogItem {
 
         self
     }
+
+    pub fn print(&self) {
+        for (k, v) in &self.items {
+            println!("{}: {:?}", k, v);
+        }
+    }
 }
 
 impl From<EvalResult> for LogItem {
@@ -96,7 +102,11 @@ impl Logger for CsvLogger {
         }
     }
     fn dump(&self) -> Result<(), Box<dyn Error>> {
-        println!("Dumping logs to {:?}. {} items to dump", self.dump_path, self.data.len());
+        println!(
+            "Dumping logs to {:?}. {} items to dump",
+            self.dump_path,
+            self.data.len()
+        );
 
         let mut wtr = Writer::from_path(self.dump_path.clone()).unwrap();
 

@@ -18,7 +18,6 @@ use crate::common::{
     logger::{LogData, LogItem},
     spaces::{BoxSpace, Space},
     to_tensor::{ToTensorB, ToTensorF},
-    utils::scale_actions_to_env,
 };
 
 use crate::common::timer::Profiler;
@@ -164,6 +163,15 @@ impl<B: AutodiffBackend> SACAgent<B> {
         observation_space: Box<BoxSpace<Vec<f32>>>,
         action_space: Box<BoxSpace<Vec<f32>>>,
     ) -> Self {
+        // First, check the action space bounds are all [-1, 1]
+        let a_high = action_space.high();
+        let a_low = action_space.low();
+        for i in 0..action_space.shape().len() {
+            if a_high[i] != 1.0 || a_low[i] != -1.0 {
+                panic!("ERROR: SAC only supports action bounds of [-1, 1]. You'll need to handle the scaling yourself");
+            }
+        }
+
         config.target_entropy = match config.target_entropy {
             Some(val) => Some(val),
             None => Some(-(action_space.shape().len() as f32)),
@@ -213,28 +221,9 @@ impl<B: AutodiffBackend> SACAgent<B> {
         log_dict: LogItem,
     ) -> LogItem {
         // select action according to policy
-        let (next_action_sampled_raw, next_action_log_prob_raw) =
-            self.pi.act_log_prob(next_states.clone());
+        let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
 
-        let (next_action_sampled, action_scale, _) = scale_actions_to_env(
-            next_action_sampled_raw.clone(),
-            &self.action_space,
-            train_device,
-        );
-        // let next_action_log_prob =
-        //     next_action_log_prob_raw.clone() - action_scale.clone().log().sum_dim(1);
-
-        let epsilon = 1e-6f32;
-        let next_action_log_prob_scaled: Tensor<B, 2> = next_action_log_prob_raw
-            - next_action_sampled_raw
-                .powi_scalar(2)
-                .neg()
-                .add_scalar(1.0)
-                .add_scalar(epsilon)
-                .log()
-            - action_scale.add_scalar(epsilon).log();
-
-        let next_action_log_prob_scaled = next_action_log_prob_scaled.sum_dim(1);
+        let next_action_log_prob = next_action_log_prob.sum_dim(1);
         // disp_tensorf("next_action_sampled", &next_action_sampled);
         // disp_tensorf("next_action_log_prob", &next_action_log_prob);
 
@@ -250,7 +239,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // disp_tensorf("2next_q_vals", &next_q_vals);
 
         // add the entropy term
-        let next_q_vals = next_q_vals - next_action_log_prob_scaled.mul_scalar(ent_coef);
+        let next_q_vals = next_q_vals - next_action_log_prob.mul_scalar(ent_coef);
         // disp_tensorf("3next_q_vals", &next_q_vals);
 
         // td error + entropy term
@@ -332,17 +321,35 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         obs: &Vec<f32>,
         greedy: bool,
         inference_device: &<B>::Device,
+        outputs_in_log: bool,
     ) -> (Vec<f32>, LogItem) {
         // don't judge me
-        let a_raw = self
+        let a_t = self
             .pi
             .act(&obs.clone().to_tensor(inference_device), greedy)
             .detach();
-        let (a_scaled, _, _) =
-            scale_actions_to_env(a_raw.unsqueeze(), &self.action_space, inference_device);
-        let a_scaled = a_scaled.into_data().to_vec().unwrap();
+        let a = a_t.clone().into_data().to_vec().unwrap();
 
-        (a_scaled, LogItem::default())
+        let mut log_item = LogItem::default();
+
+        if outputs_in_log {
+            // get the q val for the q, a pair
+            let q: f32 = Tensor::cat(
+                self.qs.q_from_actions(
+                    obs.clone().to_tensor(inference_device).unsqueeze(),
+                    a_t.unsqueeze(),
+                ),
+                1,
+            )
+            .min_dim(1)
+            .into_data()
+            .to_vec()
+            .unwrap()[0];
+
+            log_item = log_item.push("q".to_string(), LogData::Float(q));
+        }
+
+        (a, log_item)
     }
 
     fn train_step(
@@ -381,33 +388,38 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         // disp_tensorb("dones", &dones);
 
         let t_policy0 = std::time::Instant::now();
-        let (actions_pi_raw, log_prob_raw) =
-            self.pi.act_log_prob(states.clone());
+        let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
 
-        let log_dict = log_dict.push("action_saturation_frac".to_string(), LogData::Float(actions_pi_raw.clone().abs().greater_elem(0.99).float().mean().into_scalar().elem()));
+        let log_dict = log_dict.push(
+            "action_saturation_frac".to_string(),
+            LogData::Float(
+                actions_pi
+                    .clone()
+                    .abs()
+                    .greater_elem(0.99)
+                    .float()
+                    .mean()
+                    .into_scalar()
+                    .elem(),
+            ),
+        );
 
-        let (actions_pi_scaled, action_scale, _) =
-            scale_actions_to_env(actions_pi_raw.clone(), &self.action_space, train_device);
-
-        // let log_prob = log_prob_raw - action_scale.log().sum_dim(1);
-
-        let epsilon = 1e-6f32;
-        let log_prob_scaled = log_prob_raw
-            - actions_pi_raw.powi_scalar(2).neg().add_scalar(1.0).add_scalar(epsilon).log()
-            - action_scale.add_scalar(epsilon).log();
-        let log_prob_scaled = log_prob_scaled.sum_dim(1);
+        let log_prob = log_prob.sum_dim(1);
 
         self.profiler
             .record("policy", t_policy0.elapsed().as_secs_f64());
 
-        let log_dict = log_dict.push("entropy_proxy".to_string(), LogData::Float(-log_prob_scaled.clone().mean().into_scalar().elem::<f32>()));
+        let log_dict = log_dict.push(
+            "entropy_proxy".to_string(),
+            LogData::Float(-log_prob.clone().mean().into_scalar().elem::<f32>()),
+        );
         // disp_tensorf("actions_pi", &actions_pi);
         // disp_tensorf("log_prob", &log_prob);
 
         // train entropy coeficient if required to do so
         let t_ent0 = std::time::Instant::now();
         let (ent_coef, ent_coef_loss) = self.ent_coef.train_step(
-            log_prob_scaled.clone().flatten(0, 1),
+            log_prob.clone().flatten(0, 1),
             self.config.ent_lr,
             train_device,
         );
@@ -445,8 +457,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             states,
             ent_coef,
             offline_params.lr,
-            actions_pi_scaled,
-            log_prob_scaled,
+            actions_pi,
+            log_prob,
             log_dict,
         );
         self.profiler

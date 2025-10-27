@@ -2,7 +2,7 @@ use burn::{
     module::Module,
     nn::{Linear, LinearConfig},
     prelude::Backend,
-    tensor::{activation::relu, Tensor},
+    tensor::Tensor,
 };
 
 use crate::common::{
@@ -34,7 +34,7 @@ impl<B: Backend> PiModel<B> {
 
 impl<B: Backend> PiModel<B> {
     fn forward(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-        let latent = relu(self.mlp.forward(obs.clone()));
+        let latent = self.mlp.forward(obs.clone());
         let loc = self.loc_head.forward(latent.clone());
         let log_scale = self.scale_head.forward(latent);
         let log_scale = log_scale.clamp(-20.0, 2.0);
@@ -67,6 +67,15 @@ impl<B: Backend> PiModel<B> {
         let action = x_t.clone().tanh();
         let log_prob = dist.log_prob(x_t.clone());
 
+        let log_prob: Tensor<B, 2> = log_prob
+            - action
+                .clone()
+                .powi_scalar(2)
+                .neg()
+                .add_scalar(1.0)
+                .add_scalar(1e-6)
+                .log();
+
         (action, log_prob)
 
         // let latent = self.mlp.forward(obs.clone());
@@ -85,7 +94,10 @@ pub struct QModel<B: Backend> {
 impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size + n_actions, hidden_size, hidden_size, 1].to_vec(), device),
+            mlp: MLP::new(
+                &[obs_size + n_actions, hidden_size, hidden_size, 1].to_vec(),
+                device,
+            ),
         }
     }
 }
@@ -114,7 +126,13 @@ pub struct QModelSet<B: Backend> {
 }
 
 impl<B: Backend> QModelSet<B> {
-    pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device, n_critics: usize) -> Self {
+    pub fn new(
+        obs_size: usize,
+        n_actions: usize,
+        hidden_size: usize,
+        device: &B::Device,
+        n_critics: usize,
+    ) -> Self {
         let mut qs = Vec::new();
 
         for _ in 0..n_critics {

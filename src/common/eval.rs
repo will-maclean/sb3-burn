@@ -45,10 +45,14 @@ pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: C
             println!("state: {:?}", state);
         }
 
-        let (action, _) = agent.act(0, 1.0, &state, true, device);
+        let (action, act_log_dict) = agent.act(0, 1.0, &state, true, device, cfg.print_prediction);
 
         if cfg.print_action {
             println!("action: {:?}", action);
+        }
+
+        if cfg.print_prediction {
+            act_log_dict.print();
         }
 
         let step_sample = env.step(&action);

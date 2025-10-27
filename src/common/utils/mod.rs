@@ -1,13 +1,7 @@
-use burn::tensor::{
-    backend::{AutodiffBackend, Backend},
-    Bool, Float, Shape, Tensor,
-};
+use burn::tensor::{backend::Backend, Bool, Float, Shape, Tensor};
 use rand::Rng;
 
-use crate::common::{
-    spaces::BoxSpace,
-    to_tensor::{ToTensorF, ToTensorI},
-};
+use crate::common::to_tensor::ToTensorI;
 
 pub mod module_update;
 pub mod modules;
@@ -73,27 +67,6 @@ pub fn disp_tensorf<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D>) {
 
 pub fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>) {
     println!("{name}. {t}\n");
-}
-
-pub fn scale_actions_to_env<B: AutodiffBackend>(
-    actions: Tensor<B, 2>,
-    action_space: &BoxSpace<Vec<f32>>,
-    device: &B::Device,
-) -> (Tensor<B, 2>, Tensor<B, 2>, Tensor<B, 2>) {
-    let low = action_space
-        .low()
-        .clone()
-        .to_tensor(device)
-        .unsqueeze_dim(0);
-    let high = action_space
-        .high()
-        .clone()
-        .to_tensor(device)
-        .unsqueeze_dim(0);
-    let scale = (high.clone() - low.clone()) / 2.0;
-    let bias = (high + low) / 2.0;
-
-    (actions * scale.clone() + bias.clone(), scale, bias)
 }
 
 #[cfg(test)]

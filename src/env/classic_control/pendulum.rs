@@ -2,7 +2,7 @@ use core::f32;
 
 use crate::{
     common::{
-        spaces::{BoxSpace, Space},
+        spaces::{seed_spaces_rng, BoxSpace, Space},
         utils::angle_normalise,
     },
     env::{
@@ -101,8 +101,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
         };
 
         if let Some(seed) = seed {
-            self.action_space.seed(seed);
-            self.obs_space.seed(seed);
+            seed_spaces_rng(seed);
         }
 
         self.last_u = 0.0;
