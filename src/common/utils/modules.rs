@@ -1,7 +1,7 @@
 use burn::{
     module::Module,
     nn::{Linear, LinearConfig},
-    tensor::{activation::{gelu}, backend::Backend, Tensor},
+    tensor::{activation::relu, backend::Backend, Tensor},
 };
 
 use crate::common::agent::Policy;
@@ -18,14 +18,10 @@ impl<B: Backend> MLP<B> {
         let mut layers = Vec::new();
 
         for i in 0..sizes.len() - 1 {
-            layers.push(
-                LinearConfig::new(sizes[i], sizes[i + 1])
-                    // .with_initializer(burn::nn::Initializer::Uniform {
-                    //     min: -3e-3,
-                    //     max: 3e-3,
-                    // })
-                    .init(device),
-            )
+            let cfg = LinearConfig::new(sizes[i], sizes[i + 1]);
+            let layer: Linear<B> = cfg.init(device);
+
+            layers.push(layer);
         }
 
         Self { layers }
@@ -37,7 +33,7 @@ impl<B: Backend> MLP<B> {
         if self.layers.len() > 1 {
             for i in 0..self.layers.len() - 1 {
                 x_ = self.layers[i].forward(x_);
-                x_ = gelu(x_);
+                x_ = relu(x_);
             }
         }
 

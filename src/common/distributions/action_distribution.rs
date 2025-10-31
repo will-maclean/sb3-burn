@@ -34,6 +34,16 @@ where
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2>;
+    fn actions_from_obs_with_log_probs(
+        &mut self,
+        obs: Tensor<B, 2>,
+        deterministic: bool,
+    ) -> (Tensor<B, 2>, Tensor<B, 2>) {
+        let action = self.actions_from_obs(obs, deterministic);
+        let log_prob = self.log_prob(action.clone());
+
+        (action, log_prob)
+    }
 }
 
 /// Continuous actions are usually considered to be independent,
@@ -96,15 +106,14 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
-        let scale: Tensor<B, 2> = self.log_std.forward(obs.clone()).clamp(-20, 2).exp();
-
-        let loc = self.means.forward(obs);
-
-        self.dist = Normal::new(loc.clone(), scale);
+        let loc = self.means.forward(obs.clone());
 
         if deterministic {
             loc
         } else {
+            let scale: Tensor<B, 2> = self.log_std.forward(obs).clamp(-20, 2).exp();
+            self.dist = Normal::new(loc.clone(), scale);
+
             self.dist.rsample()
         }
     }
@@ -130,33 +139,24 @@ impl<B: Backend> SquashedDiagGaussianDistribution<B> {
             epsilon,
         }
     }
+
+    fn log_prob_correction(&self, ln_u: Tensor<B, 2>, a: Tensor<B, 2>) -> Tensor<B, 2> {
+        ln_u - ((1.0 - a.powi_scalar(2.0) + self.epsilon) as Tensor<B, 2>)
+            .log()
+            .sum_dim(1)
+    }
 }
 
 impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
-    fn log_prob(&self, sample: Tensor<B, 2>) -> Tensor<B, 2> {
-        // disp_tensorf("actions in", &sample);
-
-        let actions = tanh_bijector_inverse(sample.clone(), self.epsilon);
-
-        // disp_tensorf("actions post atanh", &actions);
-
-        let log_prob = self.diag_gaus_dist.log_prob(actions).sum_dim(1);
-
-        // disp_tensorf("first log prob", &log_prob);
+    fn log_prob(&self, a: Tensor<B, 2>) -> Tensor<B, 2> {
+        let u = tanh_bijector_inverse(a.clone());
+        let ln_u = self.diag_gaus_dist.log_prob(u);
 
         // Squash correction (from original SAC implementation)
         // this comes from the fact that tanh is bijective and differentiable
-        let out = log_prob
-            - sample
-                .powi_scalar(2)
-                .mul_scalar(-1)
-                .add_scalar(1.0 + self.epsilon)
-                .log()
-                .sum_dim(1);
+        let ln_a = self.log_prob_correction(ln_u, a);
 
-        // disp_tensorf("second log prob", &out);
-
-        out
+        ln_a
     }
 
     fn entropy(&self) -> Tensor<B, 2> {
@@ -176,6 +176,23 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
             .actions_from_obs(obs, deterministic)
             .tanh()
     }
+
+    fn actions_from_obs_with_log_probs(
+        &mut self,
+        obs: Tensor<B, 2>,
+        deterministic: bool,
+    ) -> (Tensor<B, 2>, Tensor<B, 2>) {
+        // we can calc the log probs with u directly, rather than
+        // having to do the tanh bijector stuff to map the squashed actions back onto
+        // (an approximation of) the sampled gaussian actions
+        let (u, ln_u) = self
+            .diag_gaus_dist
+            .actions_from_obs_with_log_probs(obs, deterministic);
+
+        let a = u.clone().exp();
+
+        (a.clone(), self.log_prob_correction(ln_u, a))
+    }
 }
 
 impl<B: Backend> Policy<B> for SquashedDiagGaussianDistribution<B> {
@@ -184,26 +201,15 @@ impl<B: Backend> Policy<B> for SquashedDiagGaussianDistribution<B> {
     }
 }
 
-// #[derive(Clone, Debug)]
-// pub struct StateDependentNoiseDistribution<B: Backend>{
-//     means: Linear<B>,
-//     log_std: Param<Tensor<B, 1>>,
-// }
-
-// impl<B: Backend> StateDependentNoiseDistribution<B>{
-//     fn sample_noise(&mut self, latent_sde: Tensor<B, 1>) -> Tensor<B, 1>{
-//         todo!()
-//     }
-// }
-
-fn tanh_bijector_inverse<B: Backend>(sample: Tensor<B, 2>, eps: f32) -> Tensor<B, 2> {
+fn tanh_bijector_inverse<B: Backend>(sample: Tensor<B, 2>) -> Tensor<B, 2> {
+    let eps = f32::EPSILON;
     let sample = sample.clamp(-1.0 + eps, 1.0 - eps);
 
     tanh_bijector_atanh(sample)
 }
 
 fn tanh_bijector_atanh<B: Backend>(x: Tensor<B, 2>) -> Tensor<B, 2> {
-    (x.clone().log1p() - (-x).log1p()).mul_scalar(0.5)
+    0.5 * (x.clone().log1p() - (-x).log1p())
 }
 
 #[cfg(test)]

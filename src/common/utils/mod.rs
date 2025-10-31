@@ -1,4 +1,7 @@
-use burn::tensor::{backend::Backend, Bool, Float, Shape, Tensor};
+use burn::{
+    module::{ModuleVisitor, ParamId},
+    tensor::{backend::Backend, Bool, ElementConversion, Float, Shape, Tensor},
+};
 use rand::Rng;
 
 use crate::common::to_tensor::ToTensorI;
@@ -67,6 +70,44 @@ pub fn disp_tensorf<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D>) {
 
 pub fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Bool>) {
     println!("{name}. {t}\n");
+}
+
+// Summaries a whole module. Useful to tell if gradient updates are successful
+#[derive(Clone, Default, Debug)]
+pub struct ModuleParamSummary {
+    mins: Vec<f32>,
+    maxs: Vec<f32>,
+    means: Vec<f32>,
+}
+
+impl ModuleParamSummary {
+    pub fn print(&self) {
+        let min = self
+            .mins
+            .iter()
+            .reduce(|acc, x| if acc < x { acc } else { x })
+            .unwrap();
+        let max = self
+            .mins
+            .iter()
+            .reduce(|acc, x| if acc > x { acc } else { x })
+            .unwrap();
+
+        // Yeah, yeah, not a real mean of all params in the model, I know.
+        // Should still be useful for knowing if the model is changing
+        let mean = self.mins.iter().sum::<f32>() / self.mins.len() as f32;
+
+        println!("Module Summary: min={min}, mean={mean}, max={max}");
+    }
+}
+
+impl<B: Backend> ModuleVisitor<B> for ModuleParamSummary {
+    fn visit_float<const D: usize>(&mut self, _id: ParamId, tensor: &Tensor<B, D>) {
+        let x = tensor.clone();
+        self.mins.push(x.clone().min().into_scalar().elem());
+        self.maxs.push(x.clone().max().into_scalar().elem());
+        self.means.push(x.mean().into_scalar().elem());
+    }
 }
 
 #[cfg(test)]

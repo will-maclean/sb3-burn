@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use burn::{
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
+    module::Module,
     optim::AdamConfig,
+    record::{FullPrecisionSettings, NamedMpkFileRecorder},
     tensor::{ElementConversion, Tensor},
 };
 use sb3_burn::{
@@ -72,7 +74,7 @@ fn main() {
         .with_update_every(1)
         .with_trainable_ent_coef(false)
         .with_target_entropy(None)
-        .with_ent_coef(Some(0.5));
+        .with_ent_coef(Some(0.05));
 
     let agent = SACAgent::new(
         sac_config,
@@ -115,7 +117,15 @@ fn main() {
         &train_device,
     );
 
+    let save_dir = PathBuf::from("weights/sac_probe2/");
+
     trainer.train();
+    trainer.save(&save_dir);
+
+    let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::new();
+    let trained_qs = qs
+        .load_file(save_dir.join("qs_model"), &recorder, &train_device)
+        .unwrap();
 
     let fresh_obs: Tensor<TrainingBacked, 2> =
         Tensor::<TrainingBacked, 1>::from_floats([0.5], &train_device)
@@ -126,7 +136,7 @@ fn main() {
             .unsqueeze()
             .require_grad();
 
-    let q_vals = qs.q_from_actions(fresh_obs, fresh_action.clone());
+    let q_vals = trained_qs.q_from_actions(fresh_obs, fresh_action.clone());
     let q_min = Tensor::cat(q_vals, 1).min_dim(1);
 
     // calculate the grads of q_min w.r.t. fresh_action

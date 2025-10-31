@@ -1,8 +1,11 @@
+use std::path::Path;
+
 use burn::{
     config::Config,
     module::{Module, Param},
     nn::loss::{MseLoss, Reduction},
     optim::{adaptor::OptimizerAdaptor, Adam, AdamConfig, GradientsParams, Optimizer},
+    record::{FullPrecisionSettings, NamedMpkFileRecorder},
     tensor::{
         backend::{AutodiffBackend, Backend},
         Bool, ElementConversion, Shape, Tensor,
@@ -65,7 +68,7 @@ impl<B: AutodiffBackend> EntCoef<B> {
         train_device: Option<&B::Device>,
     ) -> Self {
         if trainable {
-            let module = LogAlphaModule::new(starting_val, train_device.unwrap());
+            let module = LogAlphaModule::new(starting_val.ln(), train_device.unwrap());
             let optim = AdamConfig::new().init();
             EntCoef::Trainable(module, optim, target_entropy)
         } else {
@@ -167,13 +170,9 @@ impl<B: AutodiffBackend> SACAgent<B> {
 
         let ent_coef = match (config.ent_coef, config.trainable_ent_coef) {
             (None, false) => panic!("If not training ent_coef, an ent_coef must be supplied"),
-            (None, true) => 0.0,
+            (None, true) => 1.0,
             (Some(val), false) => val,
-            (Some(val), true) => {
-                // Note: we optimize the log of the entropy coeff which is slightly different from the paper
-                // as discussed in https://github.com/rail-berkeley/softlearning/issues/37
-                val.ln()
-            }
+            (Some(val), true) => val,
         };
 
         Self {
@@ -296,7 +295,21 @@ impl<B: AutodiffBackend> SACAgent<B> {
 
         let actor_loss_back = actor_loss.backward();
         let actor_grads = GradientsParams::from_grads(actor_loss_back, &self.pi);
+
+        // do some checks to see that pi is actually updating
+        // let mut pre_pi_summary = ModuleParamSummary::default();
+        // self.pi.visit(&mut pre_pi_summary);
+
         self.pi = self.pi_optim.step(lr, self.pi.clone(), actor_grads);
+        // let mut post_pi_summary = ModuleParamSummary::default();
+        // self.pi.visit(&mut post_pi_summary);
+
+        // println!("Pi Summary pre-step");
+        // pre_pi_summary.print();
+        // println!("Pi Summary post-step");
+        // post_pi_summary.print();
+        //
+        // panic!();
 
         log_dict
     }
@@ -484,6 +497,12 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         self.profiler.reset();
         item
     }
+
+    fn save(&self, path: &Path) {
+        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::new();
+        let _ = self.pi.clone().save_file(path.join("pi_model"), &recorder);
+        let _ = self.qs.clone().save_file(path.join("qs_model"), &recorder);
+    }
 }
 
 #[cfg(test)]
@@ -491,7 +510,7 @@ mod test {
 
     use burn::{
         backend::{Autodiff, NdArray},
-        optim::{AdamConfig, GradientsParams, Optimizer},
+        optim::{AdamConfig, GradientsParams, Optimizer, SgdConfig},
         tensor::Tensor,
     };
 
@@ -525,15 +544,63 @@ mod test {
     }
 
     #[test]
+    fn test_log_alpha_module() {
+        type Backend = Autodiff<NdArray>;
+        let device: <Autodiff<NdArray> as burn::prelude::Backend>::Device = Default::default();
+
+        let target_entropy = -1.0;
+        let lr = 1.0;
+        let starting_alpha: f32 = 1.0;
+        let log_probs: Tensor<Backend, 2> =
+            Tensor::<Backend, 1>::from_floats([-2.0], &Default::default()).unsqueeze();
+
+        let log_alpha_module: LogAlphaModule<Backend> =
+            LogAlphaModule::new(starting_alpha.ln(), &device);
+
+        let starting_alpha = log_alpha_module.alpha();
+        let loss = log_alpha_module.calc_loss(log_probs, target_entropy);
+
+        let mut sgd = SgdConfig::new().init();
+
+        let g = loss.backward();
+        let grads = GradientsParams::from_grads(g, &log_alpha_module);
+
+        let log_alpha_after = sgd.step(lr, log_alpha_module, grads);
+        let alpha_after = log_alpha_after.alpha();
+
+        // note - we train log alpha = beta = log(alpha)
+        // alpha0 = 0.0 => beta0 = log(alpha0) = 0
+
+        // Loss func is Loss(beta) = beta * (-log_probs.sum_dim(1) - target_entropy).mean()
+        // => Grad(Loss(beta)) = (-log_probs.sum_dim(1) - target_entropy).mean()
+        //                     = (-[-2, -2] - (-1)).mean()
+        //                     = ([2, 2] + 1).mean()
+        //                     = ([3, 3]).mean()
+        //                     = 3
+        // so:
+        // beta1 = beta0 - lr * Grad(Loss(beta)) = 0 - 1.0 * 3 = -3
+        //
+        // Also, we expect the loss to be:
+        //  Loss(beta) = beta * (-log_probs.sum_dim(1) - target_entropy).mean() = (0) * (-3) = 0
+        //
+        //  Note: alpha updates are done with adam, so with its momentum and other params we might
+        //  expect the actual update size to be smaller. but, we can expect it to move in the
+        //  correct direction.
+        assert_approx_eq::assert_approx_eq!(starting_alpha, 1.0);
+        assert_approx_eq::assert_approx_eq!(alpha_after, (-3.0 as f32).exp());
+        assert_approx_eq::assert_approx_eq!(loss.into_scalar(), 0.0);
+    }
+
+    #[test]
     fn test_ent_coef() {
         type Backend = Autodiff<NdArray>;
         let device: <Autodiff<NdArray> as burn::prelude::Backend>::Device = Default::default();
 
         let target_entropy = -1.0;
-        let lr = 0.001;
-        let starting_ent = 0.0;
-        let log_probs: Tensor<Backend, 1> =
-            Tensor::from_floats([1.0, 2.0, 3.0, -1.0], &Default::default());
+        let lr = 1.0;
+        let starting_ent = 1.0;
+        let log_probs: Tensor<Backend, 2> =
+            Tensor::<Backend, 1>::from_floats([-2.0], &Default::default()).unsqueeze();
 
         let mut ent: EntCoef<Backend> =
             EntCoef::new(starting_ent, true, target_entropy, Some(&device));
@@ -543,13 +610,13 @@ mod test {
             EntCoef::Trainable(m, _, _) => m.alpha(),
         };
 
-        ent.train_step(log_probs.unsqueeze(), lr, &Default::default());
+        ent.train_step(log_probs, lr, &device);
 
         let ent_after = match &ent {
             EntCoef::Constant(_) => panic!("shouldn't be here"),
             EntCoef::Trainable(m, _, _) => m.alpha(),
         };
 
-        assert!(ent_before != ent_after);
+        assert!(ent_after < ent_before);
     }
 }

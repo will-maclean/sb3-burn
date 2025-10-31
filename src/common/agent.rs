@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use burn::module::Module;
 use burn::tensor::backend::Backend;
 
@@ -28,9 +30,9 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
     /// act greedily. If false, the agent may use an exploration scheme.
     /// inference device: The Backend device on which the act operation should run. This may require moving modules
     /// to the correct device.
-    /// outputs_in_log: If true, the agent should include extra outputs in the returned log i.e. q values for actor critic 
+    /// outputs_in_log: If true, the agent should include extra outputs in the returned log i.e. q values for actor critic
     /// models. The expectation is that outputs that are trivial to calculate or are created as byproducts of the normal
-    /// action calculation should already be included in the log outputs. Setting `outputs_in_log` will ask the agent to 
+    /// action calculation should already be included in the log outputs. Setting `outputs_in_log` will ask the agent to
     /// do more expensive calculations, so should only be enabled when performance is not of concern.
     fn act(
         &mut self,
@@ -71,13 +73,11 @@ pub trait Agent<B: Backend, O: Clone, A: Clone> {
 
     /// Optional hook: flush averaged profiling data for the last interval.
     /// Default: no-op.
-    fn profile_flush(
-        &mut self,
-        _step: usize,
-        _interval_steps: usize,
-    ) -> Option<LogItem> {
+    fn profile_flush(&mut self, _step: usize, _interval_steps: usize) -> Option<LogItem> {
         None
     }
+
+    fn save(&self, path: &Path);
 }
 
 /// The Policy trait defines the specific behaviours we need from

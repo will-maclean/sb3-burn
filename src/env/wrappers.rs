@@ -4,13 +4,69 @@ use crate::common::spaces::Space;
 
 use super::base::{Env, EnvObservation, InfoData, RewardRange};
 
-pub struct ScaleActionWrapper<O, A>
-where
-    O: Clone + Debug,
-    A: Clone + Debug,
-{
-    env: Box<dyn Env<O, A>>,
-}
+// pub struct ScaleActionWrapper<O>
+// where
+//     O: Clone + Debug,
+// {
+//     env: Box<dyn Env<O, Vec<f32>>>,
+//     low_scale: Vec<f32>,
+//     high_scale: Vec<f32>,
+// }
+//
+// impl<O: Clone + Debug> ScaleActionWrapper<O> {
+//     fn scale_action(&self, action: &Vec<f32>) -> Vec<f32> {
+//         let mut a_scaled = Vec::with_capacity(action.len());
+//
+//         for (a, l, h) in &(action, &self.low_scale, &self.high_scale) {
+//             a_scaled.push(a / (h - l) - l);
+//         }
+//
+//         a_scaled
+//     }
+// }
+//
+// impl<O: Clone + Debug> Env<O, Vec<f32>> for ScaleActionWrapper<O> {
+//     fn step(&mut self, action: &Vec<f32>) -> EnvObservation<O> {
+//         let scaled_action = self.scale_action(action);
+//
+//         self.env.step(&scaled_action)
+//     }
+//
+//     fn reset(&mut self, seed: Option<u64>, options: Option<super::base::ResetOptions>) -> O {
+//         self.env.reset(seed, options)
+//     }
+//
+//     fn action_space(&self) -> Box<dyn Space<Vec<f32>>> {
+//         Box::new(BoxSpace::from((
+//             self.low_scale.clone(),
+//             self.high_scale.clone(),
+//         )))
+//     }
+//
+//     fn observation_space(&self) -> Box<dyn Space<O>> {
+//         self.env.observation_space()
+//     }
+//
+//     fn reward_range(&self) -> RewardRange {
+//         self.env.reward_range()
+//     }
+//
+//     fn render(&self) {
+//         self.env.render();
+//     }
+//
+//     fn renderable(&self) -> bool {
+//         self.env.renderable()
+//     }
+//
+//     fn close(&mut self) {
+//         self.env.close()
+//     }
+//
+//     fn unwrapped(&self) -> &dyn Env<O, Vec<f32>> {
+//         self.env.unwrapped()
+//     }
+// }
 
 pub struct ScaleRewardWrapper<O, A>
 where

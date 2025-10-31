@@ -1,9 +1,10 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, path::Path};
 
 use burn::{
     config::Config,
     nn::loss::{MseLoss, Reduction},
     optim::{adaptor::OptimizerAdaptor, GradientsParams, Optimizer, SimpleOptimizer},
+    record::{FullPrecisionSettings, NamedMpkFileRecorder},
     tensor::{
         backend::{AutodiffBackend, Backend},
         ElementConversion, Tensor,
@@ -92,7 +93,7 @@ where
         obs: &OS,
         greedy: bool,
         inference_device: &<B as Backend>::Device,
-        _outputs_in_log: bool,        
+        _outputs_in_log: bool,
     ) -> (usize, LogItem) {
         let eps = linear_decay(
             global_frac,
@@ -181,6 +182,12 @@ where
     fn action_space(&self) -> Box<dyn Space<usize>> {
         dyn_clone::clone_box(&*self.action_space)
     }
+
+    fn save(&self, path: &Path) {
+        let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::new();
+        let _ = self.q1.clone().save_file(path.join("q1_model"), &recorder);
+        let _ = self.q2.clone().save_file(path.join("q2_model"), &recorder);
+    }
 }
 
 #[cfg(test)]
@@ -238,7 +245,7 @@ mod test {
 
         let logger = CsvLogger::new(PathBuf::from("tmp_logs/log.csv"), false, true);
 
-        let mut trainer: OfflineTrainer<_,  _, _, _> = OfflineTrainer::new(
+        let mut trainer: OfflineTrainer<_, _, _, _> = OfflineTrainer::new(
             offline_params,
             Box::new(env),
             Box::<GridWorldEnv>::default(),

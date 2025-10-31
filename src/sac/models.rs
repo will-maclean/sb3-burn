@@ -22,11 +22,15 @@ pub struct PiModel<B: Backend> {
 
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
+        let loc_head: Linear<B> = LinearConfig::new(hidden_size, n_actions).init(device);
+
+        let scale_head: Linear<B> = LinearConfig::new(hidden_size, n_actions).init(device);
+
         Self {
             mlp: MLP::new(&[obs_size, hidden_size, hidden_size].to_vec(), device),
-            scale_head: LinearConfig::new(hidden_size, n_actions).init(device),
-            loc_head: LinearConfig::new(hidden_size, n_actions).init(device),
-            // dist: SquashedDiagGaussianDistribution::new(256, n_actions, device, 1e-6),
+            scale_head,
+            loc_head,
+            // dist: SquashedDiagGaussianDistribution::new(hidden_size, n_actions, device, 1e-6),
             n_actions,
         }
     }
@@ -56,6 +60,7 @@ impl<B: Backend> PiModel<B> {
             action.squeeze(0)
         }
 
+        // let latent = self.mlp.forward(obs.clone().unsqueeze());
         // self.dist.actions_from_obs(latent, deterministic).squeeze(0)
     }
 
@@ -76,12 +81,14 @@ impl<B: Backend> PiModel<B> {
                 .add_scalar(1e-6)
                 .log();
 
+        // let log_prob = log_prob
+        //     - (2.0 * (2.0 as f32).ln() - x_t.clone() - softplus(-2.0 * x_t, 1.0)).sum_dim(1);
+
         (action, log_prob)
 
         // let latent = self.mlp.forward(obs.clone());
-        // let actions = self.dist.actions_from_obs(latent, false);
-        // let log_prob = self.dist.log_prob(actions.clone());
-        //
+        // let (actions, log_prob) = self.dist.actions_from_obs_with_log_probs(latent, false);
+
         // (actions, log_prob)
     }
 }
@@ -93,18 +100,18 @@ pub struct QModel<B: Backend> {
 
 impl<B: Backend> QModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
-        Self {
-            mlp: MLP::new(
-                &[obs_size + n_actions, hidden_size, hidden_size, 1].to_vec(),
-                device,
-            ),
-        }
+        let mlp = MLP::new(
+            &[obs_size + n_actions, hidden_size, hidden_size, 1].to_vec(),
+            device,
+        );
+
+        Self { mlp: mlp }
     }
 }
 
 impl<B: Backend> Policy<B> for QModel<B> {
     fn update(&mut self, from: &Self, tau: Option<f32>) {
-        self.mlp.update(&from.mlp, tau)
+        self.mlp.update(&from.mlp, tau);
     }
 }
 
