@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use burn::{
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
-    optim::{Adam, AdamConfig},
+    optim::AdamConfig,
 };
 use sb3_burn::{
     common::{
@@ -70,7 +70,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_,  _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(ProbeEnvStateActionTest::default()),

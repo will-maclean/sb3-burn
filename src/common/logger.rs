@@ -21,6 +21,8 @@ pub trait Logger {
     // the Logger will try to resolve the issue, e.g. by
     // creating the dir or fixing a db connection
     fn check_can_log(&self, try_to_fix: bool) -> Result<(), &str>;
+
+    fn print_last(&self);
 }
 
 #[derive(Debug, Clone)]
@@ -36,10 +38,22 @@ pub struct LogItem {
 }
 
 impl LogItem {
-    pub fn push(mut self, k: String, v: LogData) -> LogItem {
+    pub fn push(mut self, k: String, v: LogData) -> Self {
         self.items.insert(k, v);
 
         self
+    }
+
+    pub fn print(&self) {
+        for (k, v) in &self.items {
+            println!("{}: {:?}", k, v);
+        }
+    }
+
+    pub fn combine(&mut self, other: LogItem) {
+        other.items.into_iter().for_each(|(k, v)| {
+            self.items.insert(k, v);
+        });
     }
 }
 
@@ -96,6 +110,12 @@ impl Logger for CsvLogger {
         }
     }
     fn dump(&self) -> Result<(), Box<dyn Error>> {
+        println!(
+            "Dumping logs to {:?}. {} items to dump",
+            self.dump_path,
+            self.data.len()
+        );
+
         let mut wtr = Writer::from_path(self.dump_path.clone()).unwrap();
 
         // Determine the union of all keys
@@ -152,6 +172,15 @@ impl Logger for CsvLogger {
             }
         } else {
             Ok(())
+        }
+    }
+
+    fn print_last(&self) {
+        println!("Last Log:");
+        if let Some(log) = self.data.last() {
+            for (key, record) in &log.items {
+                println!("\t{key}: {:#?}", record);
+            }
         }
     }
 }

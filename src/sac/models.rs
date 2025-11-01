@@ -10,31 +10,34 @@ use crate::common::{
 pub struct PiModel<B: Backend> {
     mlp: MLP<B>,
     dist: SquashedDiagGaussianDistribution<B>,
+    n_actions: usize,
 }
 
 impl<B: Backend> PiModel<B> {
-    pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
+    pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
         Self {
-            mlp: MLP::new(&[obs_size, 256, 256].to_vec(), device),
-            dist: SquashedDiagGaussianDistribution::new(256, n_actions, device, 1e-6),
+            mlp: MLP::new(
+                &[obs_size, hidden_size, hidden_size].to_vec(),
+                device,
+                Some(0.0),
+            ),
+            dist: SquashedDiagGaussianDistribution::new(hidden_size, n_actions, device, 1e-6),
+            n_actions,
         }
     }
 }
 
 impl<B: Backend> PiModel<B> {
-
     pub fn act(&mut self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
-        let latent = self.mlp.forward(obs.clone().unsqueeze_dim(0));
-
-        self.dist.actions_from_obs(latent, deterministic).squeeze(0)
+        let latent = self.mlp.forward(obs.clone().unsqueeze());
+        self.dist
+            .actions_from_obs(latent, deterministic)
+            .squeeze_dim(0)
     }
 
     pub fn act_log_prob(&mut self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-        let latent = self.mlp.forward(obs.clone());
-        let actions = self.dist.actions_from_obs(latent, false);
-        let log_prob = self.dist.log_prob(actions.clone());
-
-        (actions, log_prob)
+        let latent = self.mlp.forward(obs.clone().unsqueeze());
+        self.dist.actions_from_obs_with_log_probs(latent, false)
     }
 }
 
@@ -44,16 +47,20 @@ pub struct QModel<B: Backend> {
 }
 
 impl<B: Backend> QModel<B> {
-    pub fn new(obs_size: usize, n_actions: usize, device: &B::Device) -> Self {
-        Self {
-            mlp: MLP::new(&[obs_size + n_actions, 256, 256, n_actions].to_vec(), device),
-        }
+    pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
+        let mlp = MLP::new(
+            &[obs_size + n_actions, hidden_size, hidden_size, 1].to_vec(),
+            device,
+            Some(0.0),
+        );
+
+        Self { mlp: mlp }
     }
 }
 
 impl<B: Backend> Policy<B> for QModel<B> {
     fn update(&mut self, from: &Self, tau: Option<f32>) {
-        self.mlp.update(&from.mlp, tau)
+        self.mlp.update(&from.mlp, tau);
     }
 }
 
@@ -75,11 +82,17 @@ pub struct QModelSet<B: Backend> {
 }
 
 impl<B: Backend> QModelSet<B> {
-    pub fn new(obs_size: usize, n_actions: usize, device: &B::Device, n_critics: usize) -> Self {
+    pub fn new(
+        obs_size: usize,
+        n_actions: usize,
+        hidden_size: usize,
+        device: &B::Device,
+        n_critics: usize,
+    ) -> Self {
         let mut qs = Vec::new();
 
         for _ in 0..n_critics {
-            qs.push(QModel::new(obs_size, n_actions, device));
+            qs.push(QModel::new(obs_size, n_actions, hidden_size, device));
         }
 
         Self { qs }

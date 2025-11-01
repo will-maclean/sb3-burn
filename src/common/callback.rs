@@ -1,4 +1,4 @@
-use burn::{optim::SimpleOptimizer, tensor::backend::AutodiffBackend};
+use burn::tensor::backend::AutodiffBackend;
 use core::fmt::Debug;
 
 use crate::env::base::EnvObservation;
@@ -17,21 +17,20 @@ use super::{agent::Agent, algorithm::OfflineTrainer};
 /// functionality without needing to modify the core training loop.
 pub trait Callback<
     A: Agent<B, OS, AS>,
-    O: SimpleOptimizer<B::InnerBackend>,
     B: AutodiffBackend,
     OS: Clone + Debug,
     AS: Clone + Debug,
 >
 {
-    fn on_training_start(&self, trainer: &OfflineTrainer<A, O, B, OS, AS>);
+    fn on_training_start(&self, trainer: &OfflineTrainer<A,  B, OS, AS>);
     fn on_step(
         &self,
-        trainer: &OfflineTrainer<A, O, B, OS, AS>,
+        trainer: &OfflineTrainer<A,  B, OS, AS>,
         step: usize,
         env_obs: EnvObservation<OS>,
         loss: Option<f32>,
     );
-    fn on_training_end(&self, trainer: &OfflineTrainer<A, O, B, OS, AS>);
+    fn on_training_end(&self, trainer: &OfflineTrainer<A, B, OS, AS>);
 }
 
 // A stub callback that does nothing.
@@ -39,22 +38,21 @@ pub struct EmptyCallback {}
 
 impl<
         A: Agent<B, OS, AS>,
-        O: SimpleOptimizer<B::InnerBackend>,
         B: AutodiffBackend,
         OS: Clone + Debug,
         AS: Clone + Debug,
-    > Callback<A, O, B, OS, AS> for EmptyCallback
+    > Callback<A, B, OS, AS> for EmptyCallback
 {
-    fn on_training_start(&self, _trainer: &OfflineTrainer<A, O, B, OS, AS>) {}
+    fn on_training_start(&self, _trainer: &OfflineTrainer<A, B, OS, AS>) {}
 
     fn on_step(
         &self,
-        _trainer: &OfflineTrainer<A, O, B, OS, AS>,
+        _trainer: &OfflineTrainer<A,  B, OS, AS>,
         _step: usize,
         _env_obs: EnvObservation<OS>,
         _loss: Option<f32>,
     ) {
     }
 
-    fn on_training_end(&self, _trainer: &OfflineTrainer<A, O, B, OS, AS>) {}
+    fn on_training_end(&self, _trainer: &OfflineTrainer<A,  B, OS, AS>) {}
 }

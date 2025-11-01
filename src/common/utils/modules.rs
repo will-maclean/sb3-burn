@@ -1,10 +1,10 @@
 use burn::{
     module::Module,
-    nn::{Linear, LinearConfig},
+    nn::{Initializer, Linear, LinearConfig},
     tensor::{activation::relu, backend::Backend, Tensor},
 };
 
-use crate::common::agent::Policy;
+use crate::common::{agent::Policy, utils::set_linear_bias};
 
 use super::module_update::update_linear;
 
@@ -14,11 +14,18 @@ pub struct MLP<B: Backend> {
 }
 
 impl<B: Backend> MLP<B> {
-    pub fn new(sizes: &Vec<usize>, device: &B::Device) -> Self {
+    pub fn new(sizes: &Vec<usize>, device: &B::Device, bias: Option<f32>) -> Self {
         let mut layers = Vec::new();
 
         for i in 0..sizes.len() - 1 {
-            layers.push(LinearConfig::new(sizes[i], sizes[i + 1]).init(device))
+            let cfg = LinearConfig::new(sizes[i], sizes[i + 1]);
+            let mut layer: Linear<B> = cfg.init(device);
+
+            if let Some(bias) = bias {
+                layer = set_linear_bias(layer, bias);
+            }
+
+            layers.push(layer);
         }
 
         Self { layers }
@@ -61,7 +68,7 @@ mod test {
     fn test_create_mlp_one_layer() {
         type Backend = NdArray;
 
-        let mut model = MLP::<NdArray>::new(&vec![5, 6], &Default::default());
+        let mut model = MLP::<NdArray>::new(&vec![5, 6], &Default::default(), None);
         let dummy_forward: Tensor<Backend, 2> = Tensor::random(
             Shape::new([3, 5]),
             Distribution::Normal(0.0, 1.0),
@@ -77,7 +84,7 @@ mod test {
     fn test_create_mlp_multi_layer() {
         type Backend = NdArray;
 
-        let mut model = MLP::<NdArray>::new(&vec![5, 6, 7], &Default::default());
+        let mut model = MLP::<NdArray>::new(&vec![5, 6, 7], &Default::default(), None);
         let dummy_forward: Tensor<Backend, 2> = Tensor::random(
             Shape::new([3, 5]),
             Distribution::Normal(0.0, 1.0),

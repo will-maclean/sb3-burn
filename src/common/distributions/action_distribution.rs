@@ -6,7 +6,7 @@ use burn::{
 
 use crate::common::{
     agent::Policy,
-    utils::{disp_tensorf, module_update::update_linear},
+    utils::{module_update::update_linear, set_linear_bias},
 };
 
 use super::{distribution::BaseDistribution, normal::Normal};
@@ -37,21 +37,17 @@ where
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2>;
+    fn actions_from_obs_with_log_probs(
+        &mut self,
+        obs: Tensor<B, 2>,
+        deterministic: bool,
+    ) -> (Tensor<B, 2>, Tensor<B, 2>) {
+        let action = self.actions_from_obs(obs, deterministic);
+        let log_prob = self.log_prob(action.clone());
+
+        (action, log_prob)
+    }
 }
-
-/// Continuous actions are usually considered to be independent,
-/// so we can sum components of the ``log_prob`` or the entropy.
-///
-/// # Shapes
-/// t: (batch, n_actions) or (batch)
-/// return: (batch) for (batch, n_actions) input, or (1) for (batch) input
-// fn sum_independent_dims<B: Backend>(t: Tensor<B, 1>) -> Tensor<B, 1>{
-//     t.sum()
-// }
-
-// fn sum_independent_dims_batched<B: Backend>(t: Tensor<B, 1>) -> Tensor<B, 1>{
-//     t.sum_dim(1).squeeze(1)
-// }
 
 #[derive(Debug, Module)]
 pub struct DiagGaussianDistribution<B: Backend> {
@@ -71,8 +67,8 @@ impl<B: Backend> DiagGaussianDistribution<B> {
         let dist: Normal<B, 2> = Normal::new(loc, std);
 
         Self {
-            means: LinearConfig::new(latent_dim, action_dim).init(device),
-            log_std: LinearConfig::new(latent_dim, action_dim).init(device),
+            means: set_linear_bias(LinearConfig::new(latent_dim, action_dim).init(device), 0.0),
+            log_std: set_linear_bias(LinearConfig::new(latent_dim, action_dim).init(device), 0.0),
             dist,
         }
     }
@@ -80,10 +76,11 @@ impl<B: Backend> DiagGaussianDistribution<B> {
 
 impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
     fn log_prob(&self, sample: Tensor<B, 2>) -> Tensor<B, 2> {
+        // (B, N)
         let log_prob = self.dist.log_prob(sample);
 
-        // TODO: add sum_independent_dims when multi-dim actions are supported
-        log_prob
+        // (B, 1)
+        log_prob.sum_dim(1)
     }
 
     fn entropy(&self) -> Tensor<B, 2> {
@@ -99,16 +96,14 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
-        let scale: Tensor<B, 2> = self.log_std.forward(obs.clone()).clamp(-20, 2).exp();
-
-        let loc = self.means.forward(obs);
-
+        let loc = self.means.forward(obs.clone());
+        let scale: Tensor<B, 2> = self.log_std.forward(obs).clamp(-20, 2).exp();
         self.dist = Normal::new(loc.clone(), scale);
 
         if deterministic {
-            loc
+            self.dist.mean()
         } else {
-            self.dist.sample()
+            self.dist.rsample()
         }
     }
 }
@@ -116,7 +111,7 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
 impl<B: Backend> Policy<B> for DiagGaussianDistribution<B> {
     fn update(&mut self, from: &Self, tau: Option<f32>) {
         self.means = update_linear(&from.means, self.means.clone(), tau);
-        //TODO: update self.log_std
+        self.log_std = update_linear(&from.log_std, self.log_std.clone(), tau);
     }
 }
 
@@ -133,33 +128,31 @@ impl<B: Backend> SquashedDiagGaussianDistribution<B> {
             epsilon,
         }
     }
+
+    fn log_prob_correction(&self, ln_u: Tensor<B, 2>, a: Tensor<B, 2>) -> Tensor<B, 2> {
+        // ln_u: (B, 1)
+        // a: (B, N)
+
+        // (B, 1)
+        let correction = ((1.0 - a.powi_scalar(2.0) + self.epsilon) as Tensor<B, 2>)
+            .log()
+            .sum_dim(1);
+
+        // (B, 1)
+        ln_u - correction
+    }
 }
 
 impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
-    fn log_prob(&self, sample: Tensor<B, 2>) -> Tensor<B, 2> {
-        disp_tensorf("actions in", &sample);
+    fn log_prob(&self, a: Tensor<B, 2>) -> Tensor<B, 2> {
+        // (B, N)
+        let u = tanh_bijector_inverse(a.clone());
 
-        let actions = tanh_bijector_inverse(sample.clone(), self.epsilon);
+        // (B, 1)
+        let ln_u = self.diag_gaus_dist.log_prob(u);
 
-        disp_tensorf("actions post atanh", &actions);
-
-        let log_prob = self.diag_gaus_dist.log_prob(actions);
-
-        disp_tensorf("first log prob", &log_prob);
-
-        // Squash correction (from original SAC implementation)
-        // this comes from the fact that tanh is bijective and differentiable
-        let out = log_prob
-            - sample
-                .powi_scalar(2)
-                .mul_scalar(-1)
-                .add_scalar(1.0 + self.epsilon)
-                .log()
-                .sum_dim(1);
-
-        disp_tensorf("second log prob", &out);
-
-        out
+        // (B, 1)
+        self.log_prob_correction(ln_u, a)
     }
 
     fn entropy(&self) -> Tensor<B, 2> {
@@ -179,6 +172,23 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
             .actions_from_obs(obs, deterministic)
             .tanh()
     }
+
+    fn actions_from_obs_with_log_probs(
+        &mut self,
+        obs: Tensor<B, 2>,
+        deterministic: bool,
+    ) -> (Tensor<B, 2>, Tensor<B, 2>) {
+        // we can calc the log probs with u directly, rather than
+        // having to do the tanh bijector stuff to map the squashed actions back onto
+        // (an approximation of) the sampled gaussian actions
+        let (u, ln_u) = self
+            .diag_gaus_dist
+            .actions_from_obs_with_log_probs(obs, deterministic);
+
+        let a = u.clone().tanh();
+
+        (a.clone(), self.log_prob_correction(ln_u, a))
+    }
 }
 
 impl<B: Backend> Policy<B> for SquashedDiagGaussianDistribution<B> {
@@ -187,26 +197,15 @@ impl<B: Backend> Policy<B> for SquashedDiagGaussianDistribution<B> {
     }
 }
 
-// #[derive(Clone, Debug)]
-// pub struct StateDependentNoiseDistribution<B: Backend>{
-//     means: Linear<B>,
-//     log_std: Param<Tensor<B, 1>>,
-// }
-
-// impl<B: Backend> StateDependentNoiseDistribution<B>{
-//     fn sample_noise(&mut self, latent_sde: Tensor<B, 1>) -> Tensor<B, 1>{
-//         todo!()
-//     }
-// }
-
-fn tanh_bijector_inverse<B: Backend>(sample: Tensor<B, 2>, eps: f32) -> Tensor<B, 2> {
+fn tanh_bijector_inverse<B: Backend>(sample: Tensor<B, 2>) -> Tensor<B, 2> {
+    let eps = f32::EPSILON;
     let sample = sample.clamp(-1.0 + eps, 1.0 - eps);
 
     tanh_bijector_atanh(sample)
 }
 
 fn tanh_bijector_atanh<B: Backend>(x: Tensor<B, 2>) -> Tensor<B, 2> {
-    (x.clone().log1p() - (-x).log1p()).mul_scalar(0.5)
+    0.5 * (x.clone().log1p() - (-x).log1p())
 }
 
 #[cfg(test)]

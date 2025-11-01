@@ -10,7 +10,7 @@ pub struct EvalResult {
     pub mean_reward: f32,
 }
 
-#[derive(Config)]
+#[derive(Config, Debug)]
 pub struct EvalConfig {
     #[config(default = 10)]
     n_eval_episodes: usize,
@@ -40,17 +40,19 @@ pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: C
     let mut running_reward = 0.0;
     let mut ep_len = 0.0;
 
-    println!("Starting evaluation");
-
     while completed_episodes < cfg.n_eval_episodes {
         if cfg.print_obs {
             println!("state: {:?}", state);
         }
 
-        let (action, _) = agent.act(0, 1.0, &state, true, device);
+        let (action, act_log_dict) = agent.act(0, 1.0, &state, true, device, cfg.print_prediction);
 
         if cfg.print_action {
             println!("action: {:?}", action);
+        }
+
+        if cfg.print_prediction {
+            act_log_dict.print();
         }
 
         let step_sample = env.step(&action);
@@ -80,6 +82,8 @@ pub fn evaluate_policy<B: Backend, A: Agent<B, OS, AS>, OS: Clone + Debug, AS: C
             state = step_sample.obs;
         }
     }
+
+    println!("Finished eval. Mean reward: {}", mean(&episode_rewards));
 
     EvalResult {
         mean_len: mean(&episode_lengths),

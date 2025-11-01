@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use burn::{
+    // backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
-    optim::{Adam, AdamConfig},
+    optim::AdamConfig,
 };
 use sb3_burn::{
     common::{
@@ -13,9 +14,9 @@ use sb3_burn::{
         logger::{CsvLogger, Logger},
         spaces::BoxSpace,
     },
-    env::{base::Env, probe::ProbeEnvContinuousActions},
+    env::{base::Env, continuous_probe::ProbeEnvContinuousActions1},
     sac::{
-        agent::SACAgent,
+        agent::{SACAgent, SACConfig},
         models::{PiModel, QModelSet},
     },
 };
@@ -30,7 +31,7 @@ fn main() {
 
     let train_device = LibTorchDevice::Cuda(0);
 
-    let env = ProbeEnvContinuousActions::default();
+    let env = ProbeEnvContinuousActions1::default();
 
     let config_optimizer =
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
@@ -40,6 +41,7 @@ fn main() {
     let qs: QModelSet<TrainingBacked> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
+        4,
         &train_device,
         N_CRITICS,
     );
@@ -49,51 +51,68 @@ fn main() {
     let pi = PiModel::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
+        4,
         &train_device,
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(256)
-        .with_memory_size(1000000)
-        .with_n_steps(2000)
+        // all observations are identical for this probe env, no need for varied data
+        .with_batch_size(1)
+        .with_memory_size(10000)
+        .with_n_steps(500)
         .with_warmup_steps(256)
-        .with_lr(5e-3)
+        .with_lr(5e-2)
+        .with_evaluate_every_steps(2000)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_during_training(false);
+        .with_evaluate_during_training(true);
+
+    let sac_config = SACConfig::new()
+        .with_ent_lr(1e-4)
+        .with_critic_tau(0.005)
+        .with_update_every(1)
+        .with_trainable_ent_coef(false)
+        .with_target_entropy(None)
+        .with_ent_coef(Some(0.5));
 
     let agent = SACAgent::new(
+        sac_config,
         pi,
         qs.clone(),
         qs,
         pi_optim,
         q_optim,
-        None,
-        true,
-        None,
-        Some(0.995),
-        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
-        Box::new(BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()))),
+        Box::new(BoxSpace::from(([-1.0].to_vec(), [1.0].to_vec()))),
+        Box::new(BoxSpace::from(([-1.0].to_vec(), [1.0].to_vec()))),
     );
 
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
-    let logger = CsvLogger::new(PathBuf::from("logs/sac_probe/log_sac_probe.csv"), false);
+    let logger = CsvLogger::new(
+        PathBuf::from("logs/sac_probe1/log_sac_probe1.csv"),
+        false,
+        true,
+    );
 
     match logger.check_can_log(false) {
         Ok(_) => {}
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, Adam, _, _, _> = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_, _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
-        Box::new(ProbeEnvContinuousActions::default()),
+        Box::new(ProbeEnvContinuousActions1::default()),
         agent,
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new().with_n_eval_episodes(20),
+        EvalConfig::new()
+            .with_n_eval_episodes(4)
+            .with_print_obs(true)
+            .with_print_action(true)
+            .with_print_reward(true)
+            .with_print_prediction(true),
         &train_device,
     );
 

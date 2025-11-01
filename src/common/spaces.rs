@@ -1,9 +1,16 @@
+use std::sync::{LazyLock, Mutex};
+
 use burn::tensor::cast::ToElement;
 use burn::tensor::{backend::Backend, Distribution, Tensor};
 use dyn_clone::DynClone;
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use std::cell::RefCell;
-use std::rc::Rc;
+
+pub static SHARED_RNG: LazyLock<Mutex<StdRng>> =
+    LazyLock::new(|| Mutex::new(StdRng::seed_from_u64(1234)));
+
+pub fn seed_spaces_rng(seed: u64) {
+    *SHARED_RNG.lock().unwrap() = StdRng::seed_from_u64(seed);
+}
 
 /// Defines a space in which a action, observation, or other may exist
 pub trait Space<T: Clone>: DynClone {
@@ -12,9 +19,6 @@ pub trait Space<T: Clone>: DynClone {
 
     /// randomly samples from the space
     fn sample(&mut self) -> T;
-
-    /// seeds the rng for the space
-    fn seed(&mut self, seed: u64);
 
     /// returns some semantic representation of the space of
     /// the space, to be used for initialising models
@@ -29,17 +33,11 @@ pub trait Space<T: Clone>: DynClone {
 pub struct Discrete {
     /// The upper bound on the space
     n: usize,
-
-    /// rng used for sampling
-    rng: Rc<RefCell<StdRng>>,
 }
 
 impl From<usize> for Discrete {
     fn from(value: usize) -> Self {
-        Self {
-            n: value,
-            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
-        }
+        Self { n: value }
     }
 }
 
@@ -49,12 +47,8 @@ impl Space<usize> for Discrete {
     }
 
     fn sample(&mut self) -> usize {
-        self.rng.borrow_mut().random_range(0..self.n)
-    }
-
-    fn seed(&mut self, seed: u64) {
-        let mut rng = self.rng.borrow_mut();
-        *rng = StdRng::seed_from_u64(seed);
+        let mut rng = SHARED_RNG.lock().unwrap();
+        rng.random_range(0..self.n)
     }
 
     fn shape(&self) -> usize {
@@ -76,9 +70,6 @@ pub struct BoxSpace<T> {
 
     /// The upper bound on the space
     high: T,
-
-    /// rng used for sampling
-    rng: Rc<RefCell<StdRng>>,
 }
 
 impl From<(Vec<f32>, Vec<f32>)> for BoxSpace<Vec<f32>> {
@@ -86,7 +77,6 @@ impl From<(Vec<f32>, Vec<f32>)> for BoxSpace<Vec<f32>> {
         Self {
             low: value.0,
             high: value.1,
-            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
         }
     }
 }
@@ -105,22 +95,24 @@ impl Space<Vec<f32>> for BoxSpace<Vec<f32>> {
     }
 
     fn sample(&mut self) -> Vec<f32> {
+        let mut rng = SHARED_RNG.lock().unwrap();
         (0..self.low.len())
-            .map(|_| {
-                let low_bound = self.low.iter().cloned().fold(f32::INFINITY, f32::min);
-                let high_bound = self.high.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-                self.rng.borrow_mut().random_range(low_bound..high_bound)
-            })
+            .map(|i| rng.random_range(self.low[i]..=self.high[i]))
             .collect()
-    }
-
-    fn seed(&mut self, seed: u64) {
-        let mut rng = self.rng.borrow_mut();
-        *rng = StdRng::seed_from_u64(seed);
     }
 
     fn shape(&self) -> Vec<f32> {
         self.low.clone()
+    }
+}
+
+impl BoxSpace<Vec<f32>> {
+    pub fn low(&self) -> &Vec<f32> {
+        &self.low
+    }
+
+    pub fn high(&self) -> &Vec<f32> {
+        &self.high
     }
 }
 
@@ -129,7 +121,6 @@ impl<B: Backend, const D: usize> From<(Tensor<B, D>, Tensor<B, D>)> for BoxSpace
         Self {
             low: value.0,
             high: value.1,
-            rng: Rc::new(RefCell::new(StdRng::from_os_rng())),
         }
     }
 }
@@ -162,11 +153,6 @@ impl<B: Backend, const D: usize> Space<Tensor<B, D>> for BoxSpace<Tensor<B, D>> 
         let sample = sample.mul(range).add(self.low.clone());
 
         sample
-    }
-
-    fn seed(&mut self, seed: u64) {
-        let mut rng = self.rng.borrow_mut();
-        *rng = StdRng::seed_from_u64(seed);
     }
 
     fn shape(&self) -> Tensor<B, D> {

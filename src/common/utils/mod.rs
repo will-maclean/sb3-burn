@@ -1,12 +1,31 @@
-use burn::tensor::{backend::Backend, Bool, Float, Shape, Tensor};
+use burn::{
+    module::{ModuleVisitor, Param},
+    nn::Linear,
+    tensor::{backend::Backend, Bool, ElementConversion, Float, Shape, Tensor},
+};
 use rand::Rng;
 
-use crate::common::to_tensor::ToTensorI;
+use crate::common::{spaces::seed_spaces_rng, to_tensor::ToTensorI};
 
 pub mod module_update;
 pub mod modules;
 
 const PI: f32 = 3.1415;
+
+pub fn sb3_seed<B: Backend>(s: u64, device: &B::Device) {
+    B::seed(device, s);
+    seed_spaces_rng(s);
+}
+
+pub fn set_linear_bias<B: Backend>(linear: Linear<B>, val: f32) -> Linear<B> {
+    let mut linear = linear;
+
+    linear.bias = Some(Param::from_tensor(
+        val * Tensor::ones_like(&linear.bias.unwrap().val()),
+    ));
+
+    linear
+}
 
 pub fn linear_decay(curr_frac: f32, start: f32, end: f32, end_frac: f32) -> f32 {
     if curr_frac > end_frac {
@@ -69,13 +88,51 @@ pub fn disp_tensorb<B: Backend, const D: usize>(name: &str, t: &Tensor<B, D, Boo
     println!("{name}. {t}\n");
 }
 
+// Summaries a whole module. Useful to tell if gradient updates are successful
+#[derive(Clone, Default, Debug)]
+pub struct ModuleParamSummary {
+    mins: Vec<f32>,
+    maxs: Vec<f32>,
+    means: Vec<f32>,
+}
+
+impl ModuleParamSummary {
+    pub fn print(&self) {
+        let min = self
+            .mins
+            .iter()
+            .reduce(|acc, x| if acc < x { acc } else { x })
+            .unwrap();
+        let max = self
+            .mins
+            .iter()
+            .reduce(|acc, x| if acc > x { acc } else { x })
+            .unwrap();
+
+        // Yeah, yeah, not a real mean of all params in the model, I know.
+        // Should still be useful for knowing if the model is changing
+        let mean = self.means.iter().sum::<f32>() / self.means.len() as f32;
+
+        println!("Module Summary: min={min}, mean={mean}, max={max}");
+    }
+}
+
+impl<B: Backend> ModuleVisitor<B> for ModuleParamSummary {
+    fn visit_float<const D: usize>(&mut self, param: &Param<Tensor<B, D>>) {
+        let x = param.val().clone();
+        self.mins.push(x.clone().min().into_scalar().elem());
+        self.maxs.push(x.clone().max().into_scalar().elem());
+        self.means.push(x.mean().into_scalar().elem());
+    }
+}
+
 #[cfg(test)]
 mod test {
     use assert_approx_eq::assert_approx_eq;
 
     use burn::{
         backend::{ndarray::NdArrayDevice, NdArray},
-        tensor::Tensor,
+        tensor::{ElementConversion, Tensor},
     };
 
     use crate::common::utils::{generate_random_vector, linear_decay, mean, vec_usize_to_one_hot};
@@ -122,5 +179,18 @@ mod test {
 
         assert_eq!(t.shape().dims[0], 3);
         assert_eq!(t.shape().dims[1], 4);
+    }
+
+    #[test]
+    fn test_sum_dim_shapes() {
+        type B = NdArray;
+        let d = NdArrayDevice::default();
+
+        // original has shape [3, 1]
+        let a: Tensor<B, 2> = Tensor::from_floats([[1], [2], [3]], &d);
+        let b = a.clone().sum_dim(1);
+
+        assert_eq!(a.clone().shape(), b.clone().shape());
+        assert!(a.equal(b).all().into_scalar().elem::<bool>());
     }
 }

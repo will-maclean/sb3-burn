@@ -2,12 +2,12 @@ use core::f32;
 
 use crate::{
     common::{
-        spaces::{BoxSpace, Space},
+        spaces::{seed_spaces_rng, BoxSpace, Space},
         utils::angle_normalise,
     },
     env::{
         base::{Env, EnvObservation, ResetOptions, RewardRange},
-        wrappers::TimeLimitWrapper,
+        wrappers::{TimeLimitWrapper},
     },
 };
 
@@ -51,7 +51,7 @@ impl Default for PendulumEnv {
             m: 1.0,
             l: 1.0,
             obs_space: BoxSpace::from((low, high)),
-            action_space: BoxSpace::from((vec![-2.0], vec![2.0])),
+            action_space: BoxSpace::from((vec![-1.0], vec![1.0])),
             state: vec![0.0, 0.0],
             last_u: 0.0,
         }
@@ -101,8 +101,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
         };
 
         if let Some(seed) = seed {
-            self.action_space.seed(seed);
-            self.obs_space.seed(seed);
+            seed_spaces_rng(seed);
         }
 
         self.last_u = 0.0;
@@ -120,7 +119,6 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
     }
 
     fn reward_range(&self) -> RewardRange {
-        // Is this correct?
         RewardRange {
             low: f32::MIN,
             high: 0.0,
@@ -142,6 +140,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
 
 pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
     let env = make_pendulum_eval(max_steps);
+    // let env = Box::new(ScaleRewardWrapper::new(env, 0.05));
 
     env
 }

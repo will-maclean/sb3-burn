@@ -77,20 +77,18 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
     }
 
     fn rsample(&self) -> Tensor<B, D> {
-        let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0));
+        // Don't think the detach is actually required but let's be certain
+        let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0)).detach();
+        // let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0));
 
         self.scale.clone().mul(s) + self.loc.clone()
     }
 
     fn log_prob(&self, value: Tensor<B, D>) -> Tensor<B, D> {
         let log_scale = self.scale.clone().log();
+        let var = self.variance();
 
-        log_scale.add_scalar((2.0 * PI).sqrt().log(E)).sub(
-            (value - self.loc.clone())
-                .powi_scalar(2)
-                .div_scalar(2)
-                .div(self.variance()),
-        )
+        -(value - self.loc.clone()).powi_scalar(2) / (2 * var) - log_scale - (2.0 * PI).sqrt().ln()
     }
 
     fn cdf(&self, _value: Tensor<B, D>) -> Tensor<B, D> {
