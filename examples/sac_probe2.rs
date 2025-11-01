@@ -24,7 +24,7 @@ use sb3_burn::{
     },
 };
 
-const N_CRITICS: usize = 1;
+const N_CRITICS: usize = 2;
 
 fn main() {
     // Using parameters from:
