@@ -1,10 +1,6 @@
 use std::path::PathBuf;
 
-use burn::{
-    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
-    grad_clipping::GradientClippingConfig,
-    optim::AdamConfig,
-};
+use burn::{backend::Autodiff, grad_clipping::GradientClippingConfig, optim::AdamConfig};
 use sb3_burn::{
     common::{
         algorithm::{OfflineAlgParams, OfflineTrainer},
@@ -17,16 +13,33 @@ use sb3_burn::{
     env::{base::Env, probe::ProbeEnvDiscountingTest},
 };
 
+#[cfg(not(feature = "tch"))]
+use burn::backend::{wgpu::WgpuDevice, Wgpu};
+#[cfg(feature = "tch")]
+use burn::backend::{LibTorch, LibTorchDevice};
+
+#[cfg(not(feature = "tch"))]
+type B = Autodiff<Wgpu>;
+#[cfg(feature = "tch")]
+type B = Autodiff<LibTorch>;
+
 extern crate sb3_burn;
 
 fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<LibTorch>;
+    #[cfg(feature = "tch")]
+    let train_device = if tch::utils::has_cuda()() {
+        LibTorchDevice::Cuda(0)
+    } else {
+        LibTorchDevice::Cpu
+    };
 
-    let train_device = LibTorchDevice::default();
-    sb3_seed::<TrainingBacked>(1234, &train_device);
+    #[cfg(not(feature = "tch"))]
+    let train_device = WgpuDevice::default();
+
+    sb3_seed::<B>(1234, &train_device);
 
     let config_optimizer =
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
@@ -42,7 +55,7 @@ fn main() {
         .with_evaluate_during_training(false);
 
     let env = ProbeEnvDiscountingTest::default();
-    let q = LinearAdvDQNNet::<TrainingBacked>::init(
+    let q = LinearAdvDQNNet::<B>::init(
         &train_device,
         env.observation_space().shape(),
         env.action_space().shape(),

@@ -23,9 +23,9 @@ use burn::backend::Wgpu;
 use burn::backend::{LibTorch, LibTorchDevice};
 
 #[cfg(not(feature = "tch"))]
-type TrainDevice = Autodiff<Wgpu>;
+type B = Autodiff<Wgpu>;
 #[cfg(feature = "tch")]
-type TrainDevice = Autodiff<LibTorch>;
+type B = Autodiff<LibTorch>;
 
 extern crate sb3_burn;
 
@@ -34,7 +34,7 @@ fn main() {
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
     #[cfg(feature = "tch")]
-    let train_device = if has_cuda() {
+    let train_device = if tch::utils::has_cuda()() {
         LibTorchDevice::Cuda(0)
     } else {
         LibTorchDevice::Cpu
@@ -43,7 +43,7 @@ fn main() {
     #[cfg(not(feature = "tch"))]
     let train_device = WgpuDevice::default();
 
-    sb3_seed::<TrainDevice>(1234, &train_device);
+    sb3_seed::<B>(1234, &train_device);
 
     let config_optimizer =
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
@@ -63,7 +63,7 @@ fn main() {
         .with_train_every(256);
 
     let env = CartpoleEnv::new(500);
-    let q: LinearAdvDQNNet<TrainDevice> = LinearAdvDQNNet::init(
+    let q: LinearAdvDQNNet<B> = LinearAdvDQNNet::init(
         &train_device,
         env.observation_space().shape().len(),
         env.action_space().shape(),
