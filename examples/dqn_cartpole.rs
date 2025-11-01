@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
+    backend::{wgpu::WgpuDevice, Autodiff},
     grad_clipping::GradientClippingConfig,
     optim::AdamConfig,
 };
@@ -17,14 +17,31 @@ use sb3_burn::{
     env::{base::Env, classic_control::cartpole::CartpoleEnv},
 };
 
+#[cfg(not(feature = "tch"))]
+use burn::backend::Wgpu;
+#[cfg(feature = "tch")]
+use burn::backend::{LibTorch, LibTorchDevice};
+
+#[cfg(not(feature = "tch"))]
+type TrainDevice = Autodiff<Wgpu>;
+#[cfg(feature = "tch")]
+type TrainDevice = Autodiff<LibTorch>;
+
 extern crate sb3_burn;
 
 fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainDevice = Autodiff<LibTorch>;
-    let train_device = LibTorchDevice::Cuda(0);
+    #[cfg(feature = "tch")]
+    let train_device = if has_cuda() {
+        LibTorchDevice::Cuda(0)
+    } else {
+        LibTorchDevice::Cpu
+    };
+
+    #[cfg(not(feature = "tch"))]
+    let train_device = WgpuDevice::default();
 
     sb3_seed::<TrainDevice>(1234, &train_device);
 
