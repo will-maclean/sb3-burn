@@ -18,7 +18,7 @@ use super::{
 };
 use crate::common::timer::Profiler;
 
-#[derive(Config)]
+#[derive(Config, Debug)]
 pub struct OfflineAlgParams {
     #[config(default = 100)]
     pub n_steps: usize,

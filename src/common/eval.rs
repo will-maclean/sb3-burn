@@ -10,7 +10,7 @@ pub struct EvalResult {
     pub mean_reward: f32,
 }
 
-#[derive(Config)]
+#[derive(Config, Debug)]
 pub struct EvalConfig {
     #[config(default = 10)]
     n_eval_episodes: usize,

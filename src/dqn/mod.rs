@@ -41,7 +41,7 @@ where
     action_space: Box<dyn Space<AS>>,
 }
 
-#[derive(Config)]
+#[derive(Config, Debug)]
 pub struct DQNConfig {
     #[config(default = 1.0)]
     eps_start: f32,
@@ -110,7 +110,7 @@ where
                     self.observation_space(),
                     inference_device,
                 )
-                .squeeze(0);
+                .squeeze_dim(0);
             q.argmax(0).into_scalar().elem::<i32>() as usize
         } else {
             self.action_space().sample()

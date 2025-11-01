@@ -4,7 +4,10 @@ use burn::{
     tensor::{backend::Backend, Shape, Tensor},
 };
 
-use crate::common::{agent::Policy, utils::module_update::update_linear};
+use crate::common::{
+    agent::Policy,
+    utils::{module_update::update_linear, set_linear_bias},
+};
 
 use super::{distribution::BaseDistribution, normal::Normal};
 
@@ -64,8 +67,8 @@ impl<B: Backend> DiagGaussianDistribution<B> {
         let dist: Normal<B, 2> = Normal::new(loc, std);
 
         Self {
-            means: LinearConfig::new(latent_dim, action_dim).init(device),
-            log_std: LinearConfig::new(latent_dim, action_dim).init(device),
+            means: set_linear_bias(LinearConfig::new(latent_dim, action_dim).init(device), 0.0),
+            log_std: set_linear_bias(LinearConfig::new(latent_dim, action_dim).init(device), 0.0),
             dist,
         }
     }

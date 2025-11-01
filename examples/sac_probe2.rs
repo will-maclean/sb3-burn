@@ -15,6 +15,7 @@ use sb3_burn::{
         eval::EvalConfig,
         logger::{CsvLogger, Logger},
         spaces::BoxSpace,
+        utils::sb3_seed,
     },
     env::{base::Env, continuous_probe::ProbeEnvContinuousActions2},
     sac::{
@@ -32,6 +33,8 @@ fn main() {
     type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
+
+    sb3_seed::<TrainingBacked>(1234, &train_device);
 
     let env = ProbeEnvContinuousActions2::default();
 

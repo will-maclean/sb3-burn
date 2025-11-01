@@ -1,44 +1,26 @@
-use burn::{
-    module::Module,
-    nn::{Linear, LinearConfig},
-    prelude::Backend,
-    tensor::{activation::softplus, ElementConversion, Tensor},
-};
+use burn::{module::Module, prelude::Backend, tensor::Tensor};
 
 use crate::common::{
     agent::Policy,
-    distributions::{distribution::BaseDistribution, normal::Normal},
-    utils::{modules::MLP, set_linear_bias},
+    distributions::action_distribution::{ActionDistribution, SquashedDiagGaussianDistribution},
+    utils::modules::MLP,
 };
 
 #[derive(Debug, Module)]
 pub struct PiModel<B: Backend> {
     mlp: MLP<B>,
-    // loc_head: Linear<B>,
-    // scale_head: Linear<B>,
     dist: SquashedDiagGaussianDistribution<B>,
     n_actions: usize,
 }
 
-const LOG_STD_MIN: f32 = -5.0;
-const LOG_STD_MAX: f32 = 2.0;
-
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
-        // let loc_head: Linear<B> =
-        //     set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
-
-        // let scale_head: Linear<B> =
-        //     set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
-
         Self {
             mlp: MLP::new(
                 &[obs_size, hidden_size, hidden_size].to_vec(),
                 device,
                 Some(0.0),
             ),
-            // scale_head,
-            // loc_head,
             dist: SquashedDiagGaussianDistribution::new(hidden_size, n_actions, device, 1e-6),
             n_actions,
         }
@@ -48,7 +30,9 @@ impl<B: Backend> PiModel<B> {
 impl<B: Backend> PiModel<B> {
     pub fn act(&mut self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
         let latent = self.mlp.forward(obs.clone().unsqueeze());
-        self.dist.actions_from_obs(latent, deterministic).squeeze(0)
+        self.dist
+            .actions_from_obs(latent, deterministic)
+            .squeeze_dim(0)
     }
 
     pub fn act_log_prob(&mut self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {

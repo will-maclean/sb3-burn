@@ -1,16 +1,21 @@
 use burn::{
-    module::{ModuleVisitor, Param, ParamId},
+    module::{ModuleVisitor, Param},
     nn::Linear,
     tensor::{backend::Backend, Bool, ElementConversion, Float, Shape, Tensor},
 };
 use rand::Rng;
 
-use crate::common::to_tensor::ToTensorI;
+use crate::common::{spaces::seed_spaces_rng, to_tensor::ToTensorI};
 
 pub mod module_update;
 pub mod modules;
 
 const PI: f32 = 3.1415;
+
+pub fn sb3_seed<B: Backend>(s: u64, device: &B::Device) {
+    B::seed(device, s);
+    seed_spaces_rng(s);
+}
 
 pub fn set_linear_bias<B: Backend>(linear: Linear<B>, val: f32) -> Linear<B> {
     let mut linear = linear;
@@ -113,8 +118,8 @@ impl ModuleParamSummary {
 }
 
 impl<B: Backend> ModuleVisitor<B> for ModuleParamSummary {
-    fn visit_float<const D: usize>(&mut self, _id: ParamId, tensor: &Tensor<B, D>) {
-        let x = tensor.clone();
+    fn visit_float<const D: usize>(&mut self, param: &Param<Tensor<B, D>>) {
+        let x = param.val().clone();
         self.mins.push(x.clone().min().into_scalar().elem());
         self.maxs.push(x.clone().max().into_scalar().elem());
         self.means.push(x.mean().into_scalar().elem());
