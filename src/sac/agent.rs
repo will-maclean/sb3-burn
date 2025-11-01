@@ -273,11 +273,10 @@ impl<B: AutodiffBackend> SACAgent<B> {
         states: Tensor<B, 2>,
         ent_coef: f32,
         lr: f64,
-        actions_pi: Tensor<B, 2>,
-        log_prob: Tensor<B, 2>,
         log_dict: LogItem,
     ) -> LogItem {
         // Policy loss
+        let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
         // recalculate q values with new critics
         let q_vals = self.qs.q_from_actions(states, actions_pi);
         let q_vals = Tensor::cat(q_vals, 1);
@@ -459,8 +458,8 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             states,
             ent_coef,
             offline_params.lr,
-            actions_pi,
-            log_prob,
+            // actions_pi,
+            // log_prob,
             log_dict,
         );
         self.profiler

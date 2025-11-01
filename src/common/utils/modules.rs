@@ -1,6 +1,6 @@
 use burn::{
     module::Module,
-    nn::{Linear, LinearConfig},
+    nn::{Initializer, Linear, LinearConfig},
     tensor::{activation::relu, backend::Backend, Tensor},
 };
 

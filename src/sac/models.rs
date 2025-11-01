@@ -2,7 +2,7 @@ use burn::{
     module::Module,
     nn::{Linear, LinearConfig},
     prelude::Backend,
-    tensor::{activation::softplus, Tensor},
+    tensor::{activation::softplus, ElementConversion, Tensor},
 };
 
 use crate::common::{
@@ -79,21 +79,14 @@ impl<B: Backend> PiModel<B> {
         let (loc, log_scale) = self.forward(obs);
         let scale = log_scale.exp();
         let dist = Normal::new(loc, scale);
-        let x_t = dist.rsample();
+        let x_t: Tensor<B, 2> = dist.rsample();
         let action = x_t.clone().tanh();
         let log_prob = dist.log_prob(x_t.clone());
 
-        // This is the log prob calculation I find in most places, that I was using
-        // previously, not working!
-        //
-        // let log_prob = log_prob
-        //     - ((1 - action.clone().powi_scalar(2) + 1e-6) as Tensor<B, 2>)
-        //         .log()
-        //         .sum_dim(1);
-
-        // Found this one online in some other implementations
-        let log_prob = log_prob
-            - (2.0 * (2.0 as f32).ln() - action.clone() - softplus(-2.0 * action.clone(), 1.0))
+        // tanh correction
+        let log_prob: Tensor<B, 2> = log_prob
+            - ((1 - action.clone().powi_scalar(2) + 1e-6) as Tensor<B, 2>)
+                .log()
                 .sum_dim(1);
 
         (action, log_prob)
