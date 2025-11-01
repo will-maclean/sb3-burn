@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install system deps
-        run: apt install pkg-config libfreetype6-dev libfontconfig1-dev
+        run: sudo apt install pkg-config libfreetype6-dev libfontconfig1-dev
       - name: ⚡ Cache
         uses: actions/cache@v4
         with:
