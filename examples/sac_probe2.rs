@@ -23,7 +23,7 @@ use sb3_burn::{
     },
 };
 
-const N_CRITICS: usize = 2;
+const N_CRITICS: usize = 1;
 
 fn main() {
     // Using parameters from:
@@ -60,7 +60,7 @@ fn main() {
     let offline_params = OfflineAlgParams::new()
         .with_batch_size(32)
         .with_memory_size(10000)
-        .with_n_steps(1000)
+        .with_n_steps(5000)
         .with_warmup_steps(200)
         .with_lr(1e-3)
         .with_evaluate_every_steps(2000)
@@ -109,7 +109,7 @@ fn main() {
         Box::new(logger),
         None,
         EvalConfig::new()
-            .with_n_eval_episodes(4)
+            .with_n_eval_episodes(20)
             .with_print_obs(true)
             .with_print_action(true)
             .with_print_reward(true)

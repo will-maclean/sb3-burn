@@ -116,7 +116,7 @@ mod test {
 
     use burn::{
         backend::{ndarray::NdArrayDevice, NdArray},
-        tensor::Tensor,
+        tensor::{ElementConversion, Tensor},
     };
 
     use crate::common::utils::{generate_random_vector, linear_decay, mean, vec_usize_to_one_hot};
@@ -163,5 +163,18 @@ mod test {
 
         assert_eq!(t.shape().dims[0], 3);
         assert_eq!(t.shape().dims[1], 4);
+    }
+
+    #[test]
+    fn test_sum_dim_shapes() {
+        type B = NdArray;
+        let d = NdArrayDevice::default();
+
+        // original has shape [3, 1]
+        let a: Tensor<B, 2> = Tensor::from_floats([[1], [2], [3]], &d);
+        let b = a.clone().sum_dim(1);
+
+        assert_eq!(a.clone().shape(), b.clone().shape());
+        assert!(a.equal(b).all().into_scalar().elem::<bool>());
     }
 }

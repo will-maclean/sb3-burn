@@ -332,18 +332,18 @@ mod test {
         let mut env = ProbeEnvContinuousActions2::default();
 
         // one step system
-        // done = true, reward = (s - a)^2
+        // done = true, reward = a
         let state = env.reset(None, None);
 
         assert_eq!(state.len(), 1);
 
-        let optimal_action = state; // optimal is a = s
+        let optimal_action = 1.0; // optimal is a = 1
 
-        let step = env.step(&optimal_action);
+        let step = env.step(&vec![optimal_action]);
 
         assert_eq!(step.terminated, true);
         assert_eq!(step.truncated, false);
-        assert_approx_eq::assert_approx_eq!(step.reward, 0.0)
+        assert_approx_eq::assert_approx_eq!(step.reward, optimal_action);
     }
 
     #[test]
@@ -357,8 +357,8 @@ mod test {
 
         assert_eq!(state.len(), 1);
 
-        let bad_action = vec![(state[0] + 1.0).clamp(0.0, 1.0)]; // optimal is a = s
-        let expected_reward = (state[0] - bad_action[0]).powi(2);
+        let bad_action = vec![0.0]; // optimal is a = 1
+        let expected_reward = 0.0;
 
         let step = env.step(&bad_action);
 

@@ -18,6 +18,7 @@ use crate::common::{
     logger::{LogData, LogItem},
     spaces::{BoxSpace, Space},
     to_tensor::{ToTensorB, ToTensorF},
+    utils::ModuleParamSummary,
 };
 
 use crate::common::timer::Profiler;
@@ -284,6 +285,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         let min_q = q_vals.min_dim(1);
         // disp_tensorf("min_q", &min_q);
         let actor_loss = log_prob.mul_scalar(ent_coef) - min_q;
+        // let actor_loss = -min_q;
         // disp_tensorf("1actor_loss", &actor_loss);
         let actor_loss = actor_loss.mean();
         // disp_tensorf("2actor_loss", &actor_loss);

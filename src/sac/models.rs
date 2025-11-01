@@ -2,7 +2,7 @@ use burn::{
     module::Module,
     nn::{Linear, LinearConfig},
     prelude::Backend,
-    tensor::Tensor,
+    tensor::{activation::softplus, Tensor},
 };
 
 use crate::common::{
@@ -37,15 +37,6 @@ impl<B: Backend> PiModel<B> {
 }
 
 impl<B: Backend> PiModel<B> {
-    fn forward(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-        let latent = self.mlp.forward(obs.clone());
-        let loc = self.loc_head.forward(latent.clone());
-        let log_scale = self.scale_head.forward(latent);
-        let log_scale = log_scale.clamp(-20.0, 2.0);
-
-        (loc, log_scale)
-    }
-
     pub fn act(&mut self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
         let (loc, log_scale) = self.forward(obs.clone().unsqueeze_dim(0));
 
@@ -64,6 +55,15 @@ impl<B: Backend> PiModel<B> {
         // self.dist.actions_from_obs(latent, deterministic).squeeze(0)
     }
 
+    fn forward(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
+        let latent = self.mlp.forward(obs.clone());
+        let loc = self.loc_head.forward(latent.clone());
+        let log_scale = self.scale_head.forward(latent);
+        let log_scale = log_scale.clamp(-20.0, 2.0);
+
+        (loc, log_scale)
+    }
+
     pub fn act_log_prob(&mut self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
         let (loc, log_scale) = self.forward(obs);
         let scale = log_scale.exp();
@@ -72,24 +72,20 @@ impl<B: Backend> PiModel<B> {
         let action = x_t.clone().tanh();
         let log_prob = dist.log_prob(x_t.clone());
 
-        let log_prob: Tensor<B, 2> = log_prob
-            - action
-                .clone()
-                .powi_scalar(2)
-                .neg()
-                .add_scalar(1.0)
-                .add_scalar(1e-6)
-                .log();
-
+        // This is the log prob calculation I find in most places, that I was using
+        // previously, not working!
+        //
         // let log_prob = log_prob
-        //     - (2.0 * (2.0 as f32).ln() - x_t.clone() - softplus(-2.0 * x_t, 1.0)).sum_dim(1);
+        //     - ((1 - action.clone().powi_scalar(2) + 1e-6) as Tensor<B, 2>)
+        //         .log()
+        //         .sum_dim(1);
+
+        // Found this one online in some other implementations
+        let log_prob = log_prob
+            - (2.0 * (2.0 as f32).ln() - action.clone() - softplus(-2.0 * action.clone(), 1.0))
+                .sum_dim(1);
 
         (action, log_prob)
-
-        // let latent = self.mlp.forward(obs.clone());
-        // let (actions, log_prob) = self.dist.actions_from_obs_with_log_probs(latent, false);
-
-        // (actions, log_prob)
     }
 }
 
