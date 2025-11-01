@@ -106,7 +106,7 @@ impl ModuleParamSummary {
 
         // Yeah, yeah, not a real mean of all params in the model, I know.
         // Should still be useful for knowing if the model is changing
-        let mean = self.mins.iter().sum::<f32>() / self.mins.len() as f32;
+        let mean = self.means.iter().sum::<f32>() / self.means.len() as f32;
 
         println!("Module Summary: min={min}, mean={mean}, max={max}");
     }
