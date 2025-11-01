@@ -14,9 +14,9 @@ use crate::common::{
 #[derive(Debug, Module)]
 pub struct PiModel<B: Backend> {
     mlp: MLP<B>,
-    loc_head: Linear<B>,
-    scale_head: Linear<B>,
-    // dist: SquashedDiagGaussianDistribution<B>,
+    // loc_head: Linear<B>,
+    // scale_head: Linear<B>,
+    dist: SquashedDiagGaussianDistribution<B>,
     n_actions: usize,
 }
 
@@ -25,11 +25,11 @@ const LOG_STD_MAX: f32 = 2.0;
 
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
-        let loc_head: Linear<B> =
-            set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
+        // let loc_head: Linear<B> =
+        //     set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
 
-        let scale_head: Linear<B> =
-            set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
+        // let scale_head: Linear<B> =
+        //     set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
 
         Self {
             mlp: MLP::new(
@@ -37,9 +37,9 @@ impl<B: Backend> PiModel<B> {
                 device,
                 Some(0.0),
             ),
-            scale_head,
-            loc_head,
-            // dist: SquashedDiagGaussianDistribution::new(hidden_size, n_actions, device, 1e-6),
+            // scale_head,
+            // loc_head,
+            dist: SquashedDiagGaussianDistribution::new(hidden_size, n_actions, device, 1e-6),
             n_actions,
         }
     }
@@ -47,49 +47,13 @@ impl<B: Backend> PiModel<B> {
 
 impl<B: Backend> PiModel<B> {
     pub fn act(&mut self, obs: &Tensor<B, 1>, deterministic: bool) -> Tensor<B, 1> {
-        let (loc, log_scale) = self.forward(obs.clone().unsqueeze_dim(0));
-
-        if deterministic {
-            loc.tanh().squeeze(0)
-        } else {
-            let scale = log_scale.exp();
-            let dist = Normal::new(loc, scale);
-            let x_t = dist.rsample();
-            let action = x_t.tanh();
-
-            action.squeeze(0)
-        }
-
-        // let latent = self.mlp.forward(obs.clone().unsqueeze());
-        // self.dist.actions_from_obs(latent, deterministic).squeeze(0)
-    }
-
-    fn forward(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-        let latent = self.mlp.forward(obs.clone());
-        let loc = self.loc_head.forward(latent.clone());
-        let log_scale = self
-            .scale_head
-            .forward(latent)
-            .clamp(LOG_STD_MIN, LOG_STD_MAX);
-
-        (loc, log_scale)
+        let latent = self.mlp.forward(obs.clone().unsqueeze());
+        self.dist.actions_from_obs(latent, deterministic).squeeze(0)
     }
 
     pub fn act_log_prob(&mut self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
-        let (loc, log_scale) = self.forward(obs);
-        let scale = log_scale.exp();
-        let dist = Normal::new(loc, scale);
-        let x_t: Tensor<B, 2> = dist.rsample();
-        let action = x_t.clone().tanh();
-        let log_prob = dist.log_prob(x_t.clone());
-
-        // tanh correction
-        let log_prob: Tensor<B, 2> = log_prob
-            - ((1 - action.clone().powi_scalar(2) + 1e-6) as Tensor<B, 2>)
-                .log()
-                .sum_dim(1);
-
-        (action, log_prob)
+        let latent = self.mlp.forward(obs.clone().unsqueeze());
+        self.dist.actions_from_obs_with_log_probs(latent, deterministic)
     }
 }
 

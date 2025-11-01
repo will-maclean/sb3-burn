@@ -189,7 +189,7 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
             .diag_gaus_dist
             .actions_from_obs_with_log_probs(obs, deterministic);
 
-        let a = u.clone().exp();
+        let a = u.clone().tanh();
 
         (a.clone(), self.log_prob_correction(ln_u, a))
     }
