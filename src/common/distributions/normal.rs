@@ -89,16 +89,6 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
         let var = self.variance();
 
         -(value - self.loc.clone()).powi_scalar(2) / (2 * var) - log_scale - (2.0 * PI).sqrt().ln()
-
-        // log_scale
-        //     .mul_scalar(-1.0)
-        //     .add_scalar(-0.5 * (2.0 * PI).log(E))
-        //     .sub(
-        //         (value - self.loc.clone())
-        //             .powi_scalar(2)
-        //             .div(var)
-        //             .mul_scalar(0.5),
-        //     )
     }
 
     fn cdf(&self, _value: Tensor<B, D>) -> Tensor<B, D> {

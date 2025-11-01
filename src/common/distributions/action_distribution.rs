@@ -46,20 +46,6 @@ where
     }
 }
 
-/// Continuous actions are usually considered to be independent,
-/// so we can sum components of the ``log_prob`` or the entropy.
-///
-/// # Shapes
-/// t: (batch, n_actions) or (batch)
-/// return: (batch) for (batch, n_actions) input, or (1) for (batch) input
-// fn sum_independent_dims<B: Backend>(t: Tensor<B, 1>) -> Tensor<B, 1>{
-//     t.sum()
-// }
-
-// fn sum_independent_dims_batched<B: Backend>(t: Tensor<B, 1>) -> Tensor<B, 1>{
-//     t.sum_dim(1).squeeze(1)
-// }
-
 #[derive(Debug, Module)]
 pub struct DiagGaussianDistribution<B: Backend> {
     means: Linear<B>,
@@ -87,10 +73,11 @@ impl<B: Backend> DiagGaussianDistribution<B> {
 
 impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
     fn log_prob(&self, sample: Tensor<B, 2>) -> Tensor<B, 2> {
+        // (B, N)
         let log_prob = self.dist.log_prob(sample);
 
-        // TODO: add sum_independent_dims when multi-dim actions are supported
-        log_prob
+        // (B, 1)
+        log_prob.sum_dim(1)
     }
 
     fn entropy(&self) -> Tensor<B, 2> {
@@ -107,13 +94,12 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
         let loc = self.means.forward(obs.clone());
+        let scale: Tensor<B, 2> = self.log_std.forward(obs).clamp(-20, 2).exp();
+        self.dist = Normal::new(loc.clone(), scale);
 
         if deterministic {
-            loc
+            self.dist.mean()
         } else {
-            let scale: Tensor<B, 2> = self.log_std.forward(obs).clamp(-20, 2).exp();
-            self.dist = Normal::new(loc.clone(), scale);
-
             self.dist.rsample()
         }
     }
@@ -141,22 +127,29 @@ impl<B: Backend> SquashedDiagGaussianDistribution<B> {
     }
 
     fn log_prob_correction(&self, ln_u: Tensor<B, 2>, a: Tensor<B, 2>) -> Tensor<B, 2> {
-        ln_u - ((1.0 - a.powi_scalar(2.0) + self.epsilon) as Tensor<B, 2>)
+        // ln_u: (B, 1)
+        // a: (B, N)
+
+        // (B, 1)
+        let correction = ((1.0 - a.powi_scalar(2.0) + self.epsilon) as Tensor<B, 2>)
             .log()
-            .sum_dim(1)
+            .sum_dim(1);
+
+        // (B, 1)
+        ln_u - correction
     }
 }
 
 impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
     fn log_prob(&self, a: Tensor<B, 2>) -> Tensor<B, 2> {
+        // (B, N)
         let u = tanh_bijector_inverse(a.clone());
+
+        // (B, 1)
         let ln_u = self.diag_gaus_dist.log_prob(u);
 
-        // Squash correction (from original SAC implementation)
-        // this comes from the fact that tanh is bijective and differentiable
-        let ln_a = self.log_prob_correction(ln_u, a);
-
-        ln_a
+        // (B, 1)
+        self.log_prob_correction(ln_u, a)
     }
 
     fn entropy(&self) -> Tensor<B, 2> {

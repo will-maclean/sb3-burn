@@ -296,21 +296,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
 
         let actor_loss_back = actor_loss.backward();
         let actor_grads = GradientsParams::from_grads(actor_loss_back, &self.pi);
-
-        // do some checks to see that pi is actually updating
-        // let mut pre_pi_summary = ModuleParamSummary::default();
-        // self.pi.visit(&mut pre_pi_summary);
-
         self.pi = self.pi_optim.step(lr, self.pi.clone(), actor_grads);
-        // let mut post_pi_summary = ModuleParamSummary::default();
-        // self.pi.visit(&mut post_pi_summary);
-
-        // println!("Pi Summary pre-step");
-        // pre_pi_summary.print();
-        // println!("Pi Summary post-step");
-        // post_pi_summary.print();
-        //
-        // panic!();
 
         log_dict
     }
@@ -406,8 +392,6 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
                     .elem(),
             ),
         );
-
-        let log_prob = log_prob.sum_dim(1);
 
         self.profiler
             .record("policy", t_policy0.elapsed().as_secs_f64());

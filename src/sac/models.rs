@@ -53,7 +53,7 @@ impl<B: Backend> PiModel<B> {
 
     pub fn act_log_prob(&mut self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
         let latent = self.mlp.forward(obs.clone().unsqueeze());
-        self.dist.actions_from_obs_with_log_probs(latent, deterministic)
+        self.dist.actions_from_obs_with_log_probs(latent, false)
     }
 }
 
