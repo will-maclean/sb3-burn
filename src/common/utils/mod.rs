@@ -1,5 +1,6 @@
 use burn::{
-    module::{ModuleVisitor, ParamId},
+    module::{ModuleVisitor, Param, ParamId},
+    nn::Linear,
     tensor::{backend::Backend, Bool, ElementConversion, Float, Shape, Tensor},
 };
 use rand::Rng;
@@ -10,6 +11,16 @@ pub mod module_update;
 pub mod modules;
 
 const PI: f32 = 3.1415;
+
+pub fn set_linear_bias<B: Backend>(linear: Linear<B>, val: f32) -> Linear<B> {
+    let mut linear = linear;
+
+    linear.bias = Some(Param::from_tensor(
+        val * Tensor::ones_like(&linear.bias.unwrap().val()),
+    ));
+
+    linear
+}
 
 pub fn linear_decay(curr_frac: f32, start: f32, end: f32, end_frac: f32) -> f32 {
     if curr_frac > end_frac {

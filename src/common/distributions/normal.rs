@@ -77,7 +77,9 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
     }
 
     fn rsample(&self) -> Tensor<B, D> {
-        let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0));
+        // Don't think the detach is actually required but let's be certain
+        let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0)).detach();
+        // let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0));
 
         self.scale.clone().mul(s) + self.loc.clone()
     }
@@ -86,15 +88,17 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
         let log_scale = self.scale.clone().log();
         let var = self.variance();
 
-        log_scale
-            .mul_scalar(-1.0)
-            .add_scalar(-0.5 * (2.0 * PI).log(E))
-            .sub(
-                (value - self.loc.clone())
-                    .powi_scalar(2)
-                    .div(var)
-                    .mul_scalar(0.5),
-            )
+        -(value - self.loc.clone()).powi_scalar(2) / (2 * var) - log_scale - (2.0 * PI).sqrt().ln()
+
+        // log_scale
+        //     .mul_scalar(-1.0)
+        //     .add_scalar(-0.5 * (2.0 * PI).log(E))
+        //     .sub(
+        //         (value - self.loc.clone())
+        //             .powi_scalar(2)
+        //             .div(var)
+        //             .mul_scalar(0.5),
+        //     )
     }
 
     fn cdf(&self, _value: Tensor<B, D>) -> Tensor<B, D> {

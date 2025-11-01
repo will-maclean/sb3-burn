@@ -8,7 +8,7 @@ use burn::{
 use crate::common::{
     agent::Policy,
     distributions::{distribution::BaseDistribution, normal::Normal},
-    utils::modules::MLP,
+    utils::{modules::MLP, set_linear_bias},
 };
 
 #[derive(Debug, Module)]
@@ -20,14 +20,23 @@ pub struct PiModel<B: Backend> {
     n_actions: usize,
 }
 
+const LOG_STD_MIN: f32 = -5.0;
+const LOG_STD_MAX: f32 = 2.0;
+
 impl<B: Backend> PiModel<B> {
     pub fn new(obs_size: usize, n_actions: usize, hidden_size: usize, device: &B::Device) -> Self {
-        let loc_head: Linear<B> = LinearConfig::new(hidden_size, n_actions).init(device);
+        let loc_head: Linear<B> =
+            set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
 
-        let scale_head: Linear<B> = LinearConfig::new(hidden_size, n_actions).init(device);
+        let scale_head: Linear<B> =
+            set_linear_bias(LinearConfig::new(hidden_size, n_actions).init(device), 0.0);
 
         Self {
-            mlp: MLP::new(&[obs_size, hidden_size, hidden_size].to_vec(), device),
+            mlp: MLP::new(
+                &[obs_size, hidden_size, hidden_size].to_vec(),
+                device,
+                Some(0.0),
+            ),
             scale_head,
             loc_head,
             // dist: SquashedDiagGaussianDistribution::new(hidden_size, n_actions, device, 1e-6),
@@ -58,8 +67,10 @@ impl<B: Backend> PiModel<B> {
     fn forward(&self, obs: Tensor<B, 2>) -> (Tensor<B, 2>, Tensor<B, 2>) {
         let latent = self.mlp.forward(obs.clone());
         let loc = self.loc_head.forward(latent.clone());
-        let log_scale = self.scale_head.forward(latent);
-        let log_scale = log_scale.clamp(-20.0, 2.0);
+        let log_scale = self
+            .scale_head
+            .forward(latent)
+            .clamp(LOG_STD_MIN, LOG_STD_MAX);
 
         (loc, log_scale)
     }
@@ -99,6 +110,7 @@ impl<B: Backend> QModel<B> {
         let mlp = MLP::new(
             &[obs_size + n_actions, hidden_size, hidden_size, 1].to_vec(),
             device,
+            Some(0.0),
         );
 
         Self { mlp: mlp }
