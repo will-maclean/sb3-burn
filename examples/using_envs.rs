@@ -3,7 +3,6 @@ extern crate sb3_burn;
 use sb3_burn::env::{base::Env, classic_control::cartpole::CartpoleEnv};
 
 fn main() {
-    // create a GridWorld Env
     let mut env = CartpoleEnv::default();
 
     let mut done = false;

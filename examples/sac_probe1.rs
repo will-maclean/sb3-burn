@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use burn::{
-    // backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
     optim::AdamConfig,
@@ -13,6 +12,7 @@ use sb3_burn::{
         eval::EvalConfig,
         logger::{CsvLogger, Logger},
         spaces::BoxSpace,
+        utils::sb3_seed,
     },
     env::{base::Env, continuous_probe::ProbeEnvContinuousActions1},
     sac::{
@@ -30,6 +30,7 @@ fn main() {
     type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
+    sb3_seed::<TrainingBacked>(1234, &train_device);
 
     let env = ProbeEnvContinuousActions1::default();
 
@@ -99,7 +100,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, _, _, _> = OfflineTrainer::new(
+    let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(ProbeEnvContinuousActions1::default()),

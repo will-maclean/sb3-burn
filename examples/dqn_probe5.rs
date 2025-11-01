@@ -11,6 +11,7 @@ use sb3_burn::{
         buffer::ReplayBuffer,
         eval::EvalConfig,
         logger::{CsvLogger, Logger},
+        utils::sb3_seed,
     },
     dqn::{module::LinearDQNNet, DQNAgent, DQNConfig},
     env::{base::Env, probe::ProbeEnvStateActionTest},
@@ -25,6 +26,7 @@ fn main() {
     type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::default();
+    sb3_seed::<TrainingBacked>(1234, &train_device);
 
     let config_optimizer =
         AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
@@ -70,7 +72,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_,  _, _, _> = OfflineTrainer::new(
+    let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(ProbeEnvStateActionTest::default()),

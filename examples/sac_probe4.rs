@@ -4,7 +4,6 @@ use burn::{
     backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
     grad_clipping::GradientClippingConfig,
     optim::AdamConfig,
-    tensor::{ElementConversion, Tensor},
 };
 use sb3_burn::{
     common::{
@@ -13,6 +12,7 @@ use sb3_burn::{
         eval::EvalConfig,
         logger::{CsvLogger, Logger},
         spaces::BoxSpace,
+        utils::sb3_seed,
     },
     env::{base::Env, continuous_probe::ProbeEnvContinuousActions4},
     sac::{
@@ -30,6 +30,7 @@ fn main() {
     type TrainingBacked = Autodiff<LibTorch>;
 
     let train_device = LibTorchDevice::Cuda(0);
+    sb3_seed::<TrainingBacked>(1234, &train_device);
 
     let env = ProbeEnvContinuousActions4::default();
 
@@ -98,7 +99,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, _, _, _> = OfflineTrainer::new(
+    let mut trainer = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(ProbeEnvContinuousActions4::default()),
@@ -116,31 +117,4 @@ fn main() {
     );
 
     trainer.train();
-
-    let fresh_obs: Tensor<TrainingBacked, 2> =
-        Tensor::<TrainingBacked, 1>::from_floats([0.5], &train_device)
-            .unsqueeze()
-            .require_grad();
-    let fresh_action: Tensor<TrainingBacked, 2> =
-        Tensor::<TrainingBacked, 1>::from_floats([0.0], &train_device)
-            .unsqueeze()
-            .require_grad();
-
-    let q_vals = qs.q_from_actions(fresh_obs, fresh_action.clone());
-    let q_min = Tensor::cat(q_vals, 1).min_dim(1);
-
-    // calculate the grads of q_min w.r.t. fresh_action
-    let grads = q_min.clone().mean().backward();
-    if let Some(grad) = fresh_action.grad(&grads) {
-        let abs = grad.abs();
-        println!(
-            "∂Q/∂a mean/max: {:?}",
-            (
-                abs.clone().mean().into_scalar().elem::<f32>(),
-                abs.max().into_scalar().elem::<f32>()
-            )
-        );
-    } else {
-        println!("fresh_action gradient not retained");
-    }
 }

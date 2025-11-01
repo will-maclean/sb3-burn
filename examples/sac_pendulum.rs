@@ -12,6 +12,7 @@ use sb3_burn::{
         eval::EvalConfig,
         logger::{CsvLogger, Logger},
         spaces::BoxSpace,
+        utils::sb3_seed,
     },
     env::classic_control::pendulum::{make_pendulum, make_pendulum_eval},
     sac::{
@@ -28,6 +29,7 @@ fn main() {
 
     type TrainingBacked = Autodiff<LibTorch>;
     let train_device = LibTorchDevice::Cuda(0);
+    sb3_seed::<TrainingBacked>(1234, &train_device);
 
     let env = make_pendulum(None);
 
@@ -102,7 +104,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer: OfflineTrainer<_, _, _, _> = OfflineTrainer::new(
+    let mut trainer = OfflineTrainer::new(
         offline_params,
         env,
         make_pendulum_eval(None),
