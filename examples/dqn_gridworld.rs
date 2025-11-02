@@ -13,14 +13,14 @@ use sb3_burn::{
     env::{base::Env, gridworld::GridWorldEnv},
 };
 
-#[cfg(not(feature = "tch"))]
+#[cfg(feature = "sb3-tch")]
+use burn::backend::{libtorch::LibTorchDevice, LibTorch};
+#[cfg(not(feature = "sb3-tch"))]
 use burn::backend::{wgpu::WgpuDevice, Wgpu};
-#[cfg(feature = "tch")]
-use burn::backend::{LibTorch, LibTorchDevice};
 
-#[cfg(not(feature = "tch"))]
+#[cfg(not(feature = "sb3-tch"))]
 type B = Autodiff<Wgpu>;
-#[cfg(feature = "tch")]
+#[cfg(feature = "sb3-tch")]
 type B = Autodiff<LibTorch>;
 
 extern crate sb3_burn;
@@ -29,14 +29,14 @@ fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    #[cfg(feature = "tch")]
-    let train_device = if tch::utils::has_cuda()() {
+    #[cfg(feature = "sb3-tch")]
+    let train_device = if tch::utils::has_cuda() {
         LibTorchDevice::Cuda(0)
     } else {
         LibTorchDevice::Cpu
     };
 
-    #[cfg(not(feature = "tch"))]
+    #[cfg(not(feature = "sb3-tch"))]
     let train_device = WgpuDevice::default();
 
     sb3_seed::<B>(1234, &train_device);
