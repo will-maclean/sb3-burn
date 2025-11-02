@@ -1,7 +1,9 @@
+#![recursion_limit = "256"]
+
 use std::path::PathBuf;
 
 use burn::{
-    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
+    backend::Autodiff,
     grad_clipping::GradientClippingConfig,
     module::Module,
     optim::AdamConfig,
@@ -26,15 +28,33 @@ use sb3_burn::{
 
 const N_CRITICS: usize = 2;
 
+#[cfg(feature = "sb3-tch")]
+use burn::backend::{libtorch::LibTorchDevice, LibTorch};
+#[cfg(not(feature = "sb3-tch"))]
+use burn::backend::{wgpu::WgpuDevice, Wgpu};
+
+#[cfg(not(feature = "sb3-tch"))]
+type B = Autodiff<Wgpu>;
+#[cfg(feature = "sb3-tch")]
+type B = Autodiff<LibTorch>;
+
+extern crate sb3_burn;
+
 fn main() {
     // Using parameters from:
     // https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/hyperparams/dqn.yml
 
-    type TrainingBacked = Autodiff<LibTorch>;
+    #[cfg(feature = "sb3-tch")]
+    let train_device = if tch::utils::has_cuda() {
+        LibTorchDevice::Cuda(0)
+    } else {
+        LibTorchDevice::Cpu
+    };
 
-    let train_device = LibTorchDevice::Cuda(0);
+    #[cfg(not(feature = "sb3-tch"))]
+    let train_device = WgpuDevice::default();
 
-    sb3_seed::<TrainingBacked>(1234, &train_device);
+    sb3_seed::<B>(1234, &train_device);
 
     let env = ProbeEnvContinuousActions2::default();
 
@@ -43,7 +63,7 @@ fn main() {
 
     let pi_optim = config_optimizer.init();
 
-    let qs: QModelSet<TrainingBacked> = QModelSet::new(
+    let qs: QModelSet<B> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
         64,
@@ -130,14 +150,12 @@ fn main() {
         .load_file(save_dir.join("qs_model"), &recorder, &train_device)
         .unwrap();
 
-    let fresh_obs: Tensor<TrainingBacked, 2> =
-        Tensor::<TrainingBacked, 1>::from_floats([0.5], &train_device)
-            .unsqueeze()
-            .require_grad();
-    let fresh_action: Tensor<TrainingBacked, 2> =
-        Tensor::<TrainingBacked, 1>::from_floats([0.0], &train_device)
-            .unsqueeze()
-            .require_grad();
+    let fresh_obs: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.5], &train_device)
+        .unsqueeze()
+        .require_grad();
+    let fresh_action: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.0], &train_device)
+        .unsqueeze()
+        .require_grad();
 
     let q_vals = trained_qs.q_from_actions(fresh_obs, fresh_action.clone());
     let q_min = Tensor::cat(q_vals, 1).min_dim(1);
