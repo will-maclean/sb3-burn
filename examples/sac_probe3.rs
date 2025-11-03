@@ -1,6 +1,15 @@
+#![recursion_limit = "256"]
+
 use std::path::PathBuf;
 
-use burn::{backend::Autodiff, grad_clipping::GradientClippingConfig, optim::AdamConfig};
+use burn::{
+    backend::Autodiff,
+    grad_clipping::GradientClippingConfig,
+    module::Module,
+    optim::AdamConfig,
+    record::{FullPrecisionSettings, NamedMpkFileRecorder},
+    tensor::{ElementConversion, Tensor},
+};
 use sb3_burn::{
     common::{
         algorithm::{OfflineAlgParams, OfflineTrainer},
@@ -44,6 +53,7 @@ fn main() {
 
     #[cfg(not(feature = "sb3-tch"))]
     let train_device = WgpuDevice::default();
+
     sb3_seed::<B>(1234, &train_device);
 
     let env = ProbeEnvContinuousActions3::default();
@@ -56,7 +66,7 @@ fn main() {
     let qs: QModelSet<B> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        64,
+        4,
         &train_device,
         N_CRITICS,
     );
@@ -66,20 +76,20 @@ fn main() {
     let pi = PiModel::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        64,
+        4,
         &train_device,
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(32)
+        .with_batch_size(64)
         .with_memory_size(10000)
-        .with_n_steps(1000)
+        .with_n_steps(2000)
         .with_warmup_steps(200)
-        .with_lr(1e-3)
-        .with_evaluate_every_steps(2000)
-        .with_eval_at_start_of_training(true)
+        .with_lr(3e-3)
+        .with_evaluate_every_steps(500)
+        .with_eval_at_start_of_training(false)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_during_training(false);
+        .with_evaluate_during_training(true);
 
     let sac_config = SACConfig::new()
         .with_ent_lr(1e-4)
@@ -87,11 +97,12 @@ fn main() {
         .with_update_every(1)
         .with_trainable_ent_coef(false)
         .with_target_entropy(None)
-        .with_ent_coef(Some(0.5));
+        .with_ent_coef(Some(1e-6));
+    // .with_ent_coef(None);
 
     let agent = SACAgent::new(
         sac_config,
-        pi,
+        pi.clone(),
         qs.clone(),
         qs.clone(),
         pi_optim,
@@ -103,7 +114,7 @@ fn main() {
     let buffer = ReplayBuffer::new(offline_params.memory_size);
 
     let logger = CsvLogger::new(
-        PathBuf::from("logs/sac_probe2/log_sac_probe2.csv"),
+        PathBuf::from("logs/sac_probe3/log_sac_probe3.csv"),
         false,
         true,
     );
@@ -113,7 +124,7 @@ fn main() {
         Err(err) => panic!("Error setting up logger: {err}"),
     }
 
-    let mut trainer = OfflineTrainer::new(
+    let mut trainer: OfflineTrainer<_, _, _, _> = OfflineTrainer::new(
         offline_params,
         Box::new(env),
         Box::new(ProbeEnvContinuousActions3::default()),
@@ -122,7 +133,7 @@ fn main() {
         Box::new(logger),
         None,
         EvalConfig::new()
-            .with_n_eval_episodes(4)
+            .with_n_eval_episodes(5)
             .with_print_obs(true)
             .with_print_action(true)
             .with_print_reward(true)
@@ -130,5 +141,38 @@ fn main() {
         &train_device,
     );
 
+    let save_dir = PathBuf::from("weights/sac_probe3/");
+
     trainer.train();
+    trainer.save(&save_dir);
+
+    let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::new();
+    let trained_qs = qs
+        .load_file(save_dir.join("qs_model"), &recorder, &train_device)
+        .unwrap();
+
+    let fresh_obs: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.0], &train_device)
+        .unsqueeze()
+        .require_grad();
+    let fresh_action: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.0], &train_device)
+        .unsqueeze()
+        .require_grad();
+
+    let q_vals = trained_qs.q_from_actions(fresh_obs, fresh_action.clone());
+    let q_min = Tensor::cat(q_vals, 1).min_dim(1);
+
+    // calculate the grads of q_min w.r.t. fresh_action
+    let grads = q_min.clone().mean().backward();
+    if let Some(grad) = fresh_action.grad(&grads) {
+        let abs = grad.abs();
+        println!(
+            "∂Q/∂a mean/max: {:?}",
+            (
+                abs.clone().mean().into_scalar().elem::<f32>(),
+                abs.max().into_scalar().elem::<f32>()
+            )
+        );
+    } else {
+        println!("fresh_action gradient not retained");
+    }
 }

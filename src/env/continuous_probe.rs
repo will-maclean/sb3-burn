@@ -296,7 +296,7 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions4 {
 
 #[cfg(test)]
 mod test {
-    use crate::env::base::Env;
+    use crate::env::{base::Env, continuous_probe::ProbeEnvContinuousActions3};
 
     use super::{ProbeEnvContinuousActions1, ProbeEnvContinuousActions2};
 
@@ -351,13 +351,53 @@ mod test {
 
         // should be two step system, where first step
         // returns state=s, reward=0, done = false,
-        // second step returns done = true, (no state), reward = (s - a)^2
+        // second step returns done = true, (no state), reward = a
         let state = env.reset(None, None);
 
         assert_eq!(state.len(), 1);
 
         let bad_action = vec![0.0]; // optimal is a = 1
         let expected_reward = 0.0;
+
+        let step = env.step(&bad_action);
+
+        assert_eq!(step.terminated, true);
+        assert_eq!(step.truncated, false);
+        assert_approx_eq::assert_approx_eq!(step.reward, expected_reward);
+    }
+
+    #[test]
+    fn test_probe_env3_cont_actions_optimal_action() {
+        let mut env = ProbeEnvContinuousActions3::default();
+
+        // one step system
+        // done = true, reward = -(s-a)^2
+        let state = env.reset(None, None);
+
+        assert_eq!(state.len(), 1);
+
+        let optimal_action = state; // optimal is a = s
+
+        let step = env.step(&optimal_action);
+
+        assert_eq!(step.terminated, true);
+        assert_eq!(step.truncated, false);
+        assert_approx_eq::assert_approx_eq!(step.reward, 0.0);
+    }
+
+    #[test]
+    fn test_probe_env3_cont_actions_bad_action() {
+        let mut env = ProbeEnvContinuousActions3::default();
+
+        // should be two step system, where first step
+        // returns state=s, reward=0, done = false,
+        // second step returns done = true, (no state), reward = a
+        let state = env.reset(None, None);
+
+        assert_eq!(state.len(), 1);
+
+        let bad_action = vec![0.0]; // optimal is a = 1
+        let expected_reward = -(state[0] - bad_action[0]).powi(2);
 
         let step = env.step(&bad_action);
 

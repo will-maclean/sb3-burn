@@ -209,7 +209,8 @@ impl<B: AutodiffBackend> SACAgent<B> {
         log_dict: LogItem,
     ) -> LogItem {
         // select action according to policy
-        let (next_action_sampled, next_action_log_prob) = self.pi.act_log_prob(next_states.clone());
+        let (next_action_sampled, next_action_log_prob) =
+            self.pi.clone().no_grad().act_log_prob(next_states.clone());
 
         let next_action_log_prob = next_action_log_prob.sum_dim(1);
         // disp_tensorf("next_action_sampled", &next_action_sampled);
@@ -235,6 +236,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
 
         // disp_tensorf("target_q_vals", &target_q_vals);
 
+        // Shouldn't be any gradients here, but let's make sure
         let target_q_vals = target_q_vals.detach();
 
         // calculate the critic loss

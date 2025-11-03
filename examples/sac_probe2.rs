@@ -66,7 +66,7 @@ fn main() {
     let qs: QModelSet<B> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        64,
+        4,
         &train_device,
         N_CRITICS,
     );
@@ -76,7 +76,7 @@ fn main() {
     let pi = PiModel::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        64,
+        4,
         &train_device,
     );
 
@@ -85,23 +85,24 @@ fn main() {
         .with_memory_size(10000)
         .with_n_steps(2000)
         .with_warmup_steps(200)
-        .with_lr(3e-4)
+        .with_lr(3e-3)
         .with_evaluate_every_steps(500)
-        .with_eval_at_start_of_training(true)
+        .with_eval_at_start_of_training(false)
         .with_eval_at_end_of_training(true)
-        .with_evaluate_during_training(false);
+        .with_evaluate_during_training(true);
 
     let sac_config = SACConfig::new()
         .with_ent_lr(1e-4)
         .with_critic_tau(0.005)
         .with_update_every(1)
-        .with_trainable_ent_coef(false)
+        .with_trainable_ent_coef(true)
         .with_target_entropy(None)
-        .with_ent_coef(Some(0.05));
+        .with_ent_coef(Some(1e-6));
+    // .with_ent_coef(None);
 
     let agent = SACAgent::new(
         sac_config,
-        pi,
+        pi.clone(),
         qs.clone(),
         qs.clone(),
         pi_optim,
@@ -132,7 +133,7 @@ fn main() {
         Box::new(logger),
         None,
         EvalConfig::new()
-            .with_n_eval_episodes(20)
+            .with_n_eval_episodes(1)
             .with_print_obs(true)
             .with_print_action(true)
             .with_print_reward(true)
@@ -150,7 +151,7 @@ fn main() {
         .load_file(save_dir.join("qs_model"), &recorder, &train_device)
         .unwrap();
 
-    let fresh_obs: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.5], &train_device)
+    let fresh_obs: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.0], &train_device)
         .unsqueeze()
         .require_grad();
     let fresh_action: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.0], &train_device)
