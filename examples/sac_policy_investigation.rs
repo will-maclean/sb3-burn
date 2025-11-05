@@ -1,13 +1,15 @@
+#![recursion_limit = "256"]
+use std::path::PathBuf;
+
 use burn::{
     backend::{wgpu::WgpuDevice, Autodiff, Wgpu},
+    module::Module,
+    record::{FullPrecisionSettings, NamedMpkFileRecorder},
     tensor::{ElementConversion, Tensor},
 };
 use sb3_burn::{
-    common::{
-        spaces::{BoxSpace, Space},
-        to_tensor::ToTensorF,
-    },
-    sac::models::{PiModel, QModelSet},
+    common::spaces::{BoxSpace, Space},
+    sac::models::QModelSet,
 };
 
 fn main() {
@@ -18,7 +20,7 @@ fn main() {
     let train_device = WgpuDevice::default();
 
     let action_space = BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()));
-    let mut obs_space = BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()));
+    let obs_space = BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()));
 
     // let config_optimizer =
     //     AdamConfig::new().with_grad_clipping(Some(GradientClippingConfig::Norm(10.0)));
@@ -35,36 +37,46 @@ fn main() {
 
     // let q_optim: OptimizerAdaptor<Adam, QModelSet<B>, B> = config_optimizer.init();
 
-    let mut pi = PiModel::<B>::new(
-        obs_space.shape().len(),
-        action_space.shape().len(),
-        64,
-        &train_device,
-    );
+    // let pi = PiModel::<B>::new(
+    //     obs_space.shape().len(),
+    //     action_space.shape().len(),
+    //     64,
+    //     &train_device,
+    // );
 
-    // check gradients on an unoptimised critic
-    let fresh_obs: Tensor<B, 2> = obs_space
-        .sample()
-        .to_tensor(&train_device)
-        .unsqueeze()
-        .require_grad();
-    let (fresh_action, _) = pi.act_log_prob(fresh_obs.clone());
+    let save_dir = PathBuf::from("weights/sac_probe3/");
 
-    let q_vals = qs.q_from_actions(fresh_obs.clone(), fresh_action.clone());
-    let q_min = Tensor::cat(q_vals, 1).min_dim(1);
+    let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::new();
+    let trained_qs = qs
+        .load_file(save_dir.join("qs_model"), &recorder, &train_device)
+        .unwrap();
 
-    // calculate the grads of q_min w.r.t. fresh_action
-    let grads = q_min.clone().mean().backward();
-    if let Some(grad) = fresh_obs.grad(&grads) {
-        let abs = grad.abs();
-        println!(
-            "∂Q/∂s mean/max: {:?}",
-            (
-                abs.clone().mean().into_scalar().elem::<f32>(),
-                abs.max().into_scalar().elem::<f32>()
-            )
-        );
-    } else {
-        println!("fresh_action gradient not retained");
+    for obs in [-1.0, 0.0, 1.0] {
+        for act in [-1.0, 0.0, 1.0] {
+            let fresh_obs: Tensor<B, 2> = Tensor::<B, 1>::from_floats([obs], &train_device)
+                .unsqueeze()
+                .require_grad();
+            let fresh_action: Tensor<B, 2> = Tensor::<B, 1>::from_floats([act], &train_device)
+                .unsqueeze()
+                .require_grad();
+
+            let q_vals = trained_qs.q_from_actions(fresh_obs, fresh_action.clone());
+            let q_min = Tensor::cat(q_vals, 1).min_dim(1);
+
+            // calculate the grads of q_min w.r.t. fresh_action
+            let grads = q_min.clone().mean().backward();
+            if let Some(grad) = fresh_action.grad(&grads) {
+                let abs = grad.abs();
+                println!(
+                    "obs={obs}, act={act}. Q(s,a)={q_min}. ∂Q/∂a mean/max: {:?}",
+                    (
+                        abs.clone().mean().into_scalar().elem::<f32>(),
+                        abs.max().into_scalar().elem::<f32>()
+                    )
+                );
+            } else {
+                println!("fresh_action gradient not retained");
+            }
+        }
     }
 }

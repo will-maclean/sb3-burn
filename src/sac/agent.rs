@@ -18,6 +18,7 @@ use crate::common::{
     logger::{LogData, LogItem},
     spaces::{BoxSpace, Space},
     to_tensor::{ToTensorB, ToTensorF},
+    utils::{disp_tensorb, disp_tensorf},
 };
 
 use crate::common::timer::Profiler;
@@ -367,11 +368,13 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         self.profiler
             .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
 
-        // disp_tensorf("states", &states);
-        // disp_tensorf("actions", &actions);
-        // disp_tensorf("next_states", &next_states);
-        // disp_tensorf("rewards", &rewards);
-        // disp_tensorb("dones", &dones);
+        if global_step % 500 == 0 {
+            disp_tensorf("states", &states);
+            disp_tensorf("actions", &actions);
+            disp_tensorf("next_states", &next_states);
+            disp_tensorf("rewards", &rewards);
+            disp_tensorb("dones", &dones);
+        }
 
         let t_policy0 = std::time::Instant::now();
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());

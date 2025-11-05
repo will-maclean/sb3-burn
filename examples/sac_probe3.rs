@@ -81,23 +81,23 @@ fn main() {
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(64)
+        .with_batch_size(128)
         .with_memory_size(10000)
         .with_n_steps(2000)
         .with_warmup_steps(200)
-        .with_lr(3e-3)
+        .with_lr(5e-3)
         .with_evaluate_every_steps(500)
         .with_eval_at_start_of_training(false)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(true);
 
     let sac_config = SACConfig::new()
-        .with_ent_lr(1e-4)
+        .with_ent_lr(5e-3)
         .with_critic_tau(0.005)
         .with_update_every(1)
         .with_trainable_ent_coef(false)
         .with_target_entropy(None)
-        .with_ent_coef(Some(1e-6));
+        .with_ent_coef(Some(0.01));
     // .with_ent_coef(None);
 
     let agent = SACAgent::new(
