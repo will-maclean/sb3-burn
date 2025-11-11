@@ -2,14 +2,7 @@
 
 use std::path::PathBuf;
 
-use burn::{
-    backend::Autodiff,
-    grad_clipping::GradientClippingConfig,
-    module::Module,
-    optim::AdamConfig,
-    record::{FullPrecisionSettings, NamedMpkFileRecorder},
-    tensor::{ElementConversion, Tensor},
-};
+use burn::{backend::Autodiff, grad_clipping::GradientClippingConfig, optim::AdamConfig};
 use sb3_burn::{
     common::{
         algorithm::{OfflineAlgParams, OfflineTrainer},
@@ -66,7 +59,7 @@ fn main() {
     let qs: QModelSet<B> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        4,
+        64,
         &train_device,
         N_CRITICS,
     );
@@ -76,16 +69,15 @@ fn main() {
     let pi = PiModel::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        4,
+        64,
         &train_device,
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(128)
+        .with_batch_size(64)
         .with_memory_size(10000)
         .with_n_steps(2000)
-        .with_warmup_steps(200)
-        .with_lr(5e-3)
+        .with_warmup_steps(500)
         .with_evaluate_every_steps(500)
         .with_eval_at_start_of_training(false)
         .with_eval_at_end_of_training(true)
@@ -95,9 +87,9 @@ fn main() {
         .with_ent_lr(5e-3)
         .with_critic_tau(0.005)
         .with_update_every(1)
-        .with_trainable_ent_coef(false)
+        .with_trainable_ent_coef(true)
         .with_target_entropy(None)
-        .with_ent_coef(Some(0.01));
+        .with_ent_coef(Some(0.3));
     // .with_ent_coef(None);
 
     let agent = SACAgent::new(
@@ -145,34 +137,4 @@ fn main() {
 
     trainer.train();
     trainer.save(&save_dir);
-
-    let recorder = NamedMpkFileRecorder::<FullPrecisionSettings>::new();
-    let trained_qs = qs
-        .load_file(save_dir.join("qs_model"), &recorder, &train_device)
-        .unwrap();
-
-    let fresh_obs: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.0], &train_device)
-        .unsqueeze()
-        .require_grad();
-    let fresh_action: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.0], &train_device)
-        .unsqueeze()
-        .require_grad();
-
-    let q_vals = trained_qs.q_from_actions(fresh_obs, fresh_action.clone());
-    let q_min = Tensor::cat(q_vals, 1).min_dim(1);
-
-    // calculate the grads of q_min w.r.t. fresh_action
-    let grads = q_min.clone().mean().backward();
-    if let Some(grad) = fresh_action.grad(&grads) {
-        let abs = grad.abs();
-        println!(
-            "∂Q/∂a mean/max: {:?}",
-            (
-                abs.clone().mean().into_scalar().elem::<f32>(),
-                abs.max().into_scalar().elem::<f32>()
-            )
-        );
-    } else {
-        println!("fresh_action gradient not retained");
-    }
 }

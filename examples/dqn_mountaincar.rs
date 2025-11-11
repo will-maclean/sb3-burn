@@ -49,7 +49,6 @@ fn main() {
         .with_memory_size(10000)
         .with_n_steps(120000)
         .with_warmup_steps(1000)
-        .with_lr(4e-3)
         .with_gamma(0.98)
         .with_eval_at_end_of_training(true)
         .with_eval_at_end_of_training(true)

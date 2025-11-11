@@ -72,26 +72,27 @@ fn main() {
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(1000)
+        .with_batch_size(256)
         .with_memory_size(200_000)
         .with_gamma(0.99)
-        .with_n_steps(30_000)
+        .with_n_steps(50_000)
         .with_warmup_steps(10_000)
-        .with_lr(1e-3)
         .with_profile_timers(true)
         .with_profile_log_every_steps(250)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(true)
-        .with_evaluate_every_steps(2_000);
+        .with_evaluate_every_steps(10_000);
 
     let sac_config = SACConfig::new()
         .with_ent_lr(3e-4)
+        .with_pi_lr(3e-4)
+        .with_q_lr(1e-3)
         .with_critic_tau(0.005)
         .with_update_every(1)
-        .with_trainable_ent_coef(false)
+        .with_trainable_ent_coef(true)
         .with_target_entropy(None)
-        .with_ent_coef(Some(0.2));
+        .with_ent_coef(None);
 
     let agent = SACAgent::new(
         sac_config,
@@ -128,7 +129,7 @@ fn main() {
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new().with_n_eval_episodes(100),
+        EvalConfig::new().with_n_eval_episodes(10),
         &train_device,
     );
 

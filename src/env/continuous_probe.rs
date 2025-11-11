@@ -161,7 +161,7 @@ impl Env<Vec<f32>, Vec<f32>> for ProbeEnvContinuousActions3 {
 
     fn reset(&mut self, _seed: Option<u64>, _options: Option<ResetOptions>) -> Vec<f32> {
         let mut rng = SHARED_RNG.lock().unwrap();
-        self.state = (2.0 * rng.random::<f32>()) - 1.0;
+        self.state = (rng.random::<f32>()) - 0.5;
 
         [self.state].to_vec()
     }

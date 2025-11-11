@@ -81,7 +81,7 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
         let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0)).detach();
         // let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0));
 
-        self.scale.clone().mul(s) + self.loc.clone()
+        self.loc.clone() + self.scale.clone() * s
     }
 
     fn log_prob(&self, value: Tensor<B, D>) -> Tensor<B, D> {
@@ -91,12 +91,18 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
         -(value - self.loc.clone()).powi_scalar(2) / (2 * var) - log_scale - (2.0 * PI).sqrt().ln()
     }
 
-    fn cdf(&self, _value: Tensor<B, D>) -> Tensor<B, D> {
-        todo!()
+    fn cdf(&self, value: Tensor<B, D>) -> Tensor<B, D> {
+        0.5 * (1
+            + ((value - self.loc.clone()) * self.scale.clone().recip() / (2.0 as f32).sqrt()).erf())
     }
 
     fn icdf(&self, _value: Tensor<B, D>) -> Tensor<B, D> {
         todo!()
+        //TODO: burn does not seem to have an inverse ERF function implemented
+        // self.loc.clone()
+        //     + self.scale.clone()
+        //         * ((2.0 * value - 1.0) as Tensor<B, D>).ierf()
+        //         * (2.0 as f32).sqrt()
     }
 
     fn entropy(&self) -> Tensor<B, D> {

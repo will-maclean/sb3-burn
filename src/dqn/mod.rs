@@ -43,6 +43,8 @@ where
 
 #[derive(Config, Debug)]
 pub struct DQNConfig {
+    #[config(default = 1e-4)]
+    pub lr: f64,
     #[config(default = 1.0)]
     eps_start: f32,
     #[config(default = 0.05)]
@@ -157,7 +159,7 @@ where
         let grads = loss.backward();
         let grads = GradientsParams::from_grads(grads, &self.q1);
 
-        self.q1 = self.optim.step(offline_params.lr, self.q1.clone(), grads);
+        self.q1 = self.optim.step(self.config.lr, self.q1.clone(), grads);
 
         if global_step > (self.last_update + self.config.update_every) {
             // hard update

@@ -2,12 +2,12 @@ use core::f32;
 
 use crate::{
     common::{
-        spaces::{seed_spaces_rng, BoxSpace, Space},
+        spaces::{BoxSpace, Space, seed_spaces_rng},
         utils::angle_normalise,
     },
     env::{
         base::{Env, EnvObservation, ResetOptions, RewardRange},
-        wrappers::{TimeLimitWrapper},
+        wrappers::{ScaleRewardWrapper, TimeLimitWrapper},
     },
 };
 
@@ -140,7 +140,7 @@ impl Env<Vec<f32>, Vec<f32>> for PendulumEnv {
 
 pub fn make_pendulum(max_steps: Option<usize>) -> Box<dyn Env<Vec<f32>, Vec<f32>>> {
     let env = make_pendulum_eval(max_steps);
-    // let env = Box::new(ScaleRewardWrapper::new(env, 0.05));
+    let env = Box::new(ScaleRewardWrapper::new(env, 0.05));
 
     env
 }

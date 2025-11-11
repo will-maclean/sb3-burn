@@ -48,8 +48,7 @@ fn main() {
         .with_batch_size(50)
         .with_memory_size(1000)
         .with_n_steps(10000)
-        .with_warmup_steps(50)
-        .with_lr(1e-3);
+        .with_warmup_steps(50);
 
     let env = GridWorldEnv::default();
     let q = LinearAdvDQNNet::<B>::init(
