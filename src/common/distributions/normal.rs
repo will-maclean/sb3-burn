@@ -78,7 +78,9 @@ impl<B: Backend, const D: usize> BaseDistribution<B, D> for Normal<B, D> {
 
     fn rsample(&self) -> Tensor<B, D> {
         // Don't think the detach is actually required but let's be certain
-        let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0)).detach();
+        let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0))
+            .detach()
+            .set_require_grad(false);
         // let s = Tensor::random_like(&self.loc, Distribution::Normal(0.0, 1.0));
 
         self.loc.clone() + self.scale.clone() * s

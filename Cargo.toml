@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["ndarray", "wgpu", "sb3-tch"]
+default = ["ndarray", "wgpu", "ndarray"]
 sb3-tch = ["burn/tch", "tch"]
 ndarray = ["burn/ndarray"]
 wgpu = ["burn/wgpu"]

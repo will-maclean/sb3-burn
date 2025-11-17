@@ -1,8 +1,8 @@
-#![recursion_limit = "256"]
 use std::path::PathBuf;
 
 use burn::{
-    backend::{libtorch::LibTorchDevice, Autodiff, LibTorch},
+    backend::ndarray::NdArrayDevice,
+    backend::Autodiff,
     module::Module,
     record::{FullPrecisionSettings, NamedMpkFileRecorder},
     tensor::{ElementConversion, Tensor},
@@ -13,9 +13,9 @@ use sb3_burn::{
 };
 
 fn main() {
-    type B = Autodiff<LibTorch>;
+    type B = Autodiff<NdArray>;
 
-    let train_device = LibTorchDevice::default();
+    let train_device = NdArrayDevice::default();
 
     let action_space = BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()));
     let obs_space = BoxSpace::from(([0.0].to_vec(), [1.0].to_vec()));
@@ -37,6 +37,7 @@ fn main() {
     let obs: Tensor<B, 2> = Tensor::<B, 1>::from_floats([0.5], &train_device)
         .unsqueeze()
         .require_grad();
+
     let (act, _) = trained_pi.act_log_prob(obs.clone());
     let grads = act.clone().mean().backward();
     if let Some(grad) = obs.grad(&grads) {
