@@ -77,7 +77,6 @@ fn main() {
         .with_memory_size(10000)
         .with_n_steps(500)
         .with_warmup_steps(256)
-        .with_lr(5e-2)
         .with_evaluate_every_steps(2000)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)

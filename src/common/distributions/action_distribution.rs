@@ -6,7 +6,7 @@ use burn::{
 
 use crate::common::{
     agent::Policy,
-    utils::{module_update::update_linear, set_linear_bias},
+    utils::module_update::update_linear,
 };
 
 use super::{distribution::BaseDistribution, normal::Normal};
@@ -54,6 +54,8 @@ pub struct DiagGaussianDistribution<B: Backend> {
     means: Linear<B>,
     log_std: Linear<B>,
     dist: Normal<B, 2>,
+    min_log_std: f32,
+    max_log_std: f32,
 }
 
 impl<B: Backend> DiagGaussianDistribution<B> {
@@ -67,9 +69,11 @@ impl<B: Backend> DiagGaussianDistribution<B> {
         let dist: Normal<B, 2> = Normal::new(loc, std);
 
         Self {
-            means: set_linear_bias(LinearConfig::new(latent_dim, action_dim).init(device), 0.0),
-            log_std: set_linear_bias(LinearConfig::new(latent_dim, action_dim).init(device), 0.0),
+            means: LinearConfig::new(latent_dim, action_dim).init(device),
+            log_std: LinearConfig::new(latent_dim, action_dim).init(device),
             dist,
+            min_log_std: -5.0,
+            max_log_std: 2.0,
         }
     }
 }
@@ -97,7 +101,18 @@ impl<B: Backend> ActionDistribution<B> for DiagGaussianDistribution<B> {
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
         let loc = self.means.forward(obs.clone());
-        let scale: Tensor<B, 2> = self.log_std.forward(obs).clamp(-20, 2).exp();
+
+        // Soft clamp the log std
+        let log_std: Tensor<B, 2> = self.log_std.forward(obs).tanh();
+        let log_std = self.min_log_std
+            + 0.5 * (self.max_log_std - self.min_log_std) * (log_std + 1.0);
+        let scale = log_std.exp();
+
+        // if loc.shape()[0] == 1 {
+        //     println!("loc={loc}");
+        //     println!("scale={scale}");
+        // }
+
         self.dist = Normal::new(loc.clone(), scale);
 
         if deterministic {
@@ -168,9 +183,15 @@ impl<B: Backend> ActionDistribution<B> for SquashedDiagGaussianDistribution<B> {
     }
 
     fn actions_from_obs(&mut self, obs: Tensor<B, 2>, deterministic: bool) -> Tensor<B, 2> {
-        self.diag_gaus_dist
-            .actions_from_obs(obs, deterministic)
-            .tanh()
+        let u = self.diag_gaus_dist.actions_from_obs(obs, deterministic);
+
+        let a = u.clone().tanh();
+
+        // if a.shape()[0] == 1 {
+        //     println!("Gaussian Action: {u}. Tanh Action: {a}");
+        // }
+
+        a
     }
 
     fn actions_from_obs_with_log_probs(

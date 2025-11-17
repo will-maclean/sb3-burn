@@ -30,8 +30,6 @@ pub struct OfflineAlgParams {
     pub warmup_steps: usize,
     #[config(default = 0.99)]
     pub gamma: f32,
-    #[config(default = 1e-4)]
-    pub lr: f64,
     #[config(default = false)]
     pub render: bool,
     #[config(default = false)]
@@ -196,9 +194,9 @@ impl<'a, A: Agent<B, OS, AS>, B: AutodiffBackend, OS: Clone + Debug, AS: Clone +
 
                     step_log.combine(log);
 
-                    if i % 1000 == 0 {
-                        self.logger.print_last();
-                    }
+                    // if i % 1000 == 0 {
+                    //     self.logger.print_last();
+                    // }
                 }
                 trainer_prof.record("train", t_train0.elapsed().as_secs_f64());
             }

@@ -45,7 +45,8 @@ impl<B: Backend> LogAlphaModule<B> {
             .sum_dim(1)
             .flatten::<1>(0, 1)
             .add_scalar(target_entropy)
-            .detach();
+            .detach()
+            .set_require_grad(false);
 
         (self.log_alpha.val() * (-target)).mean()
     }
@@ -87,15 +88,13 @@ impl<B: AutodiffBackend> EntCoef<B> {
             EntCoef::Trainable(m, optim, target_entropy) => {
                 let temp_m = m.clone().fork(device);
 
-                let alpha = temp_m.alpha();
-
                 let loss = temp_m.calc_loss(log_probs, *target_entropy);
                 let g: <B as AutodiffBackend>::Gradients = loss.backward();
                 let grads = GradientsParams::from_grads(g, &temp_m);
 
                 *m = optim.step(lr, temp_m, grads);
 
-                (alpha, Some(loss.into_scalar().elem()))
+                (m.alpha(), Some(loss.into_scalar().elem()))
             }
         }
     }
@@ -103,6 +102,10 @@ impl<B: AutodiffBackend> EntCoef<B> {
 
 #[derive(Config, Debug)]
 pub struct SACConfig {
+    #[config(default = 1e-4)]
+    pi_lr: f64,
+    #[config(default = 1e-4)]
+    q_lr: f64,
     ent_coef: Option<f32>,
     #[config(default = 1)]
     update_every: usize,
@@ -205,7 +208,6 @@ impl<B: AutodiffBackend> SACAgent<B> {
         gamma: f32,
         train_device: &B::Device,
         ent_coef: f32,
-        lr: f64,
         log_dict: LogItem,
     ) -> LogItem {
         // select action according to policy
@@ -237,7 +239,7 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // disp_tensorf("target_q_vals", &target_q_vals);
 
         // Shouldn't be any gradients here, but let's make sure
-        let target_q_vals = target_q_vals.detach();
+        let target_q_vals = target_q_vals.detach().set_require_grad(false);
 
         // calculate the critic loss
         let q_vals: Vec<Tensor<B, 2>> = self.qs.q_from_actions(states, actions);
@@ -264,18 +266,14 @@ impl<B: AutodiffBackend> SACAgent<B> {
         // optimise the critics
         let critic_loss_grads = critic_loss.clone().backward();
         let critic_grads = GradientsParams::from_grads(critic_loss_grads, &self.qs);
-        self.qs = self.q_optim.step(lr, self.qs.clone(), critic_grads);
+        self.qs = self
+            .q_optim
+            .step(self.config.q_lr, self.qs.clone(), critic_grads);
 
         log_dict
     }
 
-    fn train_policy(
-        &mut self,
-        states: Tensor<B, 2>,
-        ent_coef: f32,
-        lr: f64,
-        log_dict: LogItem,
-    ) -> LogItem {
+    fn train_policy(&mut self, states: Tensor<B, 2>, ent_coef: f32, log_dict: LogItem) -> LogItem {
         // Policy loss
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
 
@@ -293,7 +291,9 @@ impl<B: AutodiffBackend> SACAgent<B> {
 
         let actor_loss_back = actor_loss.backward();
         let actor_grads = GradientsParams::from_grads(actor_loss_back, &self.pi);
-        self.pi = self.pi_optim.step(lr, self.pi.clone(), actor_grads);
+        self.pi = self
+            .pi_optim
+            .step(self.config.pi_lr, self.pi.clone(), actor_grads);
 
         log_dict
     }
@@ -363,15 +363,23 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             .terminated
             .to_tensor(train_device)
             .unsqueeze_dim(1);
-        let dones = terminated;
+        let dones = terminated.bool_and(
+            sample_data
+                .truncated
+                .to_tensor(train_device)
+                .unsqueeze_dim(1)
+                .bool_not(),
+        );
         self.profiler
             .record("to_tensor", t_to_tensor0.elapsed().as_secs_f64());
 
-        // disp_tensorf("states", &states);
-        // disp_tensorf("actions", &actions);
-        // disp_tensorf("next_states", &next_states);
-        // disp_tensorf("rewards", &rewards);
-        // disp_tensorb("dones", &dones);
+        // if global_step % 500 == 0 {
+        //     disp_tensorf("states", &states);
+        //     disp_tensorf("actions", &actions);
+        //     disp_tensorf("next_states", &next_states);
+        //     disp_tensorf("rewards", &rewards);
+        //     disp_tensorb("dones", &dones);
+        // }
 
         let t_policy0 = std::time::Instant::now();
         let (actions_pi, log_prob) = self.pi.act_log_prob(states.clone());
@@ -428,7 +436,6 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
             offline_params.gamma,
             train_device,
             ent_coef,
-            offline_params.lr,
             log_dict,
         );
         self.profiler
@@ -436,10 +443,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
         let t_actor0 = std::time::Instant::now();
         let log_dict = self.train_policy(
-            states,
-            ent_coef,
-            offline_params.lr,
-            // actions_pi,
+            states, ent_coef, // actions_pi,
             // log_prob,
             log_dict,
         );
@@ -450,7 +454,7 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
         if global_step >= (self.last_update + self.config.update_every) {
             // hard update
             self.target_qs
-                .update(&self.qs, Some(self.config.critic_tau));
+                .update(&self.qs.clone().no_grad(), Some(self.config.critic_tau));
 
             // Important! The way polyak updates are currently implemented
             // will override the setting for whether gradients are required
@@ -458,8 +462,6 @@ impl<B: AutodiffBackend> Agent<B, Vec<f32>, Vec<f32>> for SACAgent<B> {
 
             self.last_update = global_step;
         }
-
-        // panic!();
 
         (None, log_dict)
     }

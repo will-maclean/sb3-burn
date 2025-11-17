@@ -22,10 +22,10 @@ const N_CRITICS: usize = 2;
 #[cfg(feature = "sb3-tch")]
 use burn::backend::{libtorch::LibTorchDevice, LibTorch};
 #[cfg(not(feature = "sb3-tch"))]
-use burn::backend::{wgpu::WgpuDevice, Wgpu};
+use burn::backend::{ndarray::NdArrayDevice, NdArray};
 
 #[cfg(not(feature = "sb3-tch"))]
-type B = Autodiff<Wgpu>;
+type B = Autodiff<NdArray>;
 #[cfg(feature = "sb3-tch")]
 type B = Autodiff<LibTorch>;
 
@@ -43,7 +43,7 @@ fn main() {
     };
 
     #[cfg(not(feature = "sb3-tch"))]
-    let train_device = WgpuDevice::default();
+    let train_device = NdArrayDevice::default();
 
     sb3_seed::<B>(1234, &train_device);
 
@@ -57,7 +57,7 @@ fn main() {
     let qs: QModelSet<B> = QModelSet::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        256,
+        32,
         &train_device,
         N_CRITICS,
     );
@@ -67,26 +67,27 @@ fn main() {
     let pi = PiModel::new(
         env.observation_space().shape().len(),
         env.action_space().shape().len(),
-        256,
+        32,
         &train_device,
     );
 
     let offline_params = OfflineAlgParams::new()
-        .with_batch_size(1000)
+        .with_batch_size(32)
         .with_memory_size(200_000)
         .with_gamma(0.99)
-        .with_n_steps(30_000)
+        .with_n_steps(50_000)
         .with_warmup_steps(10_000)
-        .with_lr(1e-3)
         .with_profile_timers(true)
         .with_profile_log_every_steps(250)
         .with_eval_at_start_of_training(true)
         .with_eval_at_end_of_training(true)
         .with_evaluate_during_training(true)
-        .with_evaluate_every_steps(2_000);
+        .with_evaluate_every_steps(10_000);
 
     let sac_config = SACConfig::new()
         .with_ent_lr(3e-4)
+        .with_pi_lr(3e-4)
+        .with_q_lr(1e-3)
         .with_critic_tau(0.005)
         .with_update_every(1)
         .with_trainable_ent_coef(false)
@@ -128,7 +129,7 @@ fn main() {
         buffer,
         Box::new(logger),
         None,
-        EvalConfig::new().with_n_eval_episodes(100),
+        EvalConfig::new().with_n_eval_episodes(10),
         &train_device,
     );
 
