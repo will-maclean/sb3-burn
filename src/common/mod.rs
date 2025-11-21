@@ -6,9 +6,10 @@ pub mod distributions;
 pub mod eval;
 pub mod logger;
 pub mod spaces;
+pub mod timer;
 pub mod to_tensor;
 pub mod utils;
-pub mod timer;
+pub mod vec_env;
 
 #[cfg(test)]
 mod test {
