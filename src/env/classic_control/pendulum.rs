@@ -2,7 +2,7 @@ use core::f32;
 
 use crate::{
     common::{
-        spaces::{BoxSpace, Space, seed_spaces_rng},
+        spaces::{seed_spaces_rng, BoxSpace, Space},
         utils::angle_normalise,
     },
     env::{

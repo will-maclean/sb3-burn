@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use burn::{
-    backend::ndarray::NdArrayDevice,
-    backend::Autodiff,
+    backend::{ndarray::NdArrayDevice, Autodiff, NdArray},
     module::Module,
     record::{FullPrecisionSettings, NamedMpkFileRecorder},
     tensor::{ElementConversion, Tensor},
